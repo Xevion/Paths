@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using Algorithms;
 
 /// <summary>
 /// A general interface for implementing pathfinding algorithms.
 /// </summary>
-public interface Pathfinding {
+public interface IPathfinding {
     /// <summary>
     /// Finds a valid path between two Node objects.
     /// </summary>
-    /// <param name="Start"></param>
-    /// <param name="End"></param>
-    /// <returns>A List of Grid objects representing the timeline of Pathfinding</returns>
-    Tuple<List<Grid>, Stack<Node>> FindPath(Vector2 Start, Vector2 End);
+    /// <param name="start">The position from which pathfinding begins</param>
+    /// <param name="end">The position trying to be found via pathfinding</param>
+    /// <returns>A List of NodeGridGrid objects representing the timeline of Pathfinding</returns>
+    Tuple<List<NodeGrid>, Stack<Node>> FindPath(Vector2 start, Vector2 end);
 }
