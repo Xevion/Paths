@@ -22,11 +22,11 @@ namespace Algorithms {
         public Stack<Node> FindPath(Vector2 Start, Vector2 End) {
             this._start = Start;
             this._end = End;
+            RecordState();
 
             var start = new Node(Start, true);
             var end = new Node(End, true);
             
-            RecordState();
 
             _path = new Stack<Node>();
             _openList = new List<Node>();
@@ -70,6 +70,7 @@ namespace Algorithms {
             if (temp == null) return null;
             do {
                 _path.Push(temp);
+                RecordState();
                 temp = temp.Parent;
             } while (temp != start && temp != null);
 
