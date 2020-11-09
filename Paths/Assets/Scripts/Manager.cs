@@ -23,7 +23,8 @@ public class Manager : MonoBehaviour {
     }
 
     public void OnDrawGizmos() {
-        Gizmos.DrawSphere(transform.position, 1);
+        float size = (float) (10.0 / gridController.size);
+        Gizmos.DrawWireCube(transform.position, new Vector3(size, size, size));
     }
 
     public void Update() {
@@ -48,10 +49,14 @@ public class Manager : MonoBehaviour {
         // Vector2 start = nodeGrid.RandomPosition();
         Vector2Int start = new Vector2Int(30, 30);
         Vector2Int end = nodeGrid.RandomPosition();
+        
 
-        int wallCount = (int) (gridController.size * gridController.size * 0.5);
-        foreach (int unused in Enumerable.Range(0, wallCount))
-            nodeGrid.FlipRandomWall();
+        int wallCount = (int) (gridController.size * gridController.size * 0.25);
+        for (int unused = 0; unused < wallCount; unused++)
+            nodeGrid.AddRandomWall();
+        
+        nodeGrid.GetNode(start).Walkable = true;
+        nodeGrid.GetNode(end).Walkable = true;
 
         path = _algorithm.FindPath(start, end);
 
@@ -64,7 +69,8 @@ public class Manager : MonoBehaviour {
 
         float change = state.time - lastStart;
         string pathCount = path != null ? $"{path.Count}" : "N/A";
-        debugText.text = $"{change * 1000.0:F1}ms\n{this._curIndex:000} / {this._states.Count:000}\nPath: {pathCount} tiles";
-        _curIndex += 1;
+        debugText.text =
+            $"{change * 1000.0:F1}ms\n{this._curIndex:000} / {this._states.Count:000}\nPath: {pathCount} tiles";
+        _curIndex += 3;
     }
 }

@@ -22,14 +22,14 @@ namespace Algorithms {
             // Fill grid with width*height nodes, zero-indexed
             foreach (int x in Enumerable.Range(0, width - 1)) {
                 List<Node> list = new List<Node>(height);
-                foreach (int y in Enumerable.Range(0, height))
+                foreach (int y in Enumerable.Range(0, height - 1))
                     list.Add(new Node(new Vector2Int(x, y), true));
 
                 grid.Add(list);
             }
 
-            Width = width;
-            Height = height;
+            Width = this.grid.Count;
+            Height = this.grid[0].Count;
         }
 
         public NodeGrid(List<List<Node>> grid) {
@@ -42,8 +42,8 @@ namespace Algorithms {
         public List<Node> GetAdjacentNodes(Node node) {
             List<Node> temp = new List<Node>();
 
-            int row = node.Position.y;
             int col = node.Position.x;
+            int row = node.Position.y;
 
             if (row + 1 < Height) temp.Add(grid[col][row + 1]);
             if (row - 1 >= 0) temp.Add(grid[col][row - 1]);
@@ -71,16 +71,31 @@ namespace Algorithms {
             return grid[x][y];
         }
 
-        public void FlipRandomWall() {
-            grid[Random.Range(0, Width - 1)][Random.Range(0, Height - 1)].Walkable = false;
+        public Node GetNode(Vector2Int position) {
+            return GetNode(position.x, position.y);
         }
 
-        public static float Manhattan(Node first, Node second) {
-            return Math.Abs(first.Position.x - second.Position.x) + Math.Abs(first.Position.y - second.Position.y);
+        /// <summary>
+        /// Finds one random walkable cell and turns it into a wall.
+        /// </summary>
+        public void AddRandomWall() {
+            while (true) {
+                int x = Random.Range(0, Width - 1);
+                int y = Random.Range(0, Height - 1);
+
+                if (grid[x][y].Walkable) {
+                    grid[x][y].Walkable = false;
+                    return;
+                }
+            }
         }
 
-        public static float Manhattan(Vector2Int algorithmStart, Vector2Int algorithmEnd) {
-            return Manhattan(new Node(algorithmStart, false), new Node(algorithmEnd, false));
+        public static float Manhattan(Node a, Node b) {
+            return Math.Abs(a.Position.x - b.Position.x) + Math.Abs(a.Position.y - b.Position.y);
+        }
+
+        public static float Manhattan(Vector2Int a, Vector2Int b) {
+            return Manhattan(new Node(a, false), new Node(b, false));
         }
 
         /// <summary>

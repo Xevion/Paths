@@ -11,11 +11,8 @@ namespace Algorithms {
         private List<Node> _closedList;
         private List<GridState> _states;
 
-        private Vector2Int _start;
-        private Vector2Int _end;
-        
-        public Vector2Int Start { get => _start; }
-        public Vector2Int End { get => _end; }
+        public Vector2Int Start { get; private set; }
+        public Vector2Int End { get; private set; }
 
         public AStar(NodeGrid nodeGrid) {
             this._nodeGrid = nodeGrid;
@@ -23,17 +20,17 @@ namespace Algorithms {
         }
 
         public Stack<Node> FindPath(Vector2Int start, Vector2Int end) {
-            this._start = start;
-            this._end = end;
+            this.Start = start;
+            this.End = end;
 
             var startNode = new Node(start, true);
             var endNode = new Node(end, true);
-            
+
 
             _path = new Stack<Node>();
             _openList = new List<Node>();
             _closedList = new List<Node>();
-            
+
             RecordState();
             Node current = startNode;
 
@@ -58,16 +55,16 @@ namespace Algorithms {
 
                                 _openList.Add(n);
                                 _openList = _openList.OrderBy(node => node.F).ToList();
-
                             }
                         }
                     }
+
                     RecordState();
                 }
             }
 
             // construct path, if end was not closed return null
-            if (!_closedList.Exists(x => x.Position == endNode.Position)) {
+            if (!_closedList.Exists(node => node.Position == endNode.Position)) {
                 return null;
             }
 
@@ -89,7 +86,7 @@ namespace Algorithms {
         public void RecordState() {
             // TODO: Record pathfinding state information (stages, heuristic, statistical info)
             this._states.Add(
-                new GridState(this._nodeGrid, this._openList, this._closedList, _start, _end, _path)
+                new GridState(this._nodeGrid, this._openList, this._closedList, Start, End, _path)
             );
         }
 

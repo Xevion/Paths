@@ -145,7 +145,7 @@ AudioListener:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
-  m_Enabled: 1
+  m_Enabled: 0
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
@@ -575,7 +575,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridMaterial: {fileID: 2100000, guid: 780d53bea4df7b0418e9c8ed8afd6410, type: 2}
-  size: 31
+  size: 32
 --- !u!23 &2092623186
 MeshRenderer:
   m_ObjectHideFlags: 0

@@ -14,7 +14,7 @@ public enum PropertyName {
 public class GridController : MonoBehaviour {
     public Material gridMaterial; // Maintain reference to the Grid Material the Shader is implanted upon
     public int size = 32; // Size of the grid, width and height
-    
+
     // Value management
     private int[] _values;
     private ComputeBuffer _buffer;
@@ -54,7 +54,7 @@ public class GridController : MonoBehaviour {
                 throw new ArgumentOutOfRangeException(nameof(property), property, null);
         }
     }
-	
+
     private void OnApplicationQuit() {
         // Release ComputeBuffer memory
         _buffer.Release();
@@ -66,12 +66,14 @@ public class GridController : MonoBehaviour {
     /// <param name="gridState"></param>
     public void LoadGridState(GridState gridState) {
         // Loop over matrix and set values via cast Enum to int
-        foreach(int x in Enumerable.Range(0, gridState.Grid.Count - 1))
-            foreach(int y in Enumerable.Range(0, gridState.Grid[0].Count - 1))
-                this.SetValue(x, y, (int) gridState.Grid[x][y]);
+        for (int x = 0; x < gridState.Grid.GetLength(0); x++) {
+            for (int y = 0; y < gridState.Grid.GetLength(1); y++)
+                this.SetValue(x, y, (int) gridState.Grid[x, y]);
+        }
+
         UpdateShader(PropertyName.Values);
     }
-    
+
     /// <summary>
     /// Sets a value in the 1D array at a particular 2D coordinate
     /// </summary>
@@ -81,7 +83,7 @@ public class GridController : MonoBehaviour {
     public void SetValue(int x, int y, int value) {
         _values[size * y + x] = value;
     }
-    
+
     /// <summary>
     /// Returns the value at a 2D coordinate within the 1D array
     /// </summary>
