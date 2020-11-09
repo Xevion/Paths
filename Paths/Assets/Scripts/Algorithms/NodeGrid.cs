@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Algorithms;
 using NUnit.Framework.Constraints;
 using UnityEngine.SocialPlatforms;
@@ -11,14 +12,23 @@ public class NodeGrid {
     private readonly int _height;
 
     public NodeGrid(int width, int height) {
-        if(width <= 0)
-            throw new ArgumentOutOfRangeException(nameof(width), $"The width of the grid must be a positive non-zero integer.");
+        if (width <= 0)
+            throw new ArgumentOutOfRangeException(nameof(width),
+                $"The width of the grid must be a positive non-zero integer.");
         if (height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(height), $"The height of the grid must be a positive non-zero integer.");
+            throw new ArgumentOutOfRangeException(nameof(height),
+                $"The height of the grid must be a positive non-zero integer.");
 
         this.grid = new List<List<Node>>(width);
-        for(int _ in Enumerable.Range(0, height - 1)) {}
-        
+        // Fill grid with width*height nodes, zero-indexed
+        foreach (int x in Enumerable.Range(0, width - 1)) {
+            List<Node> list = new List<Node>(height);
+            foreach (int y in Enumerable.Range(0, height))
+                list.Add(new Node(new Vector2(x, y), true));
+
+            this.grid.Add(list);
+        }
+
         this._width = width;
         this._height = height;
     }
