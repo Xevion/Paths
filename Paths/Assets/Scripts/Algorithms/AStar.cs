@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
+using UnityEngine;
+using Vector2 = System.Numerics.Vector2;
 
 namespace Algorithms {
     public class AStar : IPathfinding {
@@ -22,7 +23,6 @@ namespace Algorithms {
         public Stack<Node> FindPath(Vector2 Start, Vector2 End) {
             this._start = Start;
             this._end = End;
-            RecordState();
 
             var start = new Node(Start, true);
             var end = new Node(End, true);
@@ -31,6 +31,8 @@ namespace Algorithms {
             _path = new Stack<Node>();
             _openList = new List<Node>();
             _closedList = new List<Node>();
+            
+            RecordState();
             Node current = start;
 
             // add start node to Open List

@@ -29,5 +29,9 @@ namespace Algorithms {
             Weight = weight;
             Walkable = walkable;
         }
+
+        public override string ToString() {
+            return $"Node({Position.X}, {Position.Y}, {Walkable})";
+        }
     }
 }

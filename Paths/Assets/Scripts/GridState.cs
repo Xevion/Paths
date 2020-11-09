@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Algorithms;
@@ -19,26 +20,33 @@ public class GridState {
         }
 
         // Add 'seen' tiles
-        foreach (Node seenNode in seen) {
+        foreach (Node seenNode in seen)
             this.Grid[(int) seenNode.Position.X][(int) seenNode.Position.Y] = GridNodeType.Seen;
-        }
 
         // Add 'expanded' tiles
-        foreach (Node expandedNode in expanded) {
+        foreach (Node expandedNode in expanded)
             this.Grid[(int) expandedNode.Position.X][(int) expandedNode.Position.Y] = GridNodeType.Expanded;
-        }
 
-        // Set start and end tiles
-        this.Grid[(int) start.X][(int) start.Y] = GridNodeType.Start;
-        this.Grid[(int) end.X][(int) end.Y] = GridNodeType.End;
 
         // Add 'path' tiles
         if (path != null)
             foreach (Node pathNode in path)
                 this.Grid[(int) pathNode.Position.X][(int) pathNode.Position.Y] = GridNodeType.Path;
+        
+        // Set start and end tiles
+        this.Grid[(int) start.X][(int) start.Y] = GridNodeType.Start;
+        this.Grid[(int) end.X][(int) end.Y] = GridNodeType.End;
     }
 
     public IEnumerable<GridNodeType> GetNodes() {
         return this.Grid.SelectMany(nodeList => nodeList).ToList();
+    }
+
+    public string RenderGrid() {
+        string result = "";
+        foreach (List<GridNodeType> nodeTypes in this.Grid) {
+            result = nodeTypes.Aggregate(result, (current, nodeType) => current + $"{(int) nodeType}") + "\n";
+        }
+        return result;
     }
 }

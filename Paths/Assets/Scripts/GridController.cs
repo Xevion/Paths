@@ -9,12 +9,13 @@ public enum PropertyName {
 }
 
 /// <summary>
-/// A simple Grid Rendering Controller using MeshRenderer.
+/// A simple Grid Rendering system controlling a Shader through a ComputeBuffer
 /// </summary>
 public class GridController : MonoBehaviour {
-    public Material gridMaterial;
-    public int size = 32;
-
+    public Material gridMaterial; // Maintain reference to the Grid Material the Shader is implanted upon
+    public int size = 32; // Size of the grid, width and height
+    
+    // Value management
     private int[] _values;
     private ComputeBuffer _buffer;
 
@@ -60,7 +61,7 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Loads a GridState 
+    /// Loads a GridState into the Grid Shader's StructuredBuffer
     /// </summary>
     /// <param name="gridState"></param>
     public void LoadGridState(GridState gridState) {
@@ -68,6 +69,7 @@ public class GridController : MonoBehaviour {
         foreach(int x in Enumerable.Range(0, gridState.Grid.Count - 1))
             foreach(int y in Enumerable.Range(0, gridState.Grid[0].Count - 1))
                 this.SetValue(x, y, (int) gridState.Grid[x][y]);
+        UpdateShader(PropertyName.Values);
     }
     
     /// <summary>

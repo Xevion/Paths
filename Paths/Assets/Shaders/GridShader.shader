@@ -33,8 +33,8 @@ Shader "PDT Shaders/TestGrid" {
 		float4 _ActiveColor;
         
         static const float4 _gridColors[7] = {
-        	float4(255 / 255.0, 255 / 255.0, 255 / 255.0, 1.0), // Empty
-        	float4(0   / 255.0, 0   / 255.0, 0   / 255.0, 1.0), // Wall
+        	float4(255 / 255.0, 255 / 255.0, 255 / 255.0, 0.0), // Empty
+        	float4(50  / 255.0, 50  / 255.0, 50  / 255.0, 1.0), // Wall
         	float4(0   / 255.0, 255 / 255.0, 0   / 255.0, 1.0), // Start
         	float4(255 / 255.0, 0   / 255.0, 0   / 255.0, 1.0), // End
         	float4(252 / 255.0, 236 / 255.0, 3   / 255.0, 1.0), // Seen
@@ -47,7 +47,7 @@ Shader "PDT Shaders/TestGrid" {
 
         // DX11 needed to run shader at high grid sizes
 		#ifdef SHADER_API_D3D11
-		StructuredBuffer<float> _values;
+		StructuredBuffer<int> _values;
 		#else
 		float _values[1024];
 		#endif

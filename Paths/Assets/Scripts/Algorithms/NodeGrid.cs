@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Random = UnityEngine.Random;
 
 namespace Algorithms {
     public class NodeGrid {
@@ -64,14 +65,26 @@ namespace Algorithms {
         /// <returns>A Node object</returns>
         /// <exception cref="ArgumentOutOfRangeException">when the coordinate given does not exist on the grid</exception>
         public Node GetNode(int x, int y) {
-            if(!IsValid(x, y))
-                throw new ArgumentOutOfRangeException();
+            // if(!IsValid(x, y))
+                // throw new ArgumentOutOfRangeException();
             
             return this.grid[x][y];
         }
 
+        public void FlipRandomWall() {
+            this.grid[Random.Range(0, this.Width - 1)][Random.Range(0, this.Height - 1)].Walkable = false;
+        }
+
         public static float Manhattan(Node first, Node second) {
             return Math.Abs(first.Position.X - second.Position.X) + Math.Abs(first.Position.Y - second.Position.Y);
+        }
+
+        /// <summary>
+        /// Returns a random Vector2 position within the grid.
+        /// </summary>
+        /// <returns>a valid Vector2 position within the grid</returns>
+        public Vector2 RandomPosition() {
+            return new Vector2(Random.Range(0, Width - 1), Random.Range(0, Height - 1));
         }
     }
 }
