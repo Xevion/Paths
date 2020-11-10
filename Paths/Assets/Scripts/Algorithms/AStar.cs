@@ -88,8 +88,6 @@ namespace Algorithms {
         /// Records the current state of the pathfinding algorithm in the grid.
         /// </summary>
         public void RecordState() {
-            // TODO: Record basic grid node types
-            // TODO: Record timing information
             // TODO: Record pathfinding state information (stages, heuristic, statistical info)
             this._states.Add(
                 new GridState(this._nodeGrid, this._openList, this._closedList, _start, _end, _path)

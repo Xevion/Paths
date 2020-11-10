@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using Algorithms;
+using TMPro;
+using UnityEditor;
 using UnityEngine;
 using Vector2 = System.Numerics.Vector2;
 
@@ -14,10 +16,16 @@ public class Manager : MonoBehaviour {
     private List<GridState> _states;
     private int _curIndex;
     private Stack<Node> path;
+    private float lastStart;
+    public TextMeshPro debugText;
 
     public void Start() {
         GeneratePath();
         _states = new List<GridState>();
+    }
+
+    public void OnDrawGizmos() {
+        Gizmos.DrawSphere(transform.position, 1);
     }
 
     public void Update() {
@@ -27,6 +35,7 @@ public class Manager : MonoBehaviour {
             float t1 = Time.time, t2 = Time.time;
             try {
                 t1 = Time.time;
+                lastStart = Time.realtimeSinceStartup;
                 GeneratePath();
                 _curIndex = 0;
                 Debug.Log($"({NodeGrid.Manhattan(_algorithm.Start, _algorithm.End)} in {_states.Count} states. {path.Count} path length.");
@@ -47,7 +56,8 @@ public class Manager : MonoBehaviour {
         // Vector2 start = new Vector2(1, 1);
         // Vector2 end = new Vector2(gridController.size - 5, gridController.size - 5);
 
-        foreach (int index in Enumerable.Range(0, 300))
+        int wallCount = (int) (gridController.size * gridController.size * 0.1);
+        foreach (int index in Enumerable.Range(0, wallCount))
             nodeGrid.FlipRandomWall();
 
         path = _algorithm.FindPath(start, end);
@@ -58,6 +68,10 @@ public class Manager : MonoBehaviour {
     private void LoadNextState() {
         GridState state = _states[_curIndex];
         gridController.LoadGridState(state);
-        _curIndex += 2;
+
+        float change = state.time - lastStart;
+        string pathCount = path != null ? $"{path.Count}" : "N/A";
+        debugText.text = $"{change * 1000.0:F1}ms\n{this._curIndex:000} / {this._states.Count:000}\nPath: {pathCount} tiles";
+        _curIndex += 1;
     }
 }

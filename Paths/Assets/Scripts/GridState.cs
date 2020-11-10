@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using Algorithms;
+using UnityEngine;
+using Vector2 = System.Numerics.Vector2;
 
 public class GridState {
     public List<List<GridNodeType>> Grid;
-
+    public float time;
+    
     public GridState(NodeGrid grid, IEnumerable<Node> seen, IEnumerable<Node> expanded, Vector2 start, Vector2 end, IReadOnlyCollection<Node> path) {
+        this.time = Time.realtimeSinceStartup; 
         this.Grid = new List<List<GridNodeType>>(grid.Width);
 
         // Add walls and empty tiles
