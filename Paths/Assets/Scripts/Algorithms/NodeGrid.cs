@@ -39,7 +39,7 @@ namespace Algorithms {
             this.Width = this.grid.Count;
         }
 
-        public IEnumerable<Node> GetAdjacentNodes(Node node) {
+        public List<Node> GetAdjacentNodes(Node node) {
             List<Node> temp = new List<Node>();
 
             int row = (int) node.Position.Y;
@@ -79,6 +79,10 @@ namespace Algorithms {
             return Math.Abs(first.Position.X - second.Position.X) + Math.Abs(first.Position.Y - second.Position.Y);
         }
 
+        public static float Manhattan(Vector2 algorithmStart, Vector2 algorithmEnd) {
+            return NodeGrid.Manhattan(new Node(algorithmStart, false), new Node(algorithmEnd, false));
+        }
+        
         /// <summary>
         /// Returns a random Vector2 position within the grid.
         /// </summary>
@@ -86,5 +90,6 @@ namespace Algorithms {
         public Vector2 RandomPosition() {
             return new Vector2(Random.Range(0, Width - 1), Random.Range(0, Height - 1));
         }
+
     }
 }

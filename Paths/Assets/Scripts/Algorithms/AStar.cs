@@ -14,18 +14,21 @@ namespace Algorithms {
 
         private Vector2 _start;
         private Vector2 _end;
+        
+        public Vector2 Start { get => _start; }
+        public Vector2 End { get => _end; }
 
         public AStar(NodeGrid nodeGrid) {
             this._nodeGrid = nodeGrid;
             _states = new List<GridState>();
         }
 
-        public Stack<Node> FindPath(Vector2 Start, Vector2 End) {
-            this._start = Start;
-            this._end = End;
+        public Stack<Node> FindPath(Vector2 start, Vector2 end) {
+            this._start = start;
+            this._end = end;
 
-            var start = new Node(Start, true);
-            var end = new Node(End, true);
+            var startNode = new Node(start, true);
+            var endNode = new Node(end, true);
             
 
             _path = new Stack<Node>();
@@ -33,37 +36,39 @@ namespace Algorithms {
             _closedList = new List<Node>();
             
             RecordState();
-            Node current = start;
+            Node current = startNode;
 
             // add start node to Open List
-            _openList.Add(start);
+            _openList.Add(startNode);
 
-            while (_openList.Count != 0 && !_closedList.Exists(x => x.Position == end.Position)) {
+            while (_openList.Count != 0 && !_closedList.Exists(x => x.Position == endNode.Position)) {
                 current = _openList[0];
                 _openList.Remove(current);
                 _closedList.Add(current);
                 RecordState();
 
-                IEnumerable<Node> adjacentNodes = this._nodeGrid.GetAdjacentNodes(current);
+                List<Node> adjacentNodes = this._nodeGrid.GetAdjacentNodes(current);
 
-                foreach (Node n in adjacentNodes) {
-                    if (!_closedList.Contains(n) && n.Walkable) {
-                        if (!_openList.Contains(n)) {
-                            n.Parent = current;
-                            n.DistanceToTarget = NodeGrid.Manhattan(n, end);
-                            n.Cost = n.Weight + n.Parent.Cost;
+                if (adjacentNodes.Count > 0) {
+                    foreach (Node n in adjacentNodes) {
+                        if (!_closedList.Contains(n) && n.Walkable) {
+                            if (!_openList.Contains(n)) {
+                                n.Parent = current;
+                                n.DistanceToTarget = NodeGrid.Manhattan(n, endNode);
+                                n.Cost = n.Weight + n.Parent.Cost;
 
-                            _openList.Add(n);
-                            _openList = _openList.OrderBy(node => node.F).ToList();
+                                _openList.Add(n);
+                                _openList = _openList.OrderBy(node => node.F).ToList();
 
-                            RecordState();
+                            }
                         }
                     }
+                    RecordState();
                 }
             }
 
             // construct path, if end was not closed return null
-            if (!_closedList.Exists(x => x.Position == end.Position)) {
+            if (!_closedList.Exists(x => x.Position == endNode.Position)) {
                 return null;
             }
 
@@ -74,7 +79,7 @@ namespace Algorithms {
                 _path.Push(temp);
                 RecordState();
                 temp = temp.Parent;
-            } while (temp != start && temp != null);
+            } while (temp != startNode && temp != null);
 
             return _path;
         }

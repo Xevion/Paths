@@ -20,4 +20,6 @@ public interface IPathfinding {
     void RecordState();
 
      List<GridState> GetStates();
+     Vector2 Start { get; }
+     Vector2 End { get; }
 }
