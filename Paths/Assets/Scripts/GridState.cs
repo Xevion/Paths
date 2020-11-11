@@ -1,18 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using Algorithms;
 using UnityEngine;
 
 public class GridState {
     public readonly GridNodeType[,] Grid;
-
-    // public List<List<GridNodeType>> Grid;
-    public float time;
+    public readonly float Time;
 
     public GridState(NodeGrid grid, IEnumerable<Node> seen, IEnumerable<Node> expanded, Vector2Int start,
         Vector2Int end, IReadOnlyCollection<Node> path) {
-        time = Time.realtimeSinceStartup;
+        this.Time = UnityEngine.Time.realtimeSinceStartup;
 
         Grid = new GridNodeType[grid.Width, grid.Height];
 
@@ -42,17 +38,4 @@ public class GridState {
         Grid[start.x, start.y] = GridNodeType.Start;
         Grid[end.x, end.y] = GridNodeType.End;
     }
-
-    // public IEnumerable<GridNodeType> GetNodes() {
-        // return Grid.SelectMany(nodeList => nodeList).ToList();
-    // }
-
-    // public string RenderGrid() {
-        // string result = "";
-        // foreach (List<GridNodeType> nodeTypes in Grid) {
-            // result = nodeTypes.Aggregate(result, (current, nodeType) => current + $"{(int) nodeType}") + "\n";
-        // }
-
-        // return result;
-    // }
 }

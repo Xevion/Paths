@@ -248,6 +248,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gridController: {fileID: 2092623185}
   debugText: {fileID: 1436240699}
+  speed: 7.18
 --- !u!1 &1436240698
 GameObject:
   m_ObjectHideFlags: 0

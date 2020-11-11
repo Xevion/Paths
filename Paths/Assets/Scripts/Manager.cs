@@ -9,13 +9,21 @@ using UnityEngine;
 /// The primary controller of the entire application, managing state, events and sending commands
 /// </summary>
 public class Manager : MonoBehaviour {
-    public GridController gridController;
     private IPathfinding _algorithm;
     private List<GridState> _states;
     private int _curIndex;
     private Stack<Node> path;
-    private float lastStart;
+    private float _lastStart;
+    private float _runtime;
+
+    public GridController gridController;
     public TextMeshPro debugText;
+    public float speed;
+
+    public int CurrentIndex {
+        get => (int) _runtime;
+        set => _runtime = value;
+    }
 
     public void Start() {
         _states = new List<GridState>();
@@ -28,13 +36,15 @@ public class Manager : MonoBehaviour {
     }
 
     public void Update() {
-        if (_curIndex < _states.Count)
+        _runtime += Time.deltaTime * speed;
+
+        if (CurrentIndex < _states.Count)
             this.LoadNextState();
         else {
             try {
-                lastStart = Time.realtimeSinceStartup;
+                _lastStart = Time.realtimeSinceStartup;
                 GeneratePath();
-                _curIndex = 0;
+                CurrentIndex = 0;
                 // _curIndex = path != null && path.Count > 30 ? 0 : _states.Count;
             }
             catch (ArgumentOutOfRangeException) {
@@ -49,12 +59,12 @@ public class Manager : MonoBehaviour {
         // Vector2 start = nodeGrid.RandomPosition();
         Vector2Int start = new Vector2Int(30, 30);
         Vector2Int end = nodeGrid.RandomPosition();
-        
+
 
         int wallCount = (int) (gridController.size * gridController.size * 0.25);
         for (int unused = 0; unused < wallCount; unused++)
             nodeGrid.AddRandomWall();
-        
+
         nodeGrid.GetNode(start).Walkable = true;
         nodeGrid.GetNode(end).Walkable = true;
 
@@ -64,13 +74,12 @@ public class Manager : MonoBehaviour {
     }
 
     private void LoadNextState() {
-        GridState state = _states[_curIndex];
+        GridState state = _states[CurrentIndex];
         gridController.LoadGridState(state);
 
-        float change = state.time - lastStart;
+        float change = state.Time - _lastStart;
         string pathCount = path != null ? $"{path.Count}" : "N/A";
         debugText.text =
-            $"{change * 1000.0:F1}ms\n{this._curIndex:000} / {this._states.Count:000}\nPath: {pathCount} tiles";
-        _curIndex += 3;
+            $"{change * 1000.0:F1}ms\n{this.CurrentIndex:000} / {this._states.Count:000}\nPath: {pathCount} tiles";
     }
 }
