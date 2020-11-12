@@ -9,6 +9,7 @@ namespace Algorithms {
         private List<List<Node>> grid;
         public readonly int Width;
         public readonly int Height;
+        public int CellCount => this.Width * this.Height;
 
         public NodeGrid(int width, int height) {
             if (width <= 0)
@@ -52,7 +53,7 @@ namespace Algorithms {
 
             return temp;
         }
-
+        
         public bool IsValid(int x, int y) {
             return x > 0 && x < Width && y > 0 && y < Height;
         }
@@ -104,6 +105,35 @@ namespace Algorithms {
         /// <returns>a valid Vector2Int position within the grid</returns>
         public Vector2Int RandomPosition() {
             return new Vector2Int(Random.Range(0, Width - 1), Random.Range(0, Height - 1));
+        }
+
+        /// <summary>
+        /// Applies a ILevelGenerators's generate function to a NodeGrid
+        /// </summary>
+        /// <param name="generator">A instantiated level generator (ILevelGenerator) object</param>
+        public void ApplyGenerator(ILevelGenerator generator) {
+        }
+
+        public IEnumerable<Node> Iterator() {
+            for (int x = 0; x < this.grid.Count; x++)
+                for (int y = 0; y < this.grid[0].Count; y++)
+                    yield return this.grid[x][y];
+        }
+
+        public IEnumerable<Node> Walls() {
+            return this.Iterator().Where(node => !node.Walkable);
+        }
+
+        public IEnumerable<Node> Empty() {
+            return this.Iterator().Where(node => node.Walkable);
+        }
+        
+        /// <summary>
+        /// Returns a random valid node on the grid.
+        /// </summary>
+        /// <returns>A Node object.</returns>
+        public Node GetRandomNode() {
+            return grid[Random.Range(0, Width - 1)][Random.Range(0, Height - 1)];
         }
     }
 }

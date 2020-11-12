@@ -71,6 +71,8 @@ public class Manager : MonoBehaviour {
         path = _algorithm.FindPath(start, end);
 
         _states = _algorithm.GetStates();
+        
+        
     }
 
     private void LoadNextState() {
