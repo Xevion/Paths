@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Vector2 = System.Numerics.Vector2;
 
 namespace Algorithms {
     public class AStar : IPathfinding {
@@ -12,18 +11,18 @@ namespace Algorithms {
         private List<Node> _closedList;
         private List<GridState> _states;
 
-        private Vector2 _start;
-        private Vector2 _end;
+        private Vector2Int _start;
+        private Vector2Int _end;
         
-        public Vector2 Start { get => _start; }
-        public Vector2 End { get => _end; }
+        public Vector2Int Start { get => _start; }
+        public Vector2Int End { get => _end; }
 
         public AStar(NodeGrid nodeGrid) {
             this._nodeGrid = nodeGrid;
             _states = new List<GridState>();
         }
 
-        public Stack<Node> FindPath(Vector2 start, Vector2 end) {
+        public Stack<Node> FindPath(Vector2Int start, Vector2Int end) {
             this._start = start;
             this._end = end;
 

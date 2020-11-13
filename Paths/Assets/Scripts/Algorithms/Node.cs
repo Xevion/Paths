@@ -1,10 +1,10 @@
-﻿using System.Numerics;
+﻿using UnityEngine;
 
 namespace Algorithms {
     public class Node {
         // Change this depending on what the desired size is for each element in the grid
         public Node Parent;
-        public Vector2 Position;
+        public Vector2Int Position;
 
         // A* Algorithm variables
         public float DistanceToTarget;
@@ -21,7 +21,7 @@ namespace Algorithms {
 
         public bool Walkable;
 
-        public Node(Vector2 pos, bool walkable, float weight = 1) {
+        public Node(Vector2Int pos, bool walkable, float weight = 1) {
             Parent = null;
             Position = pos;
             DistanceToTarget = -1;
@@ -31,7 +31,7 @@ namespace Algorithms {
         }
 
         public override string ToString() {
-            return $"Node({Position.X}, {Position.Y}, {Walkable})";
+            return $"Node({Position.x}, {Position.y}, {Walkable})";
         }
     }
 }

@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Algorithms;
 using TMPro;
-using UnityEditor;
 using UnityEngine;
-using Vector2 = System.Numerics.Vector2;
 
 /// <summary>
 /// The primary controller of the entire application, managing state, events and sending commands
@@ -20,8 +18,8 @@ public class Manager : MonoBehaviour {
     public TextMeshPro debugText;
 
     public void Start() {
-        GeneratePath();
         _states = new List<GridState>();
+        GeneratePath();
     }
 
     public void OnDrawGizmos() {
@@ -32,17 +30,13 @@ public class Manager : MonoBehaviour {
         if (_curIndex < _states.Count)
             this.LoadNextState();
         else {
-            float t1 = Time.time, t2 = Time.time;
             try {
-                t1 = Time.time;
                 lastStart = Time.realtimeSinceStartup;
                 GeneratePath();
                 _curIndex = 0;
-                Debug.Log($"({NodeGrid.Manhattan(_algorithm.Start, _algorithm.End)} in {_states.Count} states. {path.Count} path length.");
-                t2 = Time.time;
-                // Debug.Log(t2 - t1);
+                // _curIndex = path != null && path.Count > 30 ? 0 : _states.Count;
             }
-            catch (ArgumentOutOfRangeException e) {
+            catch (ArgumentOutOfRangeException) {
             }
         }
     }
@@ -51,13 +45,12 @@ public class Manager : MonoBehaviour {
         var nodeGrid = new NodeGrid(gridController.size, gridController.size);
         _algorithm = new AStar(nodeGrid);
 
-        Vector2 start = nodeGrid.RandomPosition();
-        Vector2 end = nodeGrid.RandomPosition();
-        // Vector2 start = new Vector2(1, 1);
-        // Vector2 end = new Vector2(gridController.size - 5, gridController.size - 5);
+        // Vector2 start = nodeGrid.RandomPosition();
+        Vector2Int start = new Vector2Int(30, 30);
+        Vector2Int end = nodeGrid.RandomPosition();
 
-        int wallCount = (int) (gridController.size * gridController.size * 0.1);
-        foreach (int index in Enumerable.Range(0, wallCount))
+        int wallCount = (int) (gridController.size * gridController.size * 0.5);
+        foreach (int unused in Enumerable.Range(0, wallCount))
             nodeGrid.FlipRandomWall();
 
         path = _algorithm.FindPath(start, end);
