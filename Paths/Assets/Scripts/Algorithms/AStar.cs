@@ -43,7 +43,7 @@ namespace Algorithms {
                 _closedList.Add(current);
                 RecordState();
 
-                List<Node> adjacentNodes = this._nodeGrid.GetAdjacentNodes(current);
+                List<Node> adjacentNodes = this._nodeGrid.GetAdjacentNodesList(current);
 
                 if (adjacentNodes.Count > 0) {
                     foreach (Node n in adjacentNodes) {

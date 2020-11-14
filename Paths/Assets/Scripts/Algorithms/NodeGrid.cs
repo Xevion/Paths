@@ -20,10 +20,11 @@ namespace Algorithms {
                     "The height of the grid must be a positive non-zero integer.");
 
             grid = new List<List<Node>>(width);
+
             // Fill grid with width*height nodes, zero-indexed
-            foreach (int x in Enumerable.Range(0, width - 1)) {
+            for (int x = 0; x < width; x++) {
                 List<Node> list = new List<Node>(height);
-                foreach (int y in Enumerable.Range(0, height - 1))
+                for (int y = 0; y < height; y++)
                     list.Add(new Node(new Vector2Int(x, y), true));
 
                 grid.Add(list);
@@ -40,7 +41,7 @@ namespace Algorithms {
             Width = this.grid.Count;
         }
 
-        public List<Node> GetAdjacentNodes(Node node) {
+        public List<Node> GetAdjacentNodesList(Node node) {
             List<Node> temp = new List<Node>();
 
             int col = node.Position.x;
@@ -53,7 +54,25 @@ namespace Algorithms {
 
             return temp;
         }
-        
+
+        public Node[] GetAdjacentNodesArray(Node node) {
+            int col = node.Position.x;
+            int row = node.Position.y;
+
+            return new Node[] {
+                row + 1 < Height ? grid[col][row + 1] : null,
+                row - 1 >= 0 ? grid[col][row - 1] : null,
+                col - 1 >= 0 ? grid[col - 1][row] : null,
+                col + 1 < Width ? grid[col + 1][row] : null
+            };
+        }
+
+        /// <summary>
+        /// Tests whether a coordinate is valid on the NodeGrid
+        /// </summary>
+        /// <param name="x">The X (column) coordinate</param>
+        /// <param name="y">The Y (row) coordinate</param>
+        /// <returns></returns>
         public bool IsValid(int x, int y) {
             return x > 0 && x < Width && y > 0 && y < Height;
         }
@@ -81,8 +100,8 @@ namespace Algorithms {
         /// </summary>
         public void AddRandomWall() {
             while (true) {
-                int x = Random.Range(0, Width - 1);
-                int y = Random.Range(0, Height - 1);
+                int x = Random.Range(0, Width);
+                int y = Random.Range(0, Height);
 
                 if (grid[x][y].Walkable) {
                     grid[x][y].Walkable = false;
@@ -104,7 +123,7 @@ namespace Algorithms {
         /// </summary>
         /// <returns>a valid Vector2Int position within the grid</returns>
         public Vector2Int RandomPosition() {
-            return new Vector2Int(Random.Range(0, Width - 1), Random.Range(0, Height - 1));
+            return new Vector2Int(Random.Range(0, Width), Random.Range(0, Height));
         }
 
         /// <summary>
@@ -127,13 +146,13 @@ namespace Algorithms {
         public IEnumerable<Node> Empty() {
             return this.Iterator().Where(node => node.Walkable);
         }
-        
+
         /// <summary>
         /// Returns a random valid node on the grid.
         /// </summary>
         /// <returns>A Node object.</returns>
         public Node GetRandomNode() {
-            return grid[Random.Range(0, Width - 1)][Random.Range(0, Height - 1)];
+            return grid[Random.Range(0, Width)][Random.Range(0, Height)];
         }
     }
 }

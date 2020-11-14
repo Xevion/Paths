@@ -10,6 +10,9 @@ namespace LevelGeneration {
 
         /// <summary>
         /// A simple level generator implementing the Drunkard Walk algorithm.
+        /// This implementation simply starts 'walks' a certain number of times.
+        /// Each walk chooses a node, and then repeatedly chooses an adjacent node randomly.
+        /// Each move clears (or adds) walls.
         /// </summary>
         /// <param name="walks">The number of independent walks that will be started.</param>
         /// <param name="walkLength">The maximum number of nodes to be added/cleared</param>
@@ -24,16 +27,10 @@ namespace LevelGeneration {
             _continueBias = continueBias;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="nodeGrid"></param>
-        /// <returns></returns>
         public NodeGrid Generate(NodeGrid nodeGrid) {
             for (int unused = 0; unused < _walks; unused++) {
                 Node node = nodeGrid.GetRandomNode();
-                
-                nodeGrid.GetAdjacentNodes(node);
+                Node[] nodes = nodeGrid.GetAdjacentNodesArray(node);
             }
 
             return nodeGrid;
