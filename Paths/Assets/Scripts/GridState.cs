@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Algorithms;
 using UnityEngine;
 
@@ -6,8 +7,8 @@ public class GridState {
     public readonly GridNodeType[,] Grid;
     public readonly float Time;
 
-    public GridState(NodeGrid grid, IEnumerable<Node> seen, IEnumerable<Node> expanded, Vector2Int start,
-        Vector2Int end, IReadOnlyCollection<Node> path) {
+    public GridState(NodeGrid grid, List<Node> seen, List<Node> expanded, Vector2Int start,
+        Vector2Int end, Stack<Node> path) {
         this.Time = UnityEngine.Time.realtimeSinceStartup;
 
         Grid = new GridNodeType[grid.Width, grid.Height];
@@ -20,18 +21,28 @@ public class GridState {
         }
 
         // Add 'seen' tiles
-        foreach (Node seenNode in seen)
+        int length = seen.Count();
+        for (int i = 0; i < length; i++) {
+            Node seenNode = seen[i];
             Grid[seenNode.Position.x, seenNode.Position.y] = GridNodeType.Seen;
+        }
 
         // Add 'expanded' tiles
-        foreach (Node expandedNode in expanded)
+        length = expanded.Count();
+        for (int i = 0; i < length; i++) {
+            Node expandedNode = expanded[i];
             Grid[expandedNode.Position.x, expandedNode.Position.y] = GridNodeType.Expanded;
-
+        }
 
         // Add 'path' tiles
-        if (path != null)
-            foreach (Node pathNode in path)
+        if (path != null) {
+            Node[] pathArray = path.ToArray();
+            length = pathArray.Length;
+            for (int i = 0; i < length; i++) {
+                Node pathNode = pathArray[i];
                 Grid[pathNode.Position.x, pathNode.Position.y] = GridNodeType.Path;
+            }
+        }
 
         // Set start and end tiles
         Grid[start.x, start.y] = GridNodeType.Start;
