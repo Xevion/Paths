@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Algorithms;
+using LevelGeneration;
 using TMPro;
 using UnityEngine;
 
@@ -15,11 +16,14 @@ public class Manager : MonoBehaviour {
     private float _lastStart;
     private float _runtime;
 
+    public Camera mainCamera;
+    public GameObject gridObject;
     public GridController gridController;
     public TextMeshPro debugText;
     public float speed;
+    public float clampIncrement;
 
-    public int CurrentIndex {
+    private int CurrentIndex {
         get => (int) _runtime;
         set => _runtime = value;
     }
@@ -27,15 +31,19 @@ public class Manager : MonoBehaviour {
     public void Start() {
         _states = new List<GridState>();
         GeneratePath();
+        Resize();
     }
 
     // public void OnDrawGizmos() {
-        // float size = (float) (10.0 / gridController.size);
-        // Gizmos.DrawWireCube(transform.position, new Vector3(size, size, size));
+    // float size = (float) (10.0 / gridController.size);
+    // Gizmos.DrawWireCube(transform.position, new Vector3(size, size, size));
     // }
 
     public void Update() {
-        _runtime += Time.deltaTime * speed;
+        var increment = Time.deltaTime * speed;
+        if (clampIncrement > 0)
+            increment = Mathf.Clamp(increment, 0, _states.Count * Time.deltaTime / clampIncrement);
+        _runtime += increment;
 
         if (CurrentIndex < _states.Count)
             this.LoadNextState();
@@ -52,17 +60,14 @@ public class Manager : MonoBehaviour {
     }
 
     private void GeneratePath() {
-        var nodeGrid = new NodeGrid(gridController.size, gridController.size);
+        var nodeGrid = new NodeGrid(gridController.width, gridController.height);
         _algorithm = new AStar(nodeGrid);
 
         Vector2Int start = nodeGrid.RandomPosition();
         // Vector2Int start = new Vector2Int(30, 30);
         Vector2Int end = nodeGrid.RandomPosition();
 
-
-        int wallCount = (int) (gridController.size * gridController.size * 0.25);
-        for (int unused = 0; unused < wallCount; unused++)
-            nodeGrid.AddRandomWall();
+        nodeGrid.ApplyGenerator(new RandomPlacement(0.25f, true));
 
         nodeGrid.GetNode(start).Walkable = true;
         nodeGrid.GetNode(end).Walkable = true;
@@ -70,8 +75,6 @@ public class Manager : MonoBehaviour {
         _path = _algorithm.FindPath(start, end);
 
         _states = _algorithm.GetStates();
-        
-        
     }
 
     private void LoadNextState() {
@@ -80,7 +83,24 @@ public class Manager : MonoBehaviour {
 
         float change = state.Time - _lastStart;
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
-        debugText.text =
-            $"{change * 1000.0:F1}ms\n{this.CurrentIndex:000} / {this._states.Count:000}\nPath: {pathCount} tiles";
+        debugText.text = $"{change * 1000.0:F1}ms\n" +
+                         $"{this.CurrentIndex:000} / {this._states.Count:000}\n" +
+                         $"Path: {pathCount} tiles";
+    }
+
+    /// <summary>
+    /// Scales the GridController GameObject to fit within the Camera
+    /// </summary>
+    public void Resize() {
+        float ratioImage = (float) gridController.width / gridController.height;
+        float ratioScreen = mainCamera.aspect;
+        
+        var orthographicSize = mainCamera.orthographicSize;
+        var image = new Vector2(gridController.width, gridController.height);
+        var screen = new Vector2(2 * orthographicSize * mainCamera.aspect, orthographicSize * 2);
+        
+        gridObject.transform.localScale = ratioScreen > ratioImage
+            ? new Vector3(image.x * screen.y / image.y, screen.y, 0.001f)
+            : new Vector3(screen.x, image.y * screen.x / image.x, 0.001f);
     }
 }

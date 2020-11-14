@@ -49,7 +49,8 @@ Shader "PDT Shaders/TestGrid"
             float4(166 / 255.0, 2 / 255.0, 51 / 255.0, 1.0) // Path
         };
 
-        float _GridSize;
+        float _GridWidth;
+        float _GridHeight;
         float _LineSize;
 
         // DX11 needed to run shader at high grid sizes
@@ -75,18 +76,18 @@ Shader "PDT Shaders/TestGrid"
             float2 uv = IN.uv_MainTex;
 
             fixed4 c = float4(0.0, 0.0, 0.0, 0.0);
-            float gsize = floor(_GridSize);
-            gsize += _LineSize;
+            float gsize_width = floor(_GridWidth) + _LineSize;
+            float gsize_height = floor(_GridHeight) + _LineSize;
 
             float2 id = float2(
-                floor(uv.x / (1.0 / gsize)), floor(uv.y / (1.0 / gsize))
+                floor(uv.x / (1.0 / gsize_width)), floor(uv.y / (1.0 / gsize_height))
             );
 
             float4 color = _InactiveColor;
             float brightness = _InactiveColor.w;
 
             // Line Color Check
-            if (_LineSize > 0.0 && (frac(uv.x * gsize) <= _LineSize || frac(uv.y * gsize) <= _LineSize))
+            if (_LineSize > 0.0 && (frac(uv.x * gsize_width) <= _LineSize || frac(uv.y * gsize_height) <= _LineSize))
             {
                 color = _LineColor;
                 brightness = color.w;
@@ -94,7 +95,7 @@ Shader "PDT Shaders/TestGrid"
             }
             else
             {
-                float pos = id.y * _GridSize + id.x;
+                float pos = id.y * _GridWidth + id.x;
                 if (pos < _valueLength)
                 {
                     float index = _values[pos];

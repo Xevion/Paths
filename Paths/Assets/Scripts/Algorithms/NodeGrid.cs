@@ -131,6 +131,7 @@ namespace Algorithms {
         /// </summary>
         /// <param name="generator">A instantiated level generator (ILevelGenerator) object</param>
         public void ApplyGenerator(ILevelGenerator generator) {
+            generator.Generate(this);
         }
 
         public IEnumerable<Node> Iterator() {

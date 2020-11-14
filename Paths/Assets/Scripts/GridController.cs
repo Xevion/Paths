@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Linq;
 using UnityEngine;
 
 public enum PropertyName {
-    GridSize,
+    GridWidth,
+    GridHeight,
     ValueLength,
     Values
 }
@@ -13,8 +13,9 @@ public enum PropertyName {
 /// </summary>
 public class GridController : MonoBehaviour {
     public Material gridMaterial; // Maintain reference to the Grid Material the Shader is implanted upon
-    public int size = 32; // Size of the grid, width and height
-
+    public int width;
+    public int height;
+    
     // Value management
     private int[] _values;
     private ComputeBuffer _buffer;
@@ -22,10 +23,11 @@ public class GridController : MonoBehaviour {
     // Get all property IDs
     private static readonly int ValueLength = Shader.PropertyToID("_valueLength");
     private static readonly int Values = Shader.PropertyToID("_values");
-    private static readonly int GridSize = Shader.PropertyToID("_GridSize");
+    private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
+    private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
 
     private void Start() {
-        _values = new int[size * size];
+        _values = new int[width * height];
         _buffer = new ComputeBuffer((int) Mathf.Pow(2048, 2), 4);
 
         // Update all Shader properties
@@ -40,8 +42,11 @@ public class GridController : MonoBehaviour {
     /// <exception cref="ArgumentOutOfRangeException"></exception>
     public void UpdateShader(PropertyName property) {
         switch (property) {
-            case PropertyName.GridSize:
-                gridMaterial.SetFloat(GridSize, size);
+            case PropertyName.GridWidth:
+                gridMaterial.SetFloat(GridWidth, width);
+                break;
+            case PropertyName.GridHeight:
+                gridMaterial.SetFloat(GridHeight, height);
                 break;
             case PropertyName.Values:
                 _buffer.SetData(_values);
@@ -81,7 +86,7 @@ public class GridController : MonoBehaviour {
     /// <param name="y">the Y coordinate</param>
     /// <param name="value">the integer value</param>
     public void SetValue(int x, int y, int value) {
-        _values[size * y + x] = value;
+        _values[width * y + x] = value;
     }
 
     /// <summary>
@@ -91,7 +96,7 @@ public class GridController : MonoBehaviour {
     /// <param name="y">the Y coordinate</param>
     /// <returns>a integer value</returns>
     public int GetValue(int x, int y) {
-        return _values[size * y + x];
+        return _values[width * y + x];
     }
 
     /// <summary>
@@ -101,6 +106,6 @@ public class GridController : MonoBehaviour {
     /// <param name="y">the Y coordinate</param>
     /// <returns>the integer array index</returns>
     public int GetIndex(int x, int y) {
-        return size * y + x;
+        return width * y + x;
     }
 }
