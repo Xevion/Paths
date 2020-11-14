@@ -7,7 +7,7 @@ public class GridState {
     public readonly GridNodeType[,] Grid;
     public readonly float Time;
 
-    public GridState(NodeGrid grid, List<Node> seen, List<Node> expanded, Vector2Int start,
+    public GridState(NodeGrid grid, IReadOnlyList<Node> seen, IReadOnlyList<Node> expanded, Vector2Int start,
         Vector2Int end, Stack<Node> path) {
         this.Time = UnityEngine.Time.realtimeSinceStartup;
 

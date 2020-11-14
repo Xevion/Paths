@@ -43,10 +43,12 @@ namespace Algorithms {
                 _closedList.Add(current);
                 RecordState();
 
-                List<Node> adjacentNodes = this._nodeGrid.GetAdjacentNodesList(current);
+                Node[] adjacentNodes = this._nodeGrid.GetAdjacentNodesArray(current);
+                if (true) {
+                    for (int i = 0; i < adjacentNodes.Length; i++) {
+                        Node n = adjacentNodes[i];
+                        if (n == null) continue;
 
-                if (adjacentNodes.Count > 0) {
-                    foreach (Node n in adjacentNodes) {
                         if (!_closedList.Contains(n) && n.Walkable) {
                             if (!_openList.Contains(n)) {
                                 n.Parent = current;
@@ -58,8 +60,6 @@ namespace Algorithms {
                             }
                         }
                     }
-
-                    RecordState();
                 }
             }
 

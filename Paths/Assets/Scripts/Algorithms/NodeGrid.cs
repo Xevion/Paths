@@ -112,5 +112,27 @@ namespace Algorithms {
         public Node GetRandomNode() {
             return Grid[Random.Range(0, Width), Random.Range(0, Height)];
         }
+
+        public static NodeGrid GetFilledNodeGrid(int width, int height) {
+            var nodeGrid = new NodeGrid(width, height);
+
+            // Set each Node to a Wall
+            for (int x = 0; x < width; x++)
+                for (int y = 0; y < height; y++)
+                    nodeGrid.Grid[x, y].Walkable = false;
+
+            return nodeGrid;
+        }
+
+        public bool IsEdge(Vector2Int position) {
+            return position.x == 0 || position.x == Width - 1 || position.y == 0 || position.y == Height - 1;
+        }
+
+        public void ClearRoom(Rect room) {
+            for (float x = room.xMin; x < room.xMax; x++)
+                for (float y = room.yMin; y < room.yMax; y++) {
+                    Grid[(int) x, (int) y].Walkable = true;
+                }
+        }
     }
 }
