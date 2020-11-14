@@ -15,8 +15,7 @@ public class GridState {
         // Add walls and empty tiles
         for (int x = 0; x < grid.Width; x++) {
             for (int y = 0; y < grid.Height; y++) {
-                Node node = grid.GetNode(x, y);
-                Grid[x, y] = node.Walkable ? GridNodeType.Empty : GridNodeType.Wall;
+                Grid[x, y] = grid.Grid[x, y].Walkable ? GridNodeType.Empty : GridNodeType.Wall;
             }
         }
 

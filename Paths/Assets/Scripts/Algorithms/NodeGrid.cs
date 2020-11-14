@@ -6,7 +6,7 @@ using Random = UnityEngine.Random;
 
 namespace Algorithms {
     public class NodeGrid {
-        private List<List<Node>> grid;
+        public readonly Node[,] Grid;
         public readonly int Width;
         public readonly int Height;
         public int CellCount => this.Width * this.Height;
@@ -19,26 +19,22 @@ namespace Algorithms {
                 throw new ArgumentOutOfRangeException(nameof(height),
                     "The height of the grid must be a positive non-zero integer.");
 
-            grid = new List<List<Node>>(width);
 
             // Fill grid with width*height nodes, zero-indexed
-            for (int x = 0; x < width; x++) {
-                List<Node> list = new List<Node>(height);
+            Grid = new Node[width, height];
+            for (int x = 0; x < width; x++)
                 for (int y = 0; y < height; y++)
-                    list.Add(new Node(new Vector2Int(x, y), true));
+                    Grid[x, y] = new Node(new Vector2Int(x, y), true);
 
-                grid.Add(list);
-            }
-
-            Width = this.grid.Count;
-            Height = this.grid[0].Count;
+            Width = width;
+            Height = height;
         }
 
-        public NodeGrid(List<List<Node>> grid) {
-            this.grid = grid;
+        public NodeGrid(Node[,] grid) {
+            this.Grid = grid;
 
-            Height = this.grid[0].Count;
-            Width = this.grid.Count;
+            Height = this.Grid.GetLength(0);
+            Width = this.Grid.GetLength(1);
         }
 
         public List<Node> GetAdjacentNodesList(Node node) {
@@ -47,10 +43,10 @@ namespace Algorithms {
             int col = node.Position.x;
             int row = node.Position.y;
 
-            if (row + 1 < Height) temp.Add(grid[col][row + 1]);
-            if (row - 1 >= 0) temp.Add(grid[col][row - 1]);
-            if (col - 1 >= 0) temp.Add(grid[col - 1][row]);
-            if (col + 1 < Width) temp.Add(grid[col + 1][row]);
+            if (row + 1 < Height) temp.Add(Grid[col, row + 1]);
+            if (row - 1 >= 0) temp.Add(Grid[col, row - 1]);
+            if (col - 1 >= 0) temp.Add(Grid[col - 1, row]);
+            if (col + 1 < Width) temp.Add(Grid[col + 1, row]);
 
             return temp;
         }
@@ -60,54 +56,15 @@ namespace Algorithms {
             int row = node.Position.y;
 
             return new Node[] {
-                row + 1 < Height ? grid[col][row + 1] : null,
-                row - 1 >= 0 ? grid[col][row - 1] : null,
-                col - 1 >= 0 ? grid[col - 1][row] : null,
-                col + 1 < Width ? grid[col + 1][row] : null
+                row + 1 < Height ? Grid[col, row + 1] : null,
+                row - 1 >= 0 ? Grid[col, row - 1] : null,
+                col - 1 >= 0 ? Grid[col - 1, row] : null,
+                col + 1 < Width ? Grid[col + 1, row] : null
             };
         }
 
-        /// <summary>
-        /// Tests whether a coordinate is valid on the NodeGrid
-        /// </summary>
-        /// <param name="x">The X (column) coordinate</param>
-        /// <param name="y">The Y (row) coordinate</param>
-        /// <returns></returns>
-        public bool IsValid(int x, int y) {
-            return x > 0 && x < Width && y > 0 && y < Height;
-        }
-
-        /// <summary>
-        /// Retrieves a node at a given coordinate.
-        /// </summary>
-        /// <param name="x">the X (column) coordinate</param>
-        /// <param name="y">the Y (row) coordinate</param>
-        /// <returns>A Node object</returns>
-        /// <exception cref="ArgumentOutOfRangeException">when the coordinate given does not exist on the grid</exception>
-        public Node GetNode(int x, int y) {
-            // if(!IsValid(x, y))
-            // throw new ArgumentOutOfRangeException();
-
-            return grid[x][y];
-        }
-
         public Node GetNode(Vector2Int position) {
-            return GetNode(position.x, position.y);
-        }
-
-        /// <summary>
-        /// Finds one random walkable cell and turns it into a wall.
-        /// </summary>
-        public void AddRandomWall() {
-            while (true) {
-                int x = Random.Range(0, Width);
-                int y = Random.Range(0, Height);
-
-                if (grid[x][y].Walkable) {
-                    grid[x][y].Walkable = false;
-                    return;
-                }
-            }
+            return Grid[position.x, position.y];
         }
 
         public static float Manhattan(Node a, Node b) {
@@ -135,9 +92,9 @@ namespace Algorithms {
         }
 
         public IEnumerable<Node> Iterator() {
-            for (int x = 0; x < this.grid.Count; x++)
-                for (int y = 0; y < this.grid[0].Count; y++)
-                    yield return this.grid[x][y];
+            for (int x = 0; x < Width; x++)
+                for (int y = 0; y < Height; y++)
+                    yield return this.Grid[x, y];
         }
 
         public IEnumerable<Node> Walls() {
@@ -153,7 +110,7 @@ namespace Algorithms {
         /// </summary>
         /// <returns>A Node object.</returns>
         public Node GetRandomNode() {
-            return grid[Random.Range(0, Width)][Random.Range(0, Height)];
+            return Grid[Random.Range(0, Width), Random.Range(0, Height)];
         }
     }
 }
