@@ -250,8 +250,8 @@ MonoBehaviour:
   gridObject: {fileID: 2092623184}
   gridController: {fileID: 2092623185}
   debugText: {fileID: 1436240699}
-  speed: 1000
-  clampIncrement: 1
+  speed: 2500
+  clampIncrement: 2
 --- !u!1 &1436240698
 GameObject:
   m_ObjectHideFlags: 0
@@ -579,8 +579,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridMaterial: {fileID: 2100000, guid: 780d53bea4df7b0418e9c8ed8afd6410, type: 2}
-  width: 130
-  height: 61
+  width: 80
+  height: 45
 --- !u!23 &2092623186
 MeshRenderer:
   m_ObjectHideFlags: 0
