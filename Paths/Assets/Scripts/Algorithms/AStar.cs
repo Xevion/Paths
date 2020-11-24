@@ -37,28 +37,36 @@ namespace Algorithms {
             // add start node to Open List
             _openList.Add(startNode);
 
-            while (_openList.Count != 0 && !_closedList.Exists(x => x.Position == endNode.Position)) {
-                current = _openList[0];
+            while (_openList.Count != 0) {
+                current = _openList.First();
                 _openList.Remove(current);
+
+                current.State = NodeState.Closed;
                 _closedList.Add(current);
+                
+                if (current.Position == endNode.Position)
+                    break;
+                
                 RecordState();
 
                 Node[] adjacentNodes = this._nodeGrid.GetAdjacentNodesArray(current);
-                if (true) {
-                    for (int i = 0; i < adjacentNodes.Length; i++) {
-                        Node n = adjacentNodes[i];
-                        if (n == null) continue;
+                for (int i = 0; i < adjacentNodes.Length; i++) {
+                    Node node = adjacentNodes[i];
+                    if (node != null && node.State == NodeState.None && node.Walkable) {
+                        // Setup node & calculate new costs
+                        node.Parent = current;
+                        node.DistanceToTarget = NodeGrid.Manhattan(node, endNode);
+                        node.Cost = node.Weight + node.Parent.Cost;
+                        
+                        // Set to open and add to open list (sorted)
+                        node.State = NodeState.Open;
+                        // _openList.Add(node);
 
-                        if (!_closedList.Contains(n) && n.Walkable) {
-                            if (!_openList.Contains(n)) {
-                                n.Parent = current;
-                                n.DistanceToTarget = NodeGrid.Manhattan(n, endNode);
-                                n.Cost = n.Weight + n.Parent.Cost;
-
-                                _openList.Add(n);
-                                _openList = _openList.OrderBy(node => node.F).ToList();
-                            }
-                        }
+                        int index = _openList.BinarySearch(node);
+                        if (index < 0) index = ~index;
+                        _openList.Insert(index, node);
+                        // _openList = _openList.OrderBy(n => n.F).ToList();
+                        // _openList.Sort((n, o) => n.F.CompareTo(o.F));
                     }
                 }
             }
@@ -86,7 +94,7 @@ namespace Algorithms {
         public void RecordState() {
             // TODO: Record pathfinding state information (stages, heuristic, statistical info)
             this._states.Add(
-                new GridState(this._nodeGrid, this._openList, this._closedList, Start, End, _path)
+                new GridState(this._nodeGrid, this._openList.ToList(), this._closedList, Start, End, _path)
             );
         }
 

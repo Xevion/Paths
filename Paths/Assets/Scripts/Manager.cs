@@ -67,7 +67,7 @@ public class Manager : MonoBehaviour {
         // Vector2Int start = new Vector2Int(30, 30);
         Vector2Int end = nodeGrid.RandomPosition();
 
-        nodeGrid.ApplyGenerator(new RandomPlacement(0.25f, true));
+        nodeGrid.ApplyGenerator(new RandomPlacement(0.20f, true, true));
 
         nodeGrid.GetNode(start).Walkable = true;
         nodeGrid.GetNode(end).Walkable = true;

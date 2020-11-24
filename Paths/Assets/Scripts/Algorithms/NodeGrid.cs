@@ -55,7 +55,7 @@ namespace Algorithms {
             int col = node.Position.x;
             int row = node.Position.y;
 
-            return new Node[] {
+            return new [] {
                 row + 1 < Height ? Grid[col, row + 1] : null,
                 row - 1 >= 0 ? Grid[col, row - 1] : null,
                 col - 1 >= 0 ? Grid[col - 1, row] : null,
@@ -67,12 +67,16 @@ namespace Algorithms {
             return Grid[position.x, position.y];
         }
 
-        public static float Manhattan(Node a, Node b) {
-            return Math.Abs(a.Position.x - b.Position.x) + Math.Abs(a.Position.y - b.Position.y);
+        public static int Manhattan(Node a, Node b) {
+            return Manhattan(a.Position, b.Position);
         }
 
-        public static float Manhattan(Vector2Int a, Vector2Int b) {
-            return Manhattan(new Node(a, false), new Node(b, false));
+        public static int SignedManhattan(Vector2Int a, Vector2Int b) {
+            return a.x - b.x + (a.y - b.y);
+        }
+
+        public static int Manhattan(Vector2Int a, Vector2Int b) {
+            return Math.Abs(a.x - b.x) + Math.Abs(a.y - b.y);
         }
 
         /// <summary>
