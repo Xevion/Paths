@@ -68,12 +68,12 @@ public class GridController : MonoBehaviour {
     /// <summary>
     /// Loads a GridState into the Grid Shader's StructuredBuffer
     /// </summary>
-    /// <param name="gridState"></param>
-    public void LoadGridState(GridState gridState) {
+    /// <param name="state"></param>
+    public void LoadGridState(GridNodeType[,] state) {
         // Loop over matrix and set values via cast Enum to int
-        for (int x = 0; x < gridState.Grid.GetLength(0); x++) {
-            for (int y = 0; y < gridState.Grid.GetLength(1); y++)
-                this.SetValue(x, y, (int) gridState.Grid[x, y]);
+        for (int x = 0; x < state.GetLength(0); x++) {
+            for (int y = 0; y < state.GetLength(1); y++)
+                this.SetValue(x, y, (int) state[x, y]);
         }
 
         UpdateShader(PropertyName.Values);

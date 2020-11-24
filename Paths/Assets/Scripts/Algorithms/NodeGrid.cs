@@ -138,5 +138,17 @@ namespace Algorithms {
                     Grid[(int) x, (int) y].Walkable = true;
                 }
         }
+
+        public GridNodeType[,] RenderNodeTypes() {
+            GridNodeType[,] nodeTypeGrid = new GridNodeType[Grid.GetLength(0), Grid.GetLength(1)];
+
+            for (int x = 0; x < Grid.GetLength(0); x++) {
+                for (int y = 0; y < Grid.GetLength(1); y++) {
+                    nodeTypeGrid[x, y] = Grid[x, y].Walkable ? GridNodeType.Empty : GridNodeType.Wall;
+                }
+            }
+
+            return nodeTypeGrid;
+        }
     }
 }

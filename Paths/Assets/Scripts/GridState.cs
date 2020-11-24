@@ -3,7 +3,7 @@ using System.Linq;
 using Algorithms;
 using UnityEngine;
 
-public class GridState {
+public struct GridState {
     public readonly GridNodeType[,] Grid;
     public readonly float Time;
 
