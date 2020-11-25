@@ -37,6 +37,16 @@ namespace Algorithms {
             Walkable = walkable;
         }
 
+        /// <summary>
+        /// Resets this Node back to it's assumed default values.
+        /// </summary>
+        public void Reset() {
+            Parent = null;
+            DistanceToTarget = null;
+            Cost = 1;
+            State = NodeState.None;
+        }
+
         public override bool Equals(object obj) {
             return obj is Node node && Position.Equals(node.Position);
         }

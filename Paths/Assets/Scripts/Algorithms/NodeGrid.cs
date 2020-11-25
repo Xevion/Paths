@@ -147,7 +147,7 @@ namespace Algorithms {
                 }
         }
 
-        public GridNodeType[,] RenderNodeTypes() {
+        public GridNodeType[,] RenderNodeTypes(Vector2Int? start = null, Vector2Int? end = null) {
             GridNodeType[,] nodeTypeGrid = new GridNodeType[Grid.GetLength(0), Grid.GetLength(1)];
 
             for (int x = 0; x < Grid.GetLength(0); x++) {
@@ -156,6 +156,13 @@ namespace Algorithms {
                 }
             }
 
+            // Start / End node addition
+            if (start.HasValue)
+                nodeTypeGrid[start.Value.x, start.Value.y] = GridNodeType.Start;
+            
+            if (end.HasValue)
+                nodeTypeGrid[end.Value.x, end.Value.y] = GridNodeType.End;
+            
             return nodeTypeGrid;
         }
     }

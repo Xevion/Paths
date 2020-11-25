@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Algorithms {
@@ -92,5 +93,23 @@ namespace Algorithms {
             return _path;
         }
 
+        /// <summary>
+        /// Attempts to clean the NodeGrid of all edits made to heuristic values and such, fast.
+        /// </summary>
+        public void Cleanup() {
+            while (_openList.Count > 0) {
+                Node node = _openList[0];
+                _openList.RemoveAt(0);
+                
+                node.Reset();
+            }
+            
+            while (_closedList.Count > 0) {
+                Node node = _closedList[0];
+                _closedList.RemoveAt(0);
+                
+                node.Reset();
+            }
+        }
     }
 }
