@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
+
 /// <summary>
 /// Denotes what the user clicked and is now modifying.
 /// Add/Remove is for wall addition/removal, Start and End is for dragging the Start and End nodes around.
@@ -13,7 +14,8 @@ public enum ClickType {
     Add,
     Remove,
     Start,
-    End
+    End,
+    ProgressBar
 }
 
 /// <summary>
@@ -35,7 +37,7 @@ public enum AnimationState {
 /// </summary>
 public class UIController : MonoBehaviour {
     // UI & important App references
-    public Slider progressSlider;
+    public CustomSlider progressSlider;
     public GridController gridController;
     public Manager manager;
 
@@ -59,7 +61,7 @@ public class UIController : MonoBehaviour {
     // Animation speed & indexing
     public float clampIncrement;
     private float _runtime;
-    public int CurrentIndex => (int) _runtime;
+    public int CurrentIndex => (int) Math.Ceiling(_runtime);
     public float speed;
 
     private void Start() {
@@ -69,6 +71,9 @@ public class UIController : MonoBehaviour {
         _start = _grid.RandomPosition();
         _end = _grid.RandomPosition();
         _runtime = 0;
+
+        manager.Resize();
+        progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
     }
 
     private void Update() {
@@ -78,7 +83,9 @@ public class UIController : MonoBehaviour {
 
             // Initial click, remember what they clicked
             if (Input.GetMouseButtonDown(0)) {
-                if (position == _start)
+                if (progressSlider.IsPressed)
+                    _modify = ClickType.ProgressBar;
+                else if (position == _start)
                     _modify = ClickType.Start;
                 else if (position == _end)
                     _modify = ClickType.End;
@@ -96,38 +103,42 @@ public class UIController : MonoBehaviour {
                 // If still holding down the button & the latest movement is over a new grid
                 if (_lastClickLocation != position) {
                     _lastClickLocation = position;
-                    Node node = _grid.GetNode(position);
-                    switch (_modify) {
-                        // regular clicking toggles walls
-                        // Note: Wall toggling instantly reloads, but only real start/end node movement reloads.
-                        case ClickType.Add:
-                            node.Walkable = false;
-                            if (EditShouldReload)
-                                _animationState = AnimationState.Reloading;
-                            break;
-                        case ClickType.Remove:
-                            node.Walkable = true;
-                            if (EditShouldReload)
-                                _animationState = AnimationState.Reloading;
-                            break;
-                        case ClickType.Start:
-                            if (node.Walkable) {
-                                _start = position;
+                    if (_grid.IsValid(position)) {
+                        Node node = _grid.GetNode(position);
+                        switch (_modify) {
+                            // regular clicking toggles walls
+                            // Note: Wall toggling instantly reloads, but only real start/end node movement reloads.
+                            case ClickType.Add:
+                                node.Walkable = false;
                                 if (EditShouldReload)
                                     _animationState = AnimationState.Reloading;
-                            }
-
-                            break;
-                        case ClickType.End:
-                            if (node.Walkable) {
-                                _end = position;
+                                break;
+                            case ClickType.Remove:
+                                node.Walkable = true;
                                 if (EditShouldReload)
                                     _animationState = AnimationState.Reloading;
-                            }
+                                break;
+                            case ClickType.Start:
+                                if (node.Walkable) {
+                                    _start = position;
+                                    if (EditShouldReload)
+                                        _animationState = AnimationState.Reloading;
+                                }
 
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
+                                break;
+                            case ClickType.End:
+                                if (node.Walkable) {
+                                    _end = position;
+                                    if (EditShouldReload)
+                                        _animationState = AnimationState.Reloading;
+                                }
+
+                                break;
+                            case ClickType.ProgressBar:
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
                     }
                 }
             }
@@ -143,7 +154,10 @@ public class UIController : MonoBehaviour {
                     _animationState = AnimationState.Started;
                     break;
                 case AnimationState.Started:
-                    _animationState = AnimationState.Paused;
+                    if (CurrentIndex >= _state.Count)
+                        _runtime = 0;
+                    else
+                        _animationState = AnimationState.Paused;
                     break;
                 case AnimationState.Reloading:
                     break;
@@ -162,21 +176,28 @@ public class UIController : MonoBehaviour {
                 else
                     gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
 
+                progressSlider.SetValueWithoutNotify(_runtime / _state.Count);
                 break;
             case AnimationState.Started:
                 // Calculate how much to move forward
-                var increment = Time.deltaTime * speed * CurrentMultiplier();
-                if (clampIncrement > 0)
-                    increment = Mathf.Clamp(increment, 0, _state.Count * Time.deltaTime / clampIncrement);
-                _runtime += increment;
+                if (!progressSlider.IsPressed) {
+                    var increment = Time.deltaTime * speed * CurrentMultiplier();
+                    if (clampIncrement > 0)
+                        increment = Mathf.Clamp(increment, 0, _state.Count * Time.deltaTime / clampIncrement);
+                    _runtime += increment;
+                }
 
-                if (CurrentIndex < _state.Count)
+                progressSlider.SetValueWithoutNotify(_runtime / _state.Count);
+
+                if (_runtime < _state.Count)
                     LoadNextState();
                 break;
             case AnimationState.Stopped:
                 gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
                 break;
             case AnimationState.Paused:
+                if (_runtime < _state.Count)
+                    LoadNextState();
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -189,24 +210,22 @@ public class UIController : MonoBehaviour {
     }
 
     private void GeneratePath() {
-        if (_algorithm != null)
-            _algorithm.Cleanup();
+        _algorithm?.Cleanup(); // cleanup algorithm's edits to node grid
 
         _runtime = 0f;
         _algorithm = new AStar(_grid);
         _path = _algorithm.FindPath(_start, _end);
-        // Debug.Log($"{_state.Count} changs made");
         _state = _algorithm.ChangeController;
     }
 
     private void LoadNextState() {
         // Move to the new calculated index
-        _state.MoveTo(Math.Max(1, CurrentIndex)); // use Math.max to ensure both start/end nodes are always rendered
+        _state.MoveTo(Mathf.Clamp(CurrentIndex, 1, _state.Count - 1)); // use Math.max to ensure both start/end nodes are always rendered
         gridController.LoadDirtyGridState(_state.Current, _state.DirtyFlags);
 
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
         manager.debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +
-                                 $"{CurrentIndex:000} / {_state.Count:000}\n" +
+                                 $"{CurrentIndex + 1:000} / {_state.Count:000}\n" +
                                  $"Path: {pathCount} tiles";
     }
 
@@ -254,9 +273,18 @@ public class UIController : MonoBehaviour {
         Gizmos.DrawWireCube(gridController.GetWorldPosition(gridPosition), localScale / (Vector2) gridController.Size);
         Handles.Label(mouse, String.Format("{0}{1}",
             gridPosition,
-            _algorithm.NodeGrid.IsValid(gridPosition)
+            _algorithm != null && _algorithm.NodeGrid.IsValid(gridPosition)
                 ? $"\n{_state.Current[gridPosition.x, gridPosition.y]}"
                 : ""
         ), style);
+    }
+
+    /// <summary>
+    /// Update the animation progress to the slider's (new) position.
+    /// </summary>
+    /// <param name="new">The new position on the slider.</param>
+    private void MoveToSlider(float @new) {
+        if (_state != null)
+            _runtime = @new * _state.Count;
     }
 }
