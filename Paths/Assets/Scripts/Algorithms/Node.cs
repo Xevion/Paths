@@ -1,20 +1,27 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Algorithms {
-    public class Node {
+    public enum NodeState {
+        None, Open, Closed
+    }
+    
+    public class Node : IComparable<Node> {
         // Change this depending on what the desired size is for each element in the grid
         public Node Parent;
-        public Vector2Int Position;
+        public readonly Vector2Int Position;
 
         // A* Algorithm variables
-        public float DistanceToTarget;
-        public float Cost;
+        public float? DistanceToTarget;
+        public float? Cost;
         public float Weight;
+
+        public NodeState State = NodeState.None;
 
         public float F {
             get {
-                if (DistanceToTarget != -1 && Cost != -1)
-                    return DistanceToTarget + Cost;
+                if (DistanceToTarget.HasValue && Cost.HasValue)
+                    return DistanceToTarget.Value + Cost.Value;
                 return -1;
             }
         }
@@ -24,14 +31,34 @@ namespace Algorithms {
         public Node(Vector2Int pos, bool walkable, float weight = 1) {
             Parent = null;
             Position = pos;
-            DistanceToTarget = -1;
+            DistanceToTarget = null;
             Cost = 1;
             Weight = weight;
             Walkable = walkable;
         }
 
+        public override bool Equals(object obj) {
+            return obj is Node node && Position.Equals(node.Position);
+        }
+
+        public override int GetHashCode() {
+            return Position.GetHashCode();
+        }
+
+        public int CompareTo(Node other) {
+            int diff = (int) (this.F - other.F);
+            return diff;
+            // return diff != 0 ? diff : NodeGrid.SignedManhattan(Position, other.Position);
+        }
+
         public override string ToString() {
-            return $"Node({Position.x}, {Position.y}, {Walkable})";
+            return string.Format(
+                    "Node ({0:00}, {1:00}, {2}, {3})",
+                    Position.x,
+                    Position.y,
+                    Walkable ? "Walkable" : "Not Walkable",
+                    State == NodeState.None ? (Walkable ? "Openable" : "Wall") : State.ToString()
+                );
         }
     }
 }
