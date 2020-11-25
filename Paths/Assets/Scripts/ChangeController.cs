@@ -92,7 +92,7 @@ public class ChangeController {
             Reset(); // resetting by copying values instead of mutating might be easier.
         else {
             for (int i = 0; i < n; i++) {
-                Change cur = _changes[--Index];
+                Change cur = _changes[Index--]; // post decrement as we apply the current Change's old, not the previous
                 Current[cur.X, cur.Y] = cur.Old;
                 SetDirty(new Vector2Int(cur.X, cur.Y));
             }

@@ -41,7 +41,7 @@ Shader "PDT Shaders/TestGrid"
 
         static const float4 _gridColors[7] = {
             float4(255 / 255.0, 255 / 255.0, 255 / 255.0, 1.0), // Empty
-            float4(0 / 255.0, 0 / 255.0, 0 / 255.0, 1.0), // Wall
+            float4(5 / 255.0, 5 / 255.0, 5 / 255.0, 1.0), // Wall
             float4(0 / 255.0, 255 / 255.0, 0 / 255.0, 1.0), // Start
             float4(255 / 255.0, 0 / 255.0, 0 / 255.0, 1.0), // End
             float4(252 / 255.0, 236 / 255.0, 3 / 255.0, 1.0), // Seen

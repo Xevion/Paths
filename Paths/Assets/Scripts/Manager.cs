@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using Algorithms;
 using LevelGeneration;
 using TMPro;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.Analytics;
+using UnityEngine.UI;
 
 /// <summary>
 /// The primary controller of the entire application, managing state, events and sending commands
@@ -16,12 +17,17 @@ public class Manager : MonoBehaviour {
     private Stack<Node> _path;
     private float _runtime;
 
+    public float speed;
+    public float clampIncrement;
+    public bool moving = true;
+
     public Camera mainCamera;
     public GameObject gridObject;
     public GridController gridController;
     public TextMeshPro debugText;
-    public float speed;
-    public float clampIncrement;
+    public Slider progressSlider;
+    private float? _moveTo;
+    private bool _allowPausing = true;
 
     private int CurrentIndex {
         get => (int) _runtime;
@@ -31,6 +37,8 @@ public class Manager : MonoBehaviour {
     public void Start() {
         GeneratePath();
         Resize();
+
+        progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
     }
 
     // public void OnDrawGizmos() {
@@ -45,10 +53,10 @@ public class Manager : MonoBehaviour {
     private float CurrentMultiplier() {
         if (_state.Index == -1)
             return 1;
-        
+
         switch (_state.CurrentChange.New) {
             case GridNodeType.Path:
-                return 1/5f;
+                return 1 / 5f;
             case GridNodeType.Empty:
                 break;
             case GridNodeType.Wall:
@@ -64,24 +72,41 @@ public class Manager : MonoBehaviour {
             default:
                 throw new ArgumentOutOfRangeException();
         }
+
         return 1;
     }
-    
-    public void Update() {
-        var increment = Time.deltaTime * speed * CurrentMultiplier();
-        if (clampIncrement > 0)
-            increment = Mathf.Clamp(increment, 0, _state.Count * Time.deltaTime / clampIncrement);
-        _runtime += increment;
 
+    public void Update() {
+        // Toggle pause with space
+        if (_allowPausing && Input.GetKeyDown(KeyCode.Space)) {
+            moving = !moving;
+        }
+
+        // Increment index if unpaused and not clicking (implying slider may be interacted with)
+        if (moving && !Input.GetMouseButton(0)) {
+            var increment = Time.deltaTime * speed * CurrentMultiplier();
+            if (clampIncrement > 0)
+                increment = Mathf.Clamp(increment, 0, _state.Count * Time.deltaTime / clampIncrement);
+            _runtime += increment;
+        }
+
+        // Load next state in grid or update text
         if (CurrentIndex < _state.Count)
             LoadNextState();
         else {
+            // No new states to load, generate new grid
             GeneratePath();
-            CurrentIndex = 0;
         }
+
+        // Update progress slider silently
+        progressSlider.SetValueWithoutNotify(_runtime / _state.Count);
     }
 
+    /// <summary>
+    /// Generates a new grid and runs pathfinding.
+    /// </summary>
     private void GeneratePath() {
+        CurrentIndex = 0;
         var nodeGrid = new NodeGrid(gridController.width, gridController.height);
 
         Vector2Int start = nodeGrid.RandomPosition();
@@ -98,6 +123,9 @@ public class Manager : MonoBehaviour {
         _state = _algorithm.ChangeController;
     }
 
+    /// <summary>
+    /// Loads the appropriate grid state into the shader via the ChangeController instance.
+    /// </summary>
     private void LoadNextState() {
         _state.MoveTo(CurrentIndex);
         gridController.LoadDirtyGridState(_state.Current, _state.DirtyFlags);
