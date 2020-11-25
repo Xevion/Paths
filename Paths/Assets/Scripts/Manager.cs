@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Algorithms;
 using LevelGeneration;
 using TMPro;
@@ -70,7 +69,7 @@ public class Manager : MonoBehaviour {
 
     private void LoadNextState() {
         _state.MoveTo(CurrentIndex);
-        gridController.LoadGridState(_state.Current);
+        gridController.LoadDirtyGridState(_state.Current, _state.DirtyFlags);
 
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
         debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +

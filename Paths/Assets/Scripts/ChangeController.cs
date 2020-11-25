@@ -8,7 +8,7 @@ using UnityEngine;
 public class ChangeController {
     private readonly GridNodeType[,] _initial;
     public GridNodeType[,] Current { get; private set; }
-
+    public bool[,] DirtyFlags { get; private set; }
     public int Index { get; private set; }
     private readonly List<Change> _changes;
     public int Count => _changes.Count;
@@ -20,6 +20,30 @@ public class ChangeController {
         Current = initial;
         Index = -1;
         _changes = new List<Change>();
+        DirtyFlags = new bool[initial.GetLength(0), initial.GetLength(1)];
+        SetDirty();
+    }
+
+    /// <summary>
+    /// Sets the entire grid as dirty, essentially re-rendering all values in the shader.
+    /// </summary>
+    public void SetDirty() {
+        int width = DirtyFlags.GetLength(0);
+        int height = DirtyFlags.GetLength(1);
+
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                DirtyFlags[x, y] = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets only a specific position as dirty.
+    /// </summary>
+    /// <param name="position"></param>
+    public void SetDirty(Vector2Int position) {
+        DirtyFlags[position.x, position.y] = true;
     }
 
     /// <summary>
@@ -27,6 +51,7 @@ public class ChangeController {
     /// </summary>
     public void Reset() {
         Current = _initial;
+        SetDirty();
     }
 
     /// <summary>
@@ -50,6 +75,7 @@ public class ChangeController {
         for (int i = 0; i < n; i++) {
             Change cur = _changes[++Index];
             Current[cur.X, cur.Y] = cur.New;
+            SetDirty(new Vector2Int(cur.X, cur.Y));
         }
     }
 
@@ -68,6 +94,7 @@ public class ChangeController {
             for (int i = 0; i < n; i++) {
                 Change cur = _changes[--Index];
                 Current[cur.X, cur.Y] = cur.Old;
+                SetDirty(new Vector2Int(cur.X, cur.Y));
             }
         }
     }
@@ -116,11 +143,11 @@ public class ChangeController {
     public void RemovePositions(Vector2Int position, int count = -1) {
         if (count == 0)
             return;
-        
+
         for (int i = _changes.Count - 1; i >= 0; i--)
             if (_changes[i].X == position.x && _changes[i].Y == position.y) {
                 _changes.RemoveAt(i);
-                
+
                 // Return if the count is now zero.
                 if (--count == 0)
                     return;
