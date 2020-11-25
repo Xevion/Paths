@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Algorithms;
 using LevelGeneration;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Analytics;
 
 /// <summary>
 /// The primary controller of the entire application, managing state, events and sending commands
@@ -36,8 +38,37 @@ public class Manager : MonoBehaviour {
     // Gizmos.DrawWireCube(transform.position, new Vector3(size, size, size));
     // }
 
+    /// <summary>
+    /// Returns the current time multiplier, based on the latest change in the path.
+    /// </summary>
+    /// <returns>A positive non-zero float representing how fast the current frame should be processed.</returns>
+    private float CurrentMultiplier() {
+        if (_state.Index == -1)
+            return 1;
+        
+        switch (_state.CurrentChange.New) {
+            case GridNodeType.Path:
+                return 1/5f;
+            case GridNodeType.Empty:
+                break;
+            case GridNodeType.Wall:
+                break;
+            case GridNodeType.Start:
+                break;
+            case GridNodeType.End:
+                break;
+            case GridNodeType.Seen:
+                break;
+            case GridNodeType.Expanded:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        return 1;
+    }
+    
     public void Update() {
-        var increment = Time.deltaTime * speed;
+        var increment = Time.deltaTime * speed * CurrentMultiplier();
         if (clampIncrement > 0)
             increment = Mathf.Clamp(increment, 0, _state.Count * Time.deltaTime / clampIncrement);
         _runtime += increment;
@@ -80,7 +111,7 @@ public class Manager : MonoBehaviour {
     /// <summary>
     /// Scales the GridController GameObject to fit within the Camera
     /// </summary>
-    public void Resize() {
+    private void Resize() {
         float ratioImage = (float) gridController.width / gridController.height;
         float ratioScreen = mainCamera.aspect;
 

@@ -14,12 +14,6 @@ public interface IPathfinding {
     /// <returns>A List of NodeGridGrid objects representing the timeline of Pathfinding</returns>
     Stack<Node> FindPath(Vector2Int start, Vector2Int end);
 
-    /// <summary>
-    /// Records the current state of the pathfinding algorithm. Internal usage only.
-    /// </summary>
-    void RecordState();
-
-    List<GridState> GetStates();
     Vector2Int Start { get; }
     Vector2Int End { get; }
     ChangeController ChangeController { get; }

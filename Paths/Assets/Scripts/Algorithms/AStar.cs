@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Algorithms {
@@ -9,7 +8,6 @@ namespace Algorithms {
         private Stack<Node> _path;
         private List<Node> _openList;
         private List<Node> _closedList;
-        private List<GridState> _states;
         public ChangeController ChangeController { get; private set; }
 
         public Vector2Int Start { get; private set; }
@@ -17,7 +15,6 @@ namespace Algorithms {
 
         public AStar(NodeGrid nodeGrid) {
             this._nodeGrid = nodeGrid;
-            _states = new List<GridState>();
             ChangeController = new ChangeController(nodeGrid.RenderNodeTypes());
         }
 
@@ -35,7 +32,6 @@ namespace Algorithms {
             _openList = new List<Node>();
             _closedList = new List<Node>();
 
-            RecordState();
             Node current = startNode;
 
             // add start node to Open List
@@ -89,28 +85,11 @@ namespace Algorithms {
             if (temp == null) return null;
             do {
                 _path.Push(temp);
+                ChangeController.AddChange(new Change(temp.Position.x, temp.Position.y, GridNodeType.Path, GridNodeType.Expanded));
                 temp = temp.Parent;
             } while (temp != null && !temp.Equals(startNode));
 
             return _path;
-        }
-
-        /// <summary>
-        /// Records the current state of the pathfinding algorithm in the grid.
-        /// </summary>
-        public void RecordState() {
-            // TODO: Record pathfinding state information (stages, heuristic, statistical info)
-            this._states.Add(
-                new GridState(this._nodeGrid, this._openList.ToList(), this._closedList, Start, End, _path)
-            );
-        }
-
-        /// <summary>
-        /// Returns the current list of grid states of the pathfinding algorithm.
-        /// </summary>
-        /// <returns>A list of GridState objects representing the pathfinding algorithm's progress</returns>
-        public List<GridState> GetStates() {
-            return this._states;
         }
     }
 }
