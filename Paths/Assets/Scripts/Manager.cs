@@ -13,7 +13,6 @@ public class Manager : MonoBehaviour {
     private ChangeController _state;
     private int _curIndex;
     private Stack<Node> _path;
-    private float _lastStart;
     private float _runtime;
 
     public Camera mainCamera;
@@ -45,16 +44,10 @@ public class Manager : MonoBehaviour {
         _runtime += increment;
 
         if (CurrentIndex < _state.Count)
-            this.LoadNextState();
+            LoadNextState();
         else {
-            try {
-                _lastStart = Time.realtimeSinceStartup;
-                GeneratePath();
-                CurrentIndex = 0;
-                // _curIndex = path != null && path.Count > 30 ? 0 : _states.Count;
-            }
-            catch (ArgumentOutOfRangeException) {
-            }
+            GeneratePath();
+            CurrentIndex = 0;
         }
     }
 
@@ -79,9 +72,8 @@ public class Manager : MonoBehaviour {
         _state.MoveTo(CurrentIndex);
         gridController.LoadGridState(_state.Current);
 
-        float change = _state.CurrentChange.Time - _lastStart;
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
-        debugText.text = $"{change * 1000.0:F1}ms\n" +
+        debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +
                          $"{this.CurrentIndex:000} / {_state.Count:000}\n" +
                          $"Path: {pathCount} tiles";
     }
@@ -92,11 +84,11 @@ public class Manager : MonoBehaviour {
     public void Resize() {
         float ratioImage = (float) gridController.width / gridController.height;
         float ratioScreen = mainCamera.aspect;
-        
+
         var orthographicSize = mainCamera.orthographicSize;
         var image = new Vector2(gridController.width, gridController.height);
         var screen = new Vector2(2 * orthographicSize * mainCamera.aspect, orthographicSize * 2);
-        
+
         gridObject.transform.localScale = ratioScreen > ratioImage
             ? new Vector3(image.x * screen.y / image.y, screen.y, 0.001f)
             : new Vector3(screen.x, image.y * screen.x / image.x, 0.001f);

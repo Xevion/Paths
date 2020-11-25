@@ -13,11 +13,12 @@ public class ChangeController {
     private readonly List<Change> _changes;
     public int Count => _changes.Count;
     public Change CurrentChange => _changes[Index];
+    public double CurrentRuntime => _changes[Index].Time - _changes[0].Time;
 
     public ChangeController(GridNodeType[,] initial) {
         _initial = initial;
         Current = initial;
-        Index = 0;
+        Index = -1;
         _changes = new List<Change>();
     }
 
@@ -103,5 +104,26 @@ public class ChangeController {
                 Reset();
             else
                 Move(diff);
+    }
+
+    /// <summary>
+    /// Removes all Change values referencing a specific position.
+    /// Intended for fixing start and end positions.
+    /// Works in reverse, i.e. count = 1 removes the last position if any.
+    /// </summary>
+    /// <param name="position">The Vector2Int position to look for.</param>
+    /// <param name="count">Maximum number of Change values to remove. -1 for all.</param>
+    public void RemovePositions(Vector2Int position, int count = -1) {
+        if (count == 0)
+            return;
+        
+        for (int i = _changes.Count - 1; i >= 0; i--)
+            if (_changes[i].X == position.x && _changes[i].Y == position.y) {
+                _changes.RemoveAt(i);
+                
+                // Return if the count is now zero.
+                if (--count == 0)
+                    return;
+            }
     }
 }

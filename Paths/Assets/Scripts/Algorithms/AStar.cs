@@ -24,14 +24,12 @@ namespace Algorithms {
         public Stack<Node> FindPath(Vector2Int start, Vector2Int end) {
             this.Start = start;
             this.End = end;
-            
+
             ChangeController.AddChange(new Change(start.x, start.y, GridNodeType.Start, GridNodeType.Empty));
             ChangeController.AddChange(new Change(end.x, end.y, GridNodeType.End, GridNodeType.Empty));
 
-
-            var startNode = new Node(start, true);
-            var endNode = new Node(end, true);
-
+            Node startNode = _nodeGrid.Grid[start.x, start.y];
+            Node endNode = _nodeGrid.Grid[end.x, end.y];
 
             _path = new Stack<Node>();
             _openList = new List<Node>();
@@ -41,22 +39,21 @@ namespace Algorithms {
             Node current = startNode;
 
             // add start node to Open List
+            startNode.State = NodeState.Open;
             _openList.Add(startNode);
 
             while (_openList.Count != 0) {
-                current = _openList.First();
-                _openList.Remove(current);
+                current = _openList[0];
+                _openList.RemoveAt(0);
 
                 current.State = NodeState.Closed;
                 ChangeController.AddChange(new Change(
-                    current.Position.x, current.Position.y, 
+                    current.Position.x, current.Position.y,
                     GridNodeType.Expanded, GridNodeType.Seen));
                 _closedList.Add(current);
 
                 if (current.Position == endNode.Position)
                     break;
-
-                RecordState();
 
                 Node[] adjacentNodes = this._nodeGrid.GetAdjacentNodesArray(current);
                 for (int i = 0; i < adjacentNodes.Length; i++) {
@@ -68,7 +65,8 @@ namespace Algorithms {
                         node.Cost = node.Weight + node.Parent.Cost;
 
                         node.State = NodeState.Open;
-                        ChangeController.AddChange(new Change(node.Position.x, node.Position.y, GridNodeType.Seen, GridNodeType.Empty));
+                        ChangeController.AddChange(new Change(node.Position.x, node.Position.y, GridNodeType.Seen,
+                            GridNodeType.Empty));
 
                         // Insert the new node into the sorted open list in ascending order
                         int index = _openList.BinarySearch(node);
@@ -83,12 +81,14 @@ namespace Algorithms {
                 return null;
             }
 
+            // Fix start position being overriden
+            ChangeController.RemovePositions(start, 1);
+
             // if all good, return path
             Node temp = _closedList[_closedList.IndexOf(current)];
             if (temp == null) return null;
             do {
                 _path.Push(temp);
-                RecordState();
                 temp = temp.Parent;
             } while (temp != null && !temp.Equals(startNode));
 

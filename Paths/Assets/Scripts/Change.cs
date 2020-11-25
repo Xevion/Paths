@@ -12,4 +12,8 @@
         this.Old = oldType;
         this.Time = UnityEngine.Time.realtimeSinceStartup;
     }
+
+    public override string ToString() {
+        return $"Change({X}, {Y}, {Old} -> {New})";
+    }
 }
