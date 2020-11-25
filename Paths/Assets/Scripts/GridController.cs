@@ -25,7 +25,7 @@ public class GridController : MonoBehaviour {
     private static readonly int Values = Shader.PropertyToID("_values");
     private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
     private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
-    public Vector2 Size => new Vector2Int(width, height);
+    public Vector2Int Size => new Vector2Int(width, height);
 
     private void Start() {
         _values = new int[width * height];
@@ -130,5 +130,33 @@ public class GridController : MonoBehaviour {
     /// <returns>the integer array index</returns>
     public int GetIndex(int x, int y) {
         return width * y + x;
+    }
+    
+    /// <summary>
+    /// Translate a world position to the approximate position on the Grid.
+    /// May not return valid grid coordinates (outside the range).
+    /// </summary>
+    /// <param name="worldPosition">a Vector3 World Position; Z coordinates are inconsequential.</param>
+    /// <returns>A Vector2Int representing a grid position from the bottom left.</returns>
+    public Vector2Int GetGridPosition(Vector3 worldPosition) {
+        Vector3 localScale = transform.localScale;
+        Vector2 gridPosition = (worldPosition + (localScale / 2f)) / new Vector2(localScale.x, localScale.y);
+        return new Vector2Int(
+            (int) (gridPosition.x * width),
+            (int) (gridPosition.y * height)) - Size - Vector2Int.one;
+    }
+
+    /// <summary>
+    /// Translates a position on the grid into a real World Position.
+    /// </summary>
+    /// <param name="gridPosition">The XY position on the grid</param>
+    /// <returns>A Vector3 centered on the grid square in the World</returns>
+    public Vector3 GetWorldPosition(Vector2Int gridPosition) {
+        Transform ttransform = transform;
+        Vector3 localScale = ttransform.localScale;
+        Vector2 bottomLeft = ttransform.position - (localScale / 2f);
+        var singleSquare = new Vector2(localScale.x / width, localScale.y / height);
+        Vector2 worldPosition = bottomLeft + (singleSquare * gridPosition) + (singleSquare / 2f);
+        return worldPosition;
     }
 }

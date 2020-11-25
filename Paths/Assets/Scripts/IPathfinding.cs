@@ -13,7 +13,7 @@ public interface IPathfinding {
     /// <param name="end">The position trying to be found via pathfinding</param>
     /// <returns>A List of NodeGridGrid objects representing the timeline of Pathfinding</returns>
     Stack<Node> FindPath(Vector2Int start, Vector2Int end);
-
+    NodeGrid NodeGrid { get; }
     Vector2Int Start { get; }
     Vector2Int End { get; }
     ChangeController ChangeController { get; }

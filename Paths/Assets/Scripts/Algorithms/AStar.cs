@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Algorithms {
     public class AStar : IPathfinding {
-        private NodeGrid _nodeGrid;
+        public NodeGrid NodeGrid { get; private set; }
 
         private Stack<Node> _path;
         private List<Node> _openList;
@@ -14,7 +14,7 @@ namespace Algorithms {
         public Vector2Int End { get; private set; }
 
         public AStar(NodeGrid nodeGrid) {
-            this._nodeGrid = nodeGrid;
+            this.NodeGrid = nodeGrid;
             ChangeController = new ChangeController(nodeGrid.RenderNodeTypes());
         }
 
@@ -25,8 +25,8 @@ namespace Algorithms {
             ChangeController.AddChange(new Change(start.x, start.y, GridNodeType.Start, GridNodeType.Empty));
             ChangeController.AddChange(new Change(end.x, end.y, GridNodeType.End, GridNodeType.Empty));
 
-            Node startNode = _nodeGrid.Grid[start.x, start.y];
-            Node endNode = _nodeGrid.Grid[end.x, end.y];
+            Node startNode = NodeGrid.Grid[start.x, start.y];
+            Node endNode = NodeGrid.Grid[end.x, end.y];
 
             _path = new Stack<Node>();
             _openList = new List<Node>();
@@ -51,7 +51,7 @@ namespace Algorithms {
                 if (current.Position == endNode.Position)
                     break;
 
-                Node[] adjacentNodes = this._nodeGrid.GetAdjacentNodesArray(current);
+                Node[] adjacentNodes = this.NodeGrid.GetAdjacentNodesArray(current);
                 for (int i = 0; i < adjacentNodes.Length; i++) {
                     Node node = adjacentNodes[i];
                     if (node != null && node.State == NodeState.None && node.Walkable) {
@@ -91,5 +91,6 @@ namespace Algorithms {
 
             return _path;
         }
+
     }
 }

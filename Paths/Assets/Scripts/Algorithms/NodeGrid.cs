@@ -51,6 +51,14 @@ namespace Algorithms {
             return temp;
         }
 
+        public bool IsValid(Node node) {
+            return IsValid(node.Position);
+        }
+
+        public bool IsValid(Vector2Int position) {
+            return position.x >= 0 && position.y >= 0 && position.x < Width && position.y < Height;
+        }
+
         public Node[] GetAdjacentNodesArray(Node node) {
             int col = node.Position.x;
             int row = node.Position.y;

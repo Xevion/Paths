@@ -27,7 +27,6 @@ public class Manager : MonoBehaviour {
     public TextMeshPro debugText;
     public Slider progressSlider;
     private float? _moveTo;
-    private bool _allowPausing = true;
 
     private int CurrentIndex {
         get => (int) _runtime;
@@ -49,38 +48,27 @@ public class Manager : MonoBehaviour {
         _runtime = @new * _state.Count;
     }
 
-    Vector2 GetGridPosition(Vector3 worldPosition, Vector3 scale) {
-        Vector2 gridPosition = (worldPosition + (scale / 2f)) / new Vector2(scale.x, scale.y);
-        gridPosition = new Vector2Int(
-            (int) (gridPosition.x * gridController.width),
-            (int) (gridPosition.y * gridController.height));
-        return gridPosition;
-    }
-
-    Vector3 GetWorldPosition(Vector2 gridPosition, Vector3 scale) {
-        Vector2 bottomLeft = gridObject.transform.position - (scale / 2f);
-        Vector2 singleSquare = new Vector2(scale.x / gridController.width, scale.y / gridController.height);
-        Vector2 worldPosition = bottomLeft + (singleSquare * gridPosition) + (singleSquare / 2f);
-        return worldPosition;
-    }
     
+
     public void OnDrawGizmos() {
-        Vector3 mouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        var localScale = gridObject.transform.localScale;
-        Vector2 gridPosition = GetGridPosition(mouse, localScale);
+        if (!Application.isPlaying) return;
         
+        Vector3 mouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 localScale = gridObject.transform.localScale;
+        Vector2Int gridPosition = GetGridPosition(mouse, localScale);
+        Vector2Int realGridPosition = gridController.Size - gridPosition - Vector2Int.one;
+
         var style = new GUIStyle();
         style.normal.textColor = Color.blue;
         Gizmos.color = Color.blue;
 
-        var mouseWorldPosition = new Vector3(
-            (gridPosition.x / gridController.width * 10) - (localScale.x / 2f),
-            (gridPosition.y / gridController.height * 10) - (localScale.y / 2f),
-            mouse.z
-        );
-        // Gizmos.DrawCube(GetWorldPosition(gridPosition, localScale), Vector3.one / 5f);
-        Gizmos.DrawWireCube(GetWorldPosition(gridPosition, localScale), localScale / gridController.Size);
-        Handles.Label(mouse, $"({gridPosition.x} {gridPosition.y})\n{mouse.x:F} {mouse.y:F}", style);
+        Gizmos.DrawWireCube(GetWorldPosition(gridPosition, localScale), localScale / (Vector2) gridController.Size);
+        Handles.Label(mouse, String.Format("{0}{1}",
+            gridPosition,
+            _algorithm.NodeGrid.IsValid(gridPosition)
+                ? $"\n{_state.Current[realGridPosition.x, realGridPosition.y]}"
+                : ""
+        ), style);
     }
 
     /// <summary>
@@ -115,8 +103,13 @@ public class Manager : MonoBehaviour {
 
     public void Update() {
         // Toggle pause with space
-        if (_allowPausing && Input.GetKeyDown(KeyCode.Space)) {
+        if (Input.GetKeyDown(KeyCode.Space)) {
             moving = !moving;
+        }
+
+        if (Input.GetKeyDown(KeyCode.G)) {
+            GeneratePath();
+            return;
         }
 
         // Increment index if unpaused and not clicking (implying slider may be interacted with)
@@ -130,10 +123,6 @@ public class Manager : MonoBehaviour {
         // Load next state in grid or update text
         if (CurrentIndex < _state.Count)
             LoadNextState();
-        else {
-            // No new states to load, generate new grid
-            GeneratePath();
-        }
 
         // Update progress slider silently
         progressSlider.SetValueWithoutNotify(_runtime / _state.Count);
@@ -146,8 +135,8 @@ public class Manager : MonoBehaviour {
         CurrentIndex = 0;
         var nodeGrid = new NodeGrid(gridController.width, gridController.height);
 
-        Vector2Int start = nodeGrid.RandomPosition();
-        // Vector2Int start = new Vector2Int(30, 30);
+        // Vector2Int start = nodeGrid.RandomPosition();
+        Vector2Int start = new Vector2Int(3, 6);
         Vector2Int end = nodeGrid.RandomPosition();
 
         nodeGrid.ApplyGenerator(new RandomPlacement(0.3f, true, true));
@@ -164,7 +153,7 @@ public class Manager : MonoBehaviour {
     /// Loads the appropriate grid state into the shader via the ChangeController instance.
     /// </summary>
     private void LoadNextState() {
-        _state.MoveTo(CurrentIndex);
+        _state.MoveTo(Math.Max(1, CurrentIndex)); // use Math.max to ensure both start/end nodes are always rendered
         gridController.LoadDirtyGridState(_state.Current, _state.DirtyFlags);
 
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
