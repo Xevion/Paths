@@ -41,10 +41,47 @@ public class Manager : MonoBehaviour {
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
     }
 
-    // public void OnDrawGizmos() {
-    // float size = (float) (10.0 / gridController.size);
-    // Gizmos.DrawWireCube(transform.position, new Vector3(size, size, size));
-    // }
+    /// <summary>
+    /// Update the animation progress to the slider's (new) position.
+    /// </summary>
+    /// <param name="new">The new position on the slider.</param>
+    private void MoveToSlider(float @new) {
+        _runtime = @new * _state.Count;
+    }
+
+    Vector2 GetGridPosition(Vector3 worldPosition, Vector3 scale) {
+        Vector2 gridPosition = (worldPosition + (scale / 2f)) / new Vector2(scale.x, scale.y);
+        gridPosition = new Vector2Int(
+            (int) (gridPosition.x * gridController.width),
+            (int) (gridPosition.y * gridController.height));
+        return gridPosition;
+    }
+
+    Vector3 GetWorldPosition(Vector2 gridPosition, Vector3 scale) {
+        Vector2 bottomLeft = gridObject.transform.position - (scale / 2f);
+        Vector2 singleSquare = new Vector2(scale.x / gridController.width, scale.y / gridController.height);
+        Vector2 worldPosition = bottomLeft + (singleSquare * gridPosition) + (singleSquare / 2f);
+        return worldPosition;
+    }
+    
+    public void OnDrawGizmos() {
+        Vector3 mouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        var localScale = gridObject.transform.localScale;
+        Vector2 gridPosition = GetGridPosition(mouse, localScale);
+        
+        var style = new GUIStyle();
+        style.normal.textColor = Color.blue;
+        Gizmos.color = Color.blue;
+
+        var mouseWorldPosition = new Vector3(
+            (gridPosition.x / gridController.width * 10) - (localScale.x / 2f),
+            (gridPosition.y / gridController.height * 10) - (localScale.y / 2f),
+            mouse.z
+        );
+        // Gizmos.DrawCube(GetWorldPosition(gridPosition, localScale), Vector3.one / 5f);
+        Gizmos.DrawWireCube(GetWorldPosition(gridPosition, localScale), localScale / gridController.Size);
+        Handles.Label(mouse, $"({gridPosition.x} {gridPosition.y})\n{mouse.x:F} {mouse.y:F}", style);
+    }
 
     /// <summary>
     /// Returns the current time multiplier, based on the latest change in the path.

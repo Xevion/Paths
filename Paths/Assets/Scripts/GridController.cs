@@ -25,6 +25,7 @@ public class GridController : MonoBehaviour {
     private static readonly int Values = Shader.PropertyToID("_values");
     private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
     private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
+    public Vector2 Size => new Vector2Int(width, height);
 
     private void Start() {
         _values = new int[width * height];
