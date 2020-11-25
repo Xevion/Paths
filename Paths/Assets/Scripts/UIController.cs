@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using Algorithms;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UI;
 
 
 /// <summary>
@@ -39,7 +39,9 @@ public class UIController : MonoBehaviour {
     // UI & important App references
     public CustomSlider progressSlider;
     public GridController gridController;
-    public Manager manager;
+    public Camera mainCamera;
+    public TextMeshPro debugText;
+    public GameObject gridObject;
 
     // Animation State, Click Management
     private Vector2Int _lastClickLocation;
@@ -72,13 +74,13 @@ public class UIController : MonoBehaviour {
         _end = _grid.RandomPosition();
         _runtime = 0;
 
-        manager.Resize();
+        Resize();
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
     }
 
     private void Update() {
         if (Input.GetMouseButton(0)) {
-            Vector3 worldMouse = manager.mainCamera.ScreenToWorldPoint(Input.mousePosition);
+            Vector3 worldMouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
             Vector2Int position = gridController.GetGridPosition(worldMouse);
 
             // Initial click, remember what they clicked
@@ -224,7 +226,7 @@ public class UIController : MonoBehaviour {
         gridController.LoadDirtyGridState(_state.Current, _state.DirtyFlags);
 
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
-        manager.debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +
+        debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +
                                  $"{CurrentIndex + 1:000} / {_state.Count:000}\n" +
                                  $"Path: {pathCount} tiles";
     }
@@ -262,8 +264,8 @@ public class UIController : MonoBehaviour {
     public void OnDrawGizmos() {
         if (!Application.isPlaying) return;
 
-        Vector3 mouse = manager.mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        Vector3 localScale = manager.gridObject.transform.localScale;
+        Vector3 mouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 localScale = gridObject.transform.localScale;
         Vector2Int gridPosition = gridController.GetGridPosition(mouse);
 
         var style = new GUIStyle();
@@ -286,5 +288,21 @@ public class UIController : MonoBehaviour {
     private void MoveToSlider(float @new) {
         if (_state != null)
             _runtime = @new * _state.Count;
+    }
+    
+    /// <summary>
+    /// Scales the GridController GameObject to fit within the Camera
+    /// </summary>
+    public void Resize() {
+        float ratioImage = (float) gridController.width / gridController.height;
+        float ratioScreen = mainCamera.aspect;
+
+        var orthographicSize = mainCamera.orthographicSize;
+        var image = new Vector2(gridController.width, gridController.height);
+        var screen = new Vector2(2 * orthographicSize * mainCamera.aspect, orthographicSize * 2);
+
+        gridObject.transform.localScale = ratioScreen > ratioImage
+            ? new Vector3(image.x * screen.y / image.y, screen.y, 0.001f)
+            : new Vector3(screen.x, image.y * screen.x / image.x, 0.001f);
     }
 }

@@ -2,7 +2,7 @@
 using UnityEngine.UI;
 
 public class CustomSlider: Slider {
-    public bool IsPressed { get; private set; }
+    public new bool IsPressed { get; private set; }
     
     public override void OnPointerDown(PointerEventData eventData)
     {

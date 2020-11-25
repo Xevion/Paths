@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Algorithms {
@@ -15,7 +14,7 @@ namespace Algorithms {
         public Vector2Int End { get; private set; }
 
         public AStar(NodeGrid nodeGrid) {
-            this.NodeGrid = nodeGrid;
+            NodeGrid = nodeGrid;
             ChangeController = new ChangeController(nodeGrid.RenderNodeTypes());
         }
 
@@ -78,7 +77,7 @@ namespace Algorithms {
                 return null;
             }
 
-            // Fix start position being overriden
+            // Fix start and end position being overriden
             ChangeController.RemovePositions(start, 1);
 
             // if all good, return path
@@ -86,7 +85,8 @@ namespace Algorithms {
             if (temp == null) return null;
             do {
                 _path.Push(temp);
-                ChangeController.AddChange(new Change(temp.Position.x, temp.Position.y, GridNodeType.Path, GridNodeType.Expanded));
+                ChangeController.AddChange(new Change(temp.Position.x, temp.Position.y, GridNodeType.Path,
+                    GridNodeType.Expanded));
                 temp = temp.Parent;
             } while (temp != null && !temp.Equals(startNode));
 
@@ -100,14 +100,14 @@ namespace Algorithms {
             while (_openList.Count > 0) {
                 Node node = _openList[0];
                 _openList.RemoveAt(0);
-                
+
                 node.Reset();
             }
-            
+
             while (_closedList.Count > 0) {
                 Node node = _closedList[0];
                 _closedList.RemoveAt(0);
-                
+
                 node.Reset();
             }
         }

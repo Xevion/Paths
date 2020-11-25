@@ -141,9 +141,9 @@ public class GridController : MonoBehaviour {
     public Vector2Int GetGridPosition(Vector3 worldPosition) {
         Vector3 localScale = transform.localScale;
         Vector2 gridPosition = (worldPosition + (localScale / 2f)) / new Vector2(localScale.x, localScale.y);
-        return new Vector2Int(
+        return Size - new Vector2Int(
             (int) (gridPosition.x * width),
-            (int) (gridPosition.y * height)) - Size - Vector2Int.one;
+            (int) (gridPosition.y * height)) - Vector2Int.one;
     }
 
     /// <summary>
@@ -154,9 +154,9 @@ public class GridController : MonoBehaviour {
     public Vector3 GetWorldPosition(Vector2Int gridPosition) {
         Transform ttransform = transform;
         Vector3 localScale = ttransform.localScale;
-        Vector2 bottomLeft = ttransform.position - (localScale / 2f);
+        Vector2 topRight = ttransform.position + (localScale / 2f);
         var singleSquare = new Vector2(localScale.x / width, localScale.y / height);
-        Vector2 worldPosition = bottomLeft + (singleSquare * gridPosition) + (singleSquare / 2f);
+        Vector2 worldPosition = topRight - (singleSquare * (gridPosition + Vector2Int.one)) + (singleSquare / 2f);
         return worldPosition;
     }
 }

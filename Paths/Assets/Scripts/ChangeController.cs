@@ -64,7 +64,7 @@ public class ChangeController {
 
 
     /// <summary>
-    /// Move the ChangeController's current index forward by index.
+    /// Move the ChangeController's current index forward by a certain number of times.
     /// Positive values only, wil only result in forward movement (if any).
     /// </summary>
     /// <param name="n">The number of times to move forward.</param>
@@ -80,7 +80,7 @@ public class ChangeController {
     }
 
     /// <summary>
-    /// Move the ChangeController's current index backward by index.
+    /// Move the ChangeController's current index backward by a certain number of times.
     /// Positive values only, will only result in backward movement (if any).
     /// </summary>
     /// <param name="n">The number of times to move backward.</param>

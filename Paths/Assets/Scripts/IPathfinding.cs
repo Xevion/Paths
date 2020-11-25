@@ -17,4 +17,5 @@ public interface IPathfinding {
     Vector2Int Start { get; }
     Vector2Int End { get; }
     ChangeController ChangeController { get; }
+    void Cleanup();
 }
