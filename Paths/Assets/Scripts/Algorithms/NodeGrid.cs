@@ -37,8 +37,15 @@ namespace Algorithms {
             Width = this.Grid.GetLength(1);
         }
 
+        /// <summary>
+        /// Returns adjacent Node objects in each of the cardinal directions.
+        /// Only valid nodes will be included. Invalid positions will return 0 nodes.
+        /// </summary>
+        /// <param name="node">The node from which adjacents will be found.</param>
+        /// <returns>A length 4 or less list containing nodes.</returns>
+        /// <seealso cref="GetAdjacentNodesArray"/>
         public List<Node> GetAdjacentNodesList(Node node) {
-            List<Node> temp = new List<Node>();
+            List<Node> temp = new List<Node>(4);
 
             int col = node.Position.x;
             int row = node.Position.y;
@@ -51,11 +58,29 @@ namespace Algorithms {
             return temp;
         }
 
+        /// <summary>
+        /// Returns True if a Vector2Int position is within the grid's boundaries.
+        /// </summary>
+        /// <param name="position">A Vector2Int coordinate position.</param>
+        /// <returns>True if valid and real (a node with the same position exists).</returns>
+        public bool IsValid(Vector2Int position) {
+            return position.x >= 0 && position.y >= 0 && position.x < Width && position.y < Height;
+        }
+
+        /// <summary>
+        /// Returns a 1D Array describing the valid nearby nodes.
+        /// Invalid nodes will be represented by null.
+        /// Currently only returns nodes in cardinal directions (no diagonals).
+        /// Only valid positions within the grid are returned.
+        /// </summary>
+        /// <param name="node">A valid position on the grid.</param>
+        /// <returns>A 4 length array containing valid nodes in each of the cardinal directions.</returns>
+        /// <seealso cref="GetAdjacentNodesList"/>
         public Node[] GetAdjacentNodesArray(Node node) {
             int col = node.Position.x;
             int row = node.Position.y;
 
-            return new [] {
+            return new[] {
                 row + 1 < Height ? Grid[col, row + 1] : null,
                 row - 1 >= 0 ? Grid[col, row - 1] : null,
                 col - 1 >= 0 ? Grid[col - 1, row] : null,
@@ -139,7 +164,7 @@ namespace Algorithms {
                 }
         }
 
-        public GridNodeType[,] RenderNodeTypes() {
+        public GridNodeType[,] RenderNodeTypes(Vector2Int? start = null, Vector2Int? end = null) {
             GridNodeType[,] nodeTypeGrid = new GridNodeType[Grid.GetLength(0), Grid.GetLength(1)];
 
             for (int x = 0; x < Grid.GetLength(0); x++) {
@@ -147,6 +172,13 @@ namespace Algorithms {
                     nodeTypeGrid[x, y] = Grid[x, y].Walkable ? GridNodeType.Empty : GridNodeType.Wall;
                 }
             }
+
+            // Start / End node addition
+            if (start.HasValue)
+                nodeTypeGrid[start.Value.x, start.Value.y] = GridNodeType.Start;
+
+            if (end.HasValue)
+                nodeTypeGrid[end.Value.x, end.Value.y] = GridNodeType.End;
 
             return nodeTypeGrid;
         }

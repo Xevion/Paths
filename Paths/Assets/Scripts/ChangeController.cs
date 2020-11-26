@@ -9,16 +9,16 @@ public class ChangeController {
     private readonly GridNodeType[,] _initial;
     public GridNodeType[,] Current { get; private set; }
     public bool[,] DirtyFlags { get; private set; }
-    public int Index { get; private set; }
+    public int CurrentChangeIndex { get; private set; }
     private readonly List<Change> _changes;
     public int Count => _changes.Count;
-    public Change CurrentChange => _changes[Index];
-    public double CurrentRuntime => _changes[Index].Time - _changes[0].Time;
+    public Change CurrentChange => _changes[CurrentChangeIndex];
+    public double CurrentRuntime => _changes[CurrentChangeIndex].Time - _changes[0].Time;
 
     public ChangeController(GridNodeType[,] initial) {
         _initial = initial;
         Current = initial;
-        Index = -1;
+        CurrentChangeIndex = -1;
         _changes = new List<Change>();
         DirtyFlags = new bool[initial.GetLength(0), initial.GetLength(1)];
         SetDirty();
@@ -64,7 +64,7 @@ public class ChangeController {
 
 
     /// <summary>
-    /// Move the ChangeController's current index forward by index.
+    /// Move the ChangeController's current index forward by a certain number of times.
     /// Positive values only, wil only result in forward movement (if any).
     /// </summary>
     /// <param name="n">The number of times to move forward.</param>
@@ -73,14 +73,14 @@ public class ChangeController {
             throw new ArgumentOutOfRangeException(nameof(n));
 
         for (int i = 0; i < n; i++) {
-            Change cur = _changes[++Index];
+            Change cur = _changes[++CurrentChangeIndex];
             Current[cur.X, cur.Y] = cur.New;
             SetDirty(new Vector2Int(cur.X, cur.Y));
         }
     }
 
     /// <summary>
-    /// Move the ChangeController's current index backward by index.
+    /// Move the ChangeController's current index backward by a certain number of times.
     /// Positive values only, will only result in backward movement (if any).
     /// </summary>
     /// <param name="n">The number of times to move backward.</param>
@@ -88,11 +88,11 @@ public class ChangeController {
         if (n < 0)
             throw new ArgumentOutOfRangeException(nameof(n));
 
-        if (n > 5 && Index - n == 0)
+        if (n > 5 && CurrentChangeIndex - n == 0)
             Reset(); // resetting by copying values instead of mutating might be easier.
         else {
             for (int i = 0; i < n; i++) {
-                Change cur = _changes[--Index];
+                Change cur = _changes[CurrentChangeIndex--]; // post decrement as we apply the current Change's old, not the previous
                 Current[cur.X, cur.Y] = cur.Old;
                 SetDirty(new Vector2Int(cur.X, cur.Y));
             }
@@ -124,7 +124,7 @@ public class ChangeController {
                 $"Cannot move to change index {index}. Only indexes from 0 to {_changes.Count - 1} are valid.");
 
         // diff & move to
-        int diff = index - Index;
+        int diff = index - CurrentChangeIndex;
         if (diff != 0)
             // prefer resetting if index is 0 and it needs to move at least some.
             if (index == 0 && diff > 5)
