@@ -82,8 +82,7 @@ namespace Algorithms {
                 return null;
             }
 
-            // Fix start and end position being overriden
-            ChangeController.RemovePositions(start, 1);
+
 
             // if all good, return path
             Node temp = _closedList[_closedList.IndexOf(current)];
@@ -95,6 +94,12 @@ namespace Algorithms {
                 temp = temp.Parent;
             } while (temp != null && !temp.Equals(startNode));
 
+            // Fix start and end position being overriden
+            // TODO: Look into using a proper fix for this instead of a 'patch'.
+            ChangeController.RemovePositions(start, 1);
+            ChangeController.RemovePositions(end, 3);
+
+            
             return _path;
         }
 

@@ -50,7 +50,7 @@ public class UIController : MonoBehaviour {
     private AnimationState _previousAnimationState;
 
     private bool EditShouldReload =>
-        _animationState == AnimationState.Started || _animationState == AnimationState.Paused;
+        _animationState == AnimationState.Started;
 
     // Grid State & Pathfinding
     private NodeGrid _grid;
@@ -95,7 +95,9 @@ public class UIController : MonoBehaviour {
                     Node node = _grid.GetNode(position);
                     _modify = node.Walkable ? ClickType.Add : ClickType.Remove;
                     node.Walkable = !node.Walkable;
-                    if (EditShouldReload)
+                    if (_animationState == AnimationState.Paused)
+                        _animationState = AnimationState.Stopped;
+                    else if (_animationState == AnimationState.Started)
                         _animationState = AnimationState.Reloading;
                 }
 
@@ -230,7 +232,7 @@ public class UIController : MonoBehaviour {
 
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
         debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +
-                                 $"{CurrentIndex + 1:000} / {_state.Count:000}\n" +
+                                 $"{CurrentIndex:000} / {_state.Count:000}\n" +
                                  $"Path: {pathCount} tiles";
     }
 
