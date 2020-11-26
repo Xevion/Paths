@@ -1,4 +1,8 @@
-﻿public readonly struct Change {
+﻿/// <summary>
+/// A Change struct represents a Change in the grid's rendering.
+/// This struct remembers the original and new GridNodeType, the time it was recorded and of course the relevant position.
+/// </summary>
+public readonly struct Change {
     public readonly int X;
     public readonly int Y;
     public readonly GridNodeType New;

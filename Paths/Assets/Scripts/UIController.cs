@@ -156,6 +156,7 @@ public class UIController : MonoBehaviour {
                     _animationState = AnimationState.Started;
                     break;
                 case AnimationState.Started:
+                    // Restart if already on final frame, else simply pause
                     if (CurrentIndex >= _state.Count)
                         _runtime = 0;
                     else
@@ -170,6 +171,7 @@ public class UIController : MonoBehaviour {
 
         switch (_animationState) {
             case AnimationState.Reloading:
+                // Reloading seizes while the mouse button is depressed
                 if (!Input.GetMouseButton(0)) {
                     GeneratePath();
                     LoadNextState();
@@ -195,6 +197,7 @@ public class UIController : MonoBehaviour {
                     LoadNextState();
                 break;
             case AnimationState.Stopped:
+                // Render editable grid when fully stopped
                 gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
                 break;
             case AnimationState.Paused:
@@ -236,7 +239,7 @@ public class UIController : MonoBehaviour {
     /// </summary>
     /// <returns>A positive non-zero float representing how fast the current frame should be processed.</returns>
     private float CurrentMultiplier() {
-        if (_state.Index == -1)
+        if (_state.CurrentChangeIndex == -1)
             return 1;
 
         switch (_state.CurrentChange.New) {

@@ -29,6 +29,7 @@ public class GridController : MonoBehaviour {
 
     private void Start() {
         _values = new int[width * height];
+        // TODO: Decide at some point how to improve how the ComputerBuffer's size is allocated.
         _buffer = new ComputeBuffer((int) Mathf.Pow(2048, 2), 4);
 
         // Update all Shader properties
