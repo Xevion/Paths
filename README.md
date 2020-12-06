@@ -25,12 +25,13 @@ If it interests you, you can see [here](./CYCLE.md) a link to my development cyc
     - Bellman-Ford
     - D* or D*-Lite
 - Configuration Options
-    - Heuristic Calculations
-    - Informed Search Options
+    - Search Options
         - Uninformed
         - Informed
-            - Manhattan
-            - Euclidean
+            - Heuristic Calculations
+                -Distance
+                    - Manhattan
+                    - Euclidean
 - Application Elements
     - UI Toolbar / Tool Selection
     - Algorithm Configuration Area
