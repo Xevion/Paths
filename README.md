@@ -1,5 +1,5 @@
 <div align="center">
-    <a href=""><img src="./.media/banner.svg" alt="Paths"></a>
+    <a href=""><img src="./.media/banner.png" alt="Paths"></a>
     <br>
     <sub>
         Built with ❤︎ by <a href="https://github.com/Xevion/">Xevion</a>
