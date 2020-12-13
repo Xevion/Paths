@@ -1,4 +1,10 @@
-# Paths
+<div align="center">
+    <a href=""><img src="./.media/banner.svg" alt="Paths"></a>
+    <br>
+    <sub>
+        Built with ❤︎ by <a href="https://github.com/Xevion/">Xevion</a>
+    </sub>
+</div>
 
 Paths is a Unity-based application dedicated to showing off a array of different pathfinding algorithms in a variety of different environments and configurations.
 
@@ -7,10 +13,6 @@ Paths is a Unity-based application dedicated to showing off a array of different
 While Paths is intended to be a fully functional project ready for anyone, it is also a project of personal interest and a resume item.
 
 If it interests you, you can see [here](./CYCLE.md) a link to my development cycle in the form of documented screenshots as I went from nothing to something. I attempted to add descriptions showing off precisely what I did.
-
-## Algorithms
-
-- A*
 
 ## To-do
 
