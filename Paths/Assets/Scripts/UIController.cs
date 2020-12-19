@@ -278,12 +278,14 @@ public class UIController : MonoBehaviour {
         Gizmos.color = Color.blue;
 
         Gizmos.DrawWireCube(gridController.GetWorldPosition(gridPosition), localScale / (Vector2) gridController.Size);
+        #if UNITY_EDITOR
         Handles.Label(mouse, String.Format("{0}{1}",
             gridPosition,
             _algorithm != null && _algorithm.NodeGrid.IsValid(gridPosition)
                 ? $"\n{_state.Current[gridPosition.x, gridPosition.y]}"
                 : ""
         ), style);
+        #endif
     }
 
     /// <summary>

@@ -5,8 +5,14 @@ Shader "PDT Shaders/TestGrid"
     Properties
     {
         _LineColor ("Line Color", Color) = (1,1,1,1)
-        _InactiveColor ("Inactive Color", Color) = (0,0,0,0)
-        _ActiveColor ("Active Color", Color) = (1,0,0,1)
+        _EmptyColor ("Empty Cell Color", Color) = (0,0,0,1)
+        _WallColor ("Wall Cell Color", Color) = (0.02, 0.02, 0.02, 1)
+        _StartColor ("Start Cell Color", Color) = (0, 1, 0, 1)
+        _EndColor ("End Cell Color", Color) = (1,0,0,1)
+        _SeenColor ("Seen Cell Color", Color) = (0.99, 0.93, 0.01, 1)
+        _ExpandedColor ("Expanded Cell Color", Color) = (0.89, 0.25, 0.04, 1)
+        _PathColor ("Path Cell Color", Color) = (0.65, 0.01, 0.2, 1)
+        
         [PerRendererData] _MainTex ("Albedo (RGB)", 2D) = "white" {}
         [IntRange] _GridSize("Grid Size", Range(1,100)) = 10
         _LineSize("Line Size", Range(0,1)) = 0.15
@@ -36,17 +42,22 @@ Shader "PDT Shaders/TestGrid"
         half _Metallic = 0.0;
 
         float4 _LineColor;
-        float4 _InactiveColor;
-        float4 _ActiveColor;
+        float4 _EmptyColor;
+        float4 _WallColor;
+        float4 _StartColor;
+        float4 _EndColor;
+        float4 _SeenColor;
+        float4 _ExpandedColor;
+        float4 _PathColor;
 
         static const float4 _gridColors[7] = {
-            float4(255 / 255.0, 255 / 255.0, 255 / 255.0, 1.0), // Empty
-            float4(5 / 255.0, 5 / 255.0, 5 / 255.0, 1.0), // Wall
-            float4(0 / 255.0, 255 / 255.0, 0 / 255.0, 1.0), // Start
-            float4(255 / 255.0, 0 / 255.0, 0 / 255.0, 1.0), // End
-            float4(252 / 255.0, 236 / 255.0, 3 / 255.0, 1.0), // Seen
-            float4(227 / 255.0, 65 / 255.0, 11 / 255.0, 1.0), // Expanded
-            float4(166 / 255.0, 2 / 255.0, 51 / 255.0, 1.0) // Path
+            _EmptyColor,
+            _WallColor,
+            _StartColor,
+            _EndColor,
+            _SeenColor,
+            _ExpandedColor,
+            _PathColor
         };
 
         float _GridWidth;
@@ -83,8 +94,8 @@ Shader "PDT Shaders/TestGrid"
                 floor(uv.x / (1.0 / gsize_width)), floor(uv.y / (1.0 / gsize_height))
             );
 
-            float4 color = _InactiveColor;
-            float brightness = _InactiveColor.w;
+            float4 color = _EmptyColor;
+            float brightness = _EmptyColor.w;
 
             // Line Color Check
             if (_LineSize > 0.0 && (frac(uv.x * gsize_width) <= _LineSize || frac(uv.y * gsize_height) <= _LineSize))
