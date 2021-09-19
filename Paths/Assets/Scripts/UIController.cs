@@ -213,7 +213,6 @@ public class UIController : MonoBehaviour {
         }
 
         if (_animationState != _previousAnimationState) {
-            Debug.Log($"Animation State {_previousAnimationState} -> {_animationState}");
             _previousAnimationState = _animationState;
         }
     }
