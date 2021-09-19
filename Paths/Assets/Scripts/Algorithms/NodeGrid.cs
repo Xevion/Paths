@@ -157,10 +157,10 @@ namespace Algorithms {
             return position.x == 0 || position.x == Width - 1 || position.y == 0 || position.y == Height - 1;
         }
 
-        public void ClearRoom(Rect room) {
-            for (float x = room.xMin; x < room.xMax; x++)
-                for (float y = room.yMin; y < room.yMax; y++) {
-                    Grid[(int) x, (int) y].Walkable = true;
+        public void ClearRoom(RectInt room) {
+            for (int x = room.xMin; x < room.xMax; x++)
+                for (int y = room.yMin; y < room.yMax; y++) {
+                    Grid[x, y].Walkable = true;
                 }
         }
 

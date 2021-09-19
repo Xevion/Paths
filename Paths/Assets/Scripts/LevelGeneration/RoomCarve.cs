@@ -21,10 +21,8 @@ namespace LevelGeneration {
             int roomCount = Random.Range(_roomRange.x, _roomRange.y);
             int attempts = 0;
 
-            // TODO: Update to latest Unity 2020 update to gain access to RectInt.Overlaps (?)
-
             // Generate rooms
-            List<Rect> rooms = new List<Rect>();
+            List<RectInt> rooms = new List<RectInt>();
             do {
                 // Quit after too many attempts failed
                 if (attempts > _maxAttempts)
@@ -39,7 +37,7 @@ namespace LevelGeneration {
                     Math.Min(Random.Range(_roomSizeRange.x, _roomSizeRange.y), nodeGrid.Width - pos.x),
                     Math.Min(Random.Range(_roomSizeRange.x, _roomSizeRange.y), nodeGrid.Height - pos.y)
                 );
-                var newRoom = new Rect(pos, size);
+                var newRoom = new RectInt(pos, size);
 
                 // Check that it doesn't overlap with any of the previous rooms
                 bool skip = rooms.Any(room => room.Overlaps(newRoom));
@@ -52,7 +50,7 @@ namespace LevelGeneration {
             } while (rooms.Count < roomCount);
 
             // Set all nodes within rooms
-            foreach (Rect rect in rooms)
+            foreach (RectInt rect in rooms)
                 nodeGrid.ClearRoom(rect);
             
             return nodeGrid;
