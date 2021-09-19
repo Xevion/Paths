@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using Algorithms;
 using TMPro;
-using UnityEditor;
+#if UNITY_EDITOR
+using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds otherwise
+#endif
 using UnityEngine;
 
 
