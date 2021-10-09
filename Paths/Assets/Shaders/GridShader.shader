@@ -64,8 +64,11 @@ Shader "PDT Shaders/TestGrid"
         float _GridHeight;
         float _LineSize;
 
-        // DX11 needed to run shader at high grid sizes
-        #ifdef SHADER_API_D3D11
+        // StructuredBuffer is what GridController actually binds (SetBuffer), so use it on
+        // every SM5 target that supports it - not just DX11, or the grid is blank on GL/Vulkan.
+        // The float[] is a last-ditch fallback for GLES/WebGL (and blows the constant limit, so
+        // it doesn't really link there anyway - that path gets replaced later).
+        #if defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12) || defined(SHADER_API_GLCORE) || defined(SHADER_API_VULKAN) || defined(SHADER_API_METAL)
         StructuredBuffer<int> _values;
         #else
 		float _values[1024];
