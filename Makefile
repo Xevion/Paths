@@ -11,8 +11,9 @@ STAMP := Build/.built
 # machine-local overrides (the UNITY path, mostly)
 -include local.mk
 
-# rebuild the player only when something actually changed
-SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \))
+# rebuild the player only when something actually changed. skip TextMesh Pro - it's
+# vendored, never changes, and the space in the path trips up make's prereq parsing.
+SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \) -not -path '*/TextMesh Pro/*')
 
 .PHONY: demo build run compile test open clean
 
