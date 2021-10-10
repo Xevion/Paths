@@ -18,6 +18,14 @@ namespace Editor {
             // repo-root/Build/Linux/Paths -- dataPath is <project>/Assets, so up two.
             string output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Build/Linux/Paths"));
 
+            // launch windowed by default - fullscreen-on-launch is annoying for a demo you just
+            // want to poke at, and the -screen-fullscreen 0 CLI flag never stuck reliably.
+            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            PlayerSettings.defaultIsNativeResolution = false;
+            PlayerSettings.defaultScreenWidth = 1280;
+            PlayerSettings.defaultScreenHeight = 800;
+            PlayerSettings.resizableWindow = true;
+
             var options = new BuildPlayerOptions {
                 scenes = Scenes,
                 locationPathName = output,

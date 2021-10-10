@@ -24,13 +24,17 @@ endif
 # vendored, never changes, and the space in the path trips up make's prereq parsing.
 SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \) -not -path '*/TextMesh Pro/*')
 
-.PHONY: demo build run compile test open clean
+.PHONY: demo build run play compile test open clean
 
 # build if stale, then run the demo
 demo: $(STAMP)
 	./$(PLAYER)
 
 build: $(STAMP)
+
+# like demo, but small window + player log to a file so I can watch what it's doing
+play: $(STAMP)
+	./$(PLAYER) -screen-fullscreen 0 -screen-width 1280 -screen-height 800 -logfile Build/player.log
 
 $(STAMP): $(SOURCES)
 	@mkdir -p Build
