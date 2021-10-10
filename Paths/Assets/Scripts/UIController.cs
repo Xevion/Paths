@@ -60,13 +60,11 @@ public class UIController : MonoBehaviour {
     private Vector2Int _end;
     private IPathfinding _algorithm;
     private Stack<Node> _path;
-    private ChangeController _state;
 
-    // Animation speed & indexing
+    // Playback (timeline scrubbing lives in Playback now)
     public float clampIncrement;
-    private float _runtime;
-    public int CurrentIndex => (int) Math.Ceiling(_runtime);
     public float speed;
+    private Playback _playback;
 
     private void Start() {
         _grid = new NodeGrid(gridController.width, gridController.height);
@@ -74,7 +72,7 @@ public class UIController : MonoBehaviour {
         _previousAnimationState = _animationState;
         _start = _grid.RandomPosition();
         _end = _grid.RandomPosition();
-        _runtime = 0;
+        _playback = new Playback(speed, clampIncrement);
 
         Resize();
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
@@ -161,8 +159,8 @@ public class UIController : MonoBehaviour {
                     break;
                 case AnimationState.Started:
                     // Restart if already on final frame, else simply pause
-                    if (CurrentIndex >= _state.Count)
-                        _runtime = 0;
+                    if (_playback.AtEnd)
+                        _playback.Rewind();
                     else
                         _animationState = AnimationState.Paused;
                     break;
@@ -184,20 +182,16 @@ public class UIController : MonoBehaviour {
                 else
                     gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
 
-                progressSlider.SetValueWithoutNotify(_runtime / _state.Count);
+                progressSlider.SetValueWithoutNotify(_playback.Fraction);
                 break;
             case AnimationState.Started:
                 // Calculate how much to move forward
-                if (!progressSlider.IsPressed) {
-                    var increment = Time.deltaTime * speed * CurrentMultiplier();
-                    if (clampIncrement > 0)
-                        increment = Mathf.Clamp(increment, 0, _state.Count * Time.deltaTime / clampIncrement);
-                    _runtime += increment;
-                }
+                if (!progressSlider.IsPressed)
+                    _playback.Advance(Time.deltaTime);
 
-                progressSlider.SetValueWithoutNotify(_runtime / _state.Count);
+                progressSlider.SetValueWithoutNotify(_playback.Fraction);
 
-                if (_runtime < _state.Count)
+                if (_playback.HasFramesLeft)
                     LoadNextState();
                 break;
             case AnimationState.Stopped:
@@ -205,7 +199,7 @@ public class UIController : MonoBehaviour {
                 gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
                 break;
             case AnimationState.Paused:
-                if (_runtime < _state.Count)
+                if (_playback.HasFramesLeft)
                     LoadNextState();
                 break;
             default:
@@ -220,51 +214,20 @@ public class UIController : MonoBehaviour {
     private void GeneratePath() {
         _algorithm?.Cleanup(); // cleanup algorithm's edits to node grid
 
-        _runtime = 0f;
         _algorithm = new AStar(_grid);
         _path = _algorithm.FindPath(_start, _end);
-        _state = _algorithm.ChangeController;
+        _playback.Load(_algorithm.ChangeController);
     }
 
     private void LoadNextState() {
-        // Move to the new calculated index
-        _state.MoveTo(Mathf.Clamp(CurrentIndex, 1, _state.Count - 1)); // use Math.max to ensure both start/end nodes are always rendered
-        gridController.LoadDirtyGridState(_state.Current, _state.DirtyFlags);
+        _playback.SyncState();
+        ChangeController state = _playback.State;
+        gridController.LoadDirtyGridState(state.Current, state.DirtyFlags);
 
         string pathCount = _path != null ? $"{_path.Count}" : "N/A";
-        debugText.text = $"{_state.CurrentRuntime * 1000.0:F1}ms\n" +
-                                 $"{CurrentIndex:000} / {_state.Count:000}\n" +
+        debugText.text = $"{state.CurrentRuntime * 1000.0:F1}ms\n" +
+                                 $"{_playback.CurrentIndex:000} / {_playback.Count:000}\n" +
                                  $"Path: {pathCount} tiles";
-    }
-
-    /// <summary>
-    /// Returns the current time multiplier, based on the latest change in the path.
-    /// </summary>
-    /// <returns>A positive non-zero float representing how fast the current frame should be processed.</returns>
-    private float CurrentMultiplier() {
-        if (_state.CurrentChangeIndex == -1)
-            return 1;
-
-        switch (_state.CurrentChange.New) {
-            case GridNodeType.Path:
-                return 1 / 5f;
-            case GridNodeType.Empty:
-                break;
-            case GridNodeType.Wall:
-                break;
-            case GridNodeType.Start:
-                break;
-            case GridNodeType.End:
-                break;
-            case GridNodeType.Seen:
-                break;
-            case GridNodeType.Expanded:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-
-        return 1;
     }
 
     public void OnDrawGizmos() {
@@ -283,7 +246,7 @@ public class UIController : MonoBehaviour {
         Handles.Label(mouse, String.Format("{0}{1}",
             gridPosition,
             _algorithm != null && _algorithm.NodeGrid.IsValid(gridPosition)
-                ? $"\n{_state.Current[gridPosition.x, gridPosition.y]}"
+                ? $"\n{_playback.State.Current[gridPosition.x, gridPosition.y]}"
                 : ""
         ), style);
         #endif
@@ -294,8 +257,7 @@ public class UIController : MonoBehaviour {
     /// </summary>
     /// <param name="new">The new position on the slider.</param>
     private void MoveToSlider(float @new) {
-        if (_state != null)
-            _runtime = @new * _state.Count;
+        _playback.SeekFraction(@new);
     }
     
     /// <summary>
