@@ -33,8 +33,9 @@ public enum AnimationState {
 }
 
 /// <summary>
-/// A expansive class that controls all UI interactions including grid modifications, slider movement, tool usage etc.
-/// All UI elements are referenced and controlled here.
+/// Ties the pieces together each frame: feeds input to the GridEditor, runs the play/pause state
+/// machine, and drives the PathSolver + Playback into the GridController for rendering. Still holds
+/// all the scene references. Used to do everything itself, slowly being broken apart.
 /// </summary>
 public class UIController : MonoBehaviour {
     // UI & important App references
@@ -44,17 +45,13 @@ public class UIController : MonoBehaviour {
     public TextMeshPro debugText;
     public GameObject gridObject;
 
-    // Animation State, Click Management
-    private Vector2Int _lastClickLocation;
-    private ClickType _modify;
+    // Animation State
     private AnimationState _animationState;
     private AnimationState _previousAnimationState;
 
-    private bool EditShouldReload =>
-        _animationState == AnimationState.Started;
-
     // Grid State & Pathfinding (the grid + start/end + algorithm live in PathSolver now)
     private PathSolver _solver;
+    private GridEditor _gridEditor;
 
     // Playback (timeline scrubbing lives in Playback now)
     public float clampIncrement;
@@ -63,6 +60,7 @@ public class UIController : MonoBehaviour {
 
     private void Start() {
         _solver = new PathSolver(gridController.width, gridController.height);
+        _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
         _playback = new Playback(speed, clampIncrement);
@@ -72,74 +70,7 @@ public class UIController : MonoBehaviour {
     }
 
     private void Update() {
-        if (Input.GetMouseButton(0)) {
-            Vector3 worldMouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-            Vector2Int position = gridController.GetGridPosition(worldMouse);
-
-            // Initial click, remember what they clicked
-            if (Input.GetMouseButtonDown(0)) {
-                if (progressSlider.IsPressed)
-                    _modify = ClickType.ProgressBar;
-                else if (position == _solver.Start)
-                    _modify = ClickType.Start;
-                else if (position == _solver.End)
-                    _modify = ClickType.End;
-                else {
-                    Node node = _solver.GetNode(position);
-                    _modify = node.Walkable ? ClickType.Add : ClickType.Remove;
-                    node.Walkable = !node.Walkable;
-                    if (_animationState == AnimationState.Paused)
-                        _animationState = AnimationState.Stopped;
-                    else if (_animationState == AnimationState.Started)
-                        _animationState = AnimationState.Reloading;
-                }
-
-                _lastClickLocation = position;
-            }
-            else {
-                // If still holding down the button & the latest movement is over a new grid
-                if (_lastClickLocation != position) {
-                    _lastClickLocation = position;
-                    if (_solver.IsValid(position)) {
-                        Node node = _solver.GetNode(position);
-                        switch (_modify) {
-                            // regular clicking toggles walls
-                            // Note: Wall toggling instantly reloads, but only real start/end node movement reloads.
-                            case ClickType.Add:
-                                node.Walkable = false;
-                                if (EditShouldReload)
-                                    _animationState = AnimationState.Reloading;
-                                break;
-                            case ClickType.Remove:
-                                node.Walkable = true;
-                                if (EditShouldReload)
-                                    _animationState = AnimationState.Reloading;
-                                break;
-                            case ClickType.Start:
-                                if (node.Walkable) {
-                                    _solver.Start = position;
-                                    if (EditShouldReload)
-                                        _animationState = AnimationState.Reloading;
-                                }
-
-                                break;
-                            case ClickType.End:
-                                if (node.Walkable) {
-                                    _solver.End = position;
-                                    if (EditShouldReload)
-                                        _animationState = AnimationState.Reloading;
-                                }
-
-                                break;
-                            case ClickType.ProgressBar:
-                                break;
-                            default:
-                                throw new ArgumentOutOfRangeException();
-                        }
-                    }
-                }
-            }
-        }
+        _animationState = _gridEditor.Process(_animationState);
 
         // Handle user start/stopping
         if (Input.GetKeyDown(KeyCode.Space)) {
