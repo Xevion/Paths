@@ -17,7 +17,10 @@ public class Playback {
     public float Runtime => _runtime;
     public int CurrentIndex => (int) Math.Ceiling(_runtime);
     public int Count => State?.Count ?? 0;
-    public float Fraction => Count > 0 ? _runtime / Count : 0f;
+    // clamp01 so a playhead pinned past a now-shorter run doesn't shove the slider off the end
+    public float Fraction => Count > 0 ? Mathf.Clamp01(_runtime / Count) : 0f;
+    // what we actually show - the pin can sit past a shortened run, so cap it at the end
+    public int DisplayIndex => Math.Min(CurrentIndex, Count);
 
     // true once the playhead has reached (or passed) the final recorded step
     public bool AtEnd => CurrentIndex >= Count;
@@ -29,10 +32,15 @@ public class Playback {
         _clampIncrement = clampIncrement;
     }
 
-    /// <summary>Attach a freshly generated run of changes and rewind to the start.</summary>
+    /// <summary>
+    /// Attach a freshly generated run of changes. We deliberately KEEP the current playhead (the
+    /// "pin") instead of rewinding - editing the grid recomputes the path but you stay parked at
+    /// whatever step you were watching. SyncState clamps the render when the new run is shorter.
+    /// TODO: optional "stick to end" mode - if you were pinned at the very end, follow the new end
+    /// instead of the absolute index. Wants a config toggle, not building that out properly yet.
+    /// </summary>
     public void Load(ChangeController state) {
         State = state;
-        _runtime = 0f;
     }
 
     public void Rewind() => _runtime = 0f;

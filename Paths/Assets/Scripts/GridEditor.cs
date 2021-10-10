@@ -46,9 +46,8 @@ public class GridEditor {
                 Node node = _solver.GetNode(position);
                 _modify = node.Walkable ? ClickType.Add : ClickType.Remove;
                 node.Walkable = !node.Walkable;
-                if (state == AnimationState.Paused)
-                    state = AnimationState.Stopped;
-                else if (state == AnimationState.Started)
+                // either way we recompute; staying parked at the same step is handled by UIController
+                if (state == AnimationState.Paused || state == AnimationState.Started)
                     state = AnimationState.Reloading;
             }
 
@@ -98,5 +97,7 @@ public class GridEditor {
         return state;
     }
 
-    private static bool ShouldReload(AnimationState state) => state == AnimationState.Started;
+    // recompute on a drag-edit whenever there's an active run to update (playing or parked)
+    private static bool ShouldReload(AnimationState state) =>
+        state == AnimationState.Started || state == AnimationState.Paused;
 }

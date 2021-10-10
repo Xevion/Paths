@@ -48,6 +48,8 @@ public class UIController : MonoBehaviour {
     // Animation State
     private AnimationState _animationState;
     private AnimationState _previousAnimationState;
+    // where to land after a Reloading recompute - keep playing if we were playing, stay parked if paused
+    private AnimationState _resumeState = AnimationState.Started;
 
     // Grid State & Pathfinding (the grid + start/end + algorithm live in PathSolver now)
     private PathSolver _solver;
@@ -70,13 +72,18 @@ public class UIController : MonoBehaviour {
     }
 
     private void Update() {
+        AnimationState before = _animationState;
         _animationState = _gridEditor.Process(_animationState);
+        // an edit just kicked us into Reloading - remember whether to resume playing or stay parked
+        if (_animationState == AnimationState.Reloading && before != AnimationState.Reloading)
+            _resumeState = before == AnimationState.Paused ? AnimationState.Paused : AnimationState.Started;
 
         // Handle user start/stopping
         if (Input.GetKeyDown(KeyCode.Space)) {
             switch (_animationState) {
                 case AnimationState.Stopped:
                     _animationState = AnimationState.Reloading;
+                    _resumeState = AnimationState.Started; // first run just plays from the start
                     break;
                 case AnimationState.Paused:
                     _animationState = AnimationState.Started;
@@ -101,7 +108,7 @@ public class UIController : MonoBehaviour {
                 if (!Input.GetMouseButton(0)) {
                     GeneratePath();
                     LoadNextState();
-                    _animationState = AnimationState.Started;
+                    _animationState = _resumeState; // back to playing or parked, whichever we were
                 }
                 else
                     gridController.LoadGridState(_solver.RenderEditable());
@@ -146,7 +153,7 @@ public class UIController : MonoBehaviour {
 
         string pathCount = _solver.Path != null ? $"{_solver.Path.Count}" : "N/A";
         debugText.text = $"{state.CurrentRuntime * 1000.0:F1}ms\n" +
-                                 $"{_playback.CurrentIndex:000} / {_playback.Count:000}\n" +
+                                 $"{_playback.DisplayIndex:000} / {_playback.Count:000}\n" +
                                  $"Path: {pathCount} tiles";
     }
 
