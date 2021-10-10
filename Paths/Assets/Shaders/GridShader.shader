@@ -16,6 +16,7 @@ Shader "PDT Shaders/TestGrid"
         [PerRendererData] _MainTex ("Albedo (RGB)", 2D) = "white" {}
         [IntRange] _GridSize("Grid Size", Range(1,100)) = 10
         _LineSize("Line Size", Range(0,1)) = 0.15
+        _Fade("Search Fade", Range(0,1)) = 0.7
     }
     SubShader
     {
@@ -63,6 +64,7 @@ Shader "PDT Shaders/TestGrid"
         float _GridWidth;
         float _GridHeight;
         float _LineSize;
+        float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
 
         // StructuredBuffer is what GridController actually binds (SetBuffer), so use it on
         // every SM5 target that supports it - not just DX11, or the grid is blank on GL/Vulkan.
@@ -99,6 +101,8 @@ Shader "PDT Shaders/TestGrid"
 
             float4 color = _EmptyColor;
             float brightness = _EmptyColor.w;
+            // only the search layer (seen/expanded/path) dims - walls/start/end/lines stay solid
+            float cellFade = 1.0;
 
             // Line Color Check
             if (_LineSize > 0.0 && (frac(uv.x * gsize_width) <= _LineSize || frac(uv.y * gsize_height) <= _LineSize))
@@ -116,6 +120,9 @@ Shader "PDT Shaders/TestGrid"
                     color = _gridColors[index];
                     // color = lerp(_InactiveColor, _ActiveColor, _values[pos]);
                     brightness = color.w;
+                    // indices 4/5/6 are Seen/Expanded/Path - the only cells we fade
+                    if (index >= 3.5)
+                        cellFade = _Fade;
                 }
             }
 
@@ -123,7 +130,7 @@ Shader "PDT Shaders/TestGrid"
             if (brightness == 0.0)
                 clip(c.a - 1.0);
 
-            o.Albedo = float4(color.x * brightness, color.y * brightness, color.z * brightness, brightness);
+            o.Albedo = float4(color.x * brightness * cellFade, color.y * brightness * cellFade, color.z * brightness * cellFade, brightness);
             // Metallic and smoothness come from slider variables
             o.Metallic = 0.0;
             o.Smoothness = 0.0;

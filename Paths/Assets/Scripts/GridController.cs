@@ -25,6 +25,7 @@ public class GridController : MonoBehaviour {
     private static readonly int Values = Shader.PropertyToID("_values");
     private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
     private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
+    private static readonly int Fade = Shader.PropertyToID("_Fade");
     public Vector2Int Size => new Vector2Int(width, height);
 
     private void Start() {
@@ -60,6 +61,13 @@ public class GridController : MonoBehaviour {
             default:
                 throw new ArgumentOutOfRangeException(nameof(property), property, null);
         }
+    }
+
+    /// <summary>
+    /// Global brightness multiplier on the whole grid (1 = full). Used to dim while editing.
+    /// </summary>
+    public void SetFade(float fade) {
+        gridMaterial.SetFloat(Fade, fade);
     }
 
     private void OnApplicationQuit() {

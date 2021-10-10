@@ -16,6 +16,10 @@ public class GridEditor {
     private ClickType _modify;
     private Vector2Int _lastClickLocation;
 
+    // true on any frame this edited the grid (wall toggle / start / end move), so UIController
+    // knows to recompute the path live mid-drag instead of waiting for the mouse to come up
+    public bool Dirtied { get; private set; }
+
     public GridEditor(Camera camera, GridController gridController, CustomSlider slider, PathSolver solver) {
         _camera = camera;
         _gridController = gridController;
@@ -28,6 +32,7 @@ public class GridEditor {
     /// while running bumps it to Reloading, toggling a wall while paused drops it to Stopped.
     /// </summary>
     public AnimationState Process(AnimationState state) {
+        Dirtied = false;
         if (!Input.GetMouseButton(0))
             return state;
 
@@ -46,6 +51,7 @@ public class GridEditor {
                 Node node = _solver.GetNode(position);
                 _modify = node.Walkable ? ClickType.Add : ClickType.Remove;
                 node.Walkable = !node.Walkable;
+                Dirtied = true;
                 // either way we recompute; staying parked at the same step is handled by UIController
                 if (state == AnimationState.Paused || state == AnimationState.Started)
                     state = AnimationState.Reloading;
@@ -62,17 +68,20 @@ public class GridEditor {
                     // wall toggling reloads instantly, but only a real start/end move reloads
                     case ClickType.Add:
                         node.Walkable = false;
+                        Dirtied = true;
                         if (ShouldReload(state))
                             state = AnimationState.Reloading;
                         break;
                     case ClickType.Remove:
                         node.Walkable = true;
+                        Dirtied = true;
                         if (ShouldReload(state))
                             state = AnimationState.Reloading;
                         break;
                     case ClickType.Start:
                         if (node.Walkable) {
                             _solver.Start = position;
+                            Dirtied = true;
                             if (ShouldReload(state))
                                 state = AnimationState.Reloading;
                         }
@@ -81,6 +90,7 @@ public class GridEditor {
                     case ClickType.End:
                         if (node.Walkable) {
                             _solver.End = position;
+                            Dirtied = true;
                             if (ShouldReload(state))
                                 state = AnimationState.Reloading;
                         }

@@ -60,12 +60,23 @@ public class UIController : MonoBehaviour {
     public float speed;
     private Playback _playback;
 
+    // the search layer (seen/expanded/path) is always dimmed a touch so the walls/start/end read
+    // clearly on top of it, and dimmed harder while you're editing so the change you're drawing
+    // stands out against the still-animating search. structural cells never fade (handled in-shader).
+    public float idleFade = 0.7f;
+    public float editFade = 0.32f;
+    public float fadeSpeed = 6f;
+    private float _gridFade = 0.7f;
+
     private void Start() {
         _solver = new PathSolver(gridController.width, gridController.height);
         _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
         _playback = new Playback(speed, clampIncrement);
+
+        _gridFade = idleFade;
+        gridController.SetFade(_gridFade);
 
         Resize();
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
@@ -104,16 +115,18 @@ public class UIController : MonoBehaviour {
 
         switch (_animationState) {
             case AnimationState.Reloading:
-                // Reloading seizes while the mouse button is depressed
-                if (!Input.GetMouseButton(0)) {
+                // keep replaying live while you draw - recompute the moment an edit lands and
+                // render the pinned step, rather than blanking to the bare grid until mouse-up.
+                // the wall's already in the grid Solve() runs on, so the search shows it right away.
+                // State == null is the first run off a Stopped grid - nothing to replay yet, solve once
+                if (_gridEditor.Dirtied || _playback.State == null)
                     GeneratePath();
-                    LoadNextState();
-                    _animationState = _resumeState; // back to playing or parked, whichever we were
-                }
-                else
-                    gridController.LoadGridState(_solver.RenderEditable());
-
+                LoadNextState();
                 progressSlider.SetValueWithoutNotify(_playback.Fraction);
+
+                // mouse up: settle back to playing or parked, whichever we were before the edit
+                if (!Input.GetMouseButton(0))
+                    _animationState = _resumeState;
                 break;
             case AnimationState.Started:
                 // Calculate how much to move forward
@@ -140,6 +153,11 @@ public class UIController : MonoBehaviour {
         if (_animationState != _previousAnimationState) {
             _previousAnimationState = _animationState;
         }
+
+        // ease the search-layer dim between the idle and editing levels
+        float fadeTarget = _animationState == AnimationState.Reloading ? editFade : idleFade;
+        _gridFade = Mathf.MoveTowards(_gridFade, fadeTarget, fadeSpeed * Time.deltaTime);
+        gridController.SetFade(_gridFade);
     }
 
     private void GeneratePath() {
