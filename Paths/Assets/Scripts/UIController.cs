@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Algorithms;
 using TMPro;
 #if UNITY_EDITOR
@@ -54,12 +53,8 @@ public class UIController : MonoBehaviour {
     private bool EditShouldReload =>
         _animationState == AnimationState.Started;
 
-    // Grid State & Pathfinding
-    private NodeGrid _grid;
-    private Vector2Int _start;
-    private Vector2Int _end;
-    private IPathfinding _algorithm;
-    private Stack<Node> _path;
+    // Grid State & Pathfinding (the grid + start/end + algorithm live in PathSolver now)
+    private PathSolver _solver;
 
     // Playback (timeline scrubbing lives in Playback now)
     public float clampIncrement;
@@ -67,11 +62,9 @@ public class UIController : MonoBehaviour {
     private Playback _playback;
 
     private void Start() {
-        _grid = new NodeGrid(gridController.width, gridController.height);
+        _solver = new PathSolver(gridController.width, gridController.height);
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
-        _start = _grid.RandomPosition();
-        _end = _grid.RandomPosition();
         _playback = new Playback(speed, clampIncrement);
 
         Resize();
@@ -87,12 +80,12 @@ public class UIController : MonoBehaviour {
             if (Input.GetMouseButtonDown(0)) {
                 if (progressSlider.IsPressed)
                     _modify = ClickType.ProgressBar;
-                else if (position == _start)
+                else if (position == _solver.Start)
                     _modify = ClickType.Start;
-                else if (position == _end)
+                else if (position == _solver.End)
                     _modify = ClickType.End;
                 else {
-                    Node node = _grid.GetNode(position);
+                    Node node = _solver.GetNode(position);
                     _modify = node.Walkable ? ClickType.Add : ClickType.Remove;
                     node.Walkable = !node.Walkable;
                     if (_animationState == AnimationState.Paused)
@@ -107,8 +100,8 @@ public class UIController : MonoBehaviour {
                 // If still holding down the button & the latest movement is over a new grid
                 if (_lastClickLocation != position) {
                     _lastClickLocation = position;
-                    if (_grid.IsValid(position)) {
-                        Node node = _grid.GetNode(position);
+                    if (_solver.IsValid(position)) {
+                        Node node = _solver.GetNode(position);
                         switch (_modify) {
                             // regular clicking toggles walls
                             // Note: Wall toggling instantly reloads, but only real start/end node movement reloads.
@@ -124,7 +117,7 @@ public class UIController : MonoBehaviour {
                                 break;
                             case ClickType.Start:
                                 if (node.Walkable) {
-                                    _start = position;
+                                    _solver.Start = position;
                                     if (EditShouldReload)
                                         _animationState = AnimationState.Reloading;
                                 }
@@ -132,7 +125,7 @@ public class UIController : MonoBehaviour {
                                 break;
                             case ClickType.End:
                                 if (node.Walkable) {
-                                    _end = position;
+                                    _solver.End = position;
                                     if (EditShouldReload)
                                         _animationState = AnimationState.Reloading;
                                 }
@@ -180,7 +173,7 @@ public class UIController : MonoBehaviour {
                     _animationState = AnimationState.Started;
                 }
                 else
-                    gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
+                    gridController.LoadGridState(_solver.RenderEditable());
 
                 progressSlider.SetValueWithoutNotify(_playback.Fraction);
                 break;
@@ -196,7 +189,7 @@ public class UIController : MonoBehaviour {
                 break;
             case AnimationState.Stopped:
                 // Render editable grid when fully stopped
-                gridController.LoadGridState(_grid.RenderNodeTypes(_start, _end));
+                gridController.LoadGridState(_solver.RenderEditable());
                 break;
             case AnimationState.Paused:
                 if (_playback.HasFramesLeft)
@@ -212,11 +205,7 @@ public class UIController : MonoBehaviour {
     }
 
     private void GeneratePath() {
-        _algorithm?.Cleanup(); // cleanup algorithm's edits to node grid
-
-        _algorithm = new AStar(_grid);
-        _path = _algorithm.FindPath(_start, _end);
-        _playback.Load(_algorithm.ChangeController);
+        _playback.Load(_solver.Solve());
     }
 
     private void LoadNextState() {
@@ -224,7 +213,7 @@ public class UIController : MonoBehaviour {
         ChangeController state = _playback.State;
         gridController.LoadDirtyGridState(state.Current, state.DirtyFlags);
 
-        string pathCount = _path != null ? $"{_path.Count}" : "N/A";
+        string pathCount = _solver.Path != null ? $"{_solver.Path.Count}" : "N/A";
         debugText.text = $"{state.CurrentRuntime * 1000.0:F1}ms\n" +
                                  $"{_playback.CurrentIndex:000} / {_playback.Count:000}\n" +
                                  $"Path: {pathCount} tiles";
@@ -245,7 +234,7 @@ public class UIController : MonoBehaviour {
         #if UNITY_EDITOR
         Handles.Label(mouse, String.Format("{0}{1}",
             gridPosition,
-            _algorithm != null && _algorithm.NodeGrid.IsValid(gridPosition)
+            _playback.State != null && _solver.IsValid(gridPosition)
                 ? $"\n{_playback.State.Current[gridPosition.x, gridPosition.y]}"
                 : ""
         ), style);
