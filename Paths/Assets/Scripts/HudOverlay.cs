@@ -20,7 +20,8 @@ public class HudOverlay {
         "Space — play / pause\n" +
         "Click + drag — draw / erase walls\n" +
         "Drag green / red — move start / end\n" +
-        "Drag the bar — scrub the search\n\n" +
+        "Drag the bar — scrub the search\n" +
+        "- / = — shrink / grow the grid\n\n" +
         "H — hide";
 
     /// <summary>Build the canvas + widgets. style is copied for font/colour; onPlayPause fires on the button.</summary>

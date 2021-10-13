@@ -71,20 +71,47 @@ public class UIController : MonoBehaviour {
     // on-screen help + play/pause overlay (its own canvas, built in code)
     private HudOverlay _hud;
 
+    // grid resize bounds + how much -/= changes it each press
+    private const int MinGrid = 4;
+    private const int MaxGrid = 160;
+    private const int GridStep = 2;
+
     private void Start() {
-        _solver = new PathSolver(gridController.width, gridController.height);
-        _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
-        _animationState = AnimationState.Stopped;
-        _previousAnimationState = _animationState;
-        _playback = new Playback(speed, clampIncrement);
+        InitGrid(gridController.width, gridController.height);
 
         _gridFade = idleFade;
         gridController.SetFade(_gridFade);
         _hud = new HudOverlay();
         _hud.Build(debugText, TogglePlayPause); // copies debugText's font/colour so it matches
+        _hud.SetState(_animationState);
 
-        Resize();
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
+    }
+
+    /// <summary>
+    /// (Re)build the solver, editor and playback for a grid size and reframe the camera. Used at
+    /// startup and on resize. Leaves us Stopped on a fresh grid (new walls, new start/end).
+    /// </summary>
+    private void InitGrid(int width, int height) {
+        _solver = new PathSolver(width, height);
+        _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
+        _playback = new Playback(speed, clampIncrement);
+        _animationState = AnimationState.Stopped;
+        _previousAnimationState = _animationState;
+        progressSlider.SetValueWithoutNotify(0f);
+        Resize();
+    }
+
+    /// <summary>Grow/shrink the grid by delta cells (both axes) and regenerate it.</summary>
+    private void ResizeGrid(int delta) {
+        int width = Mathf.Clamp(gridController.width + delta, MinGrid, MaxGrid);
+        int height = Mathf.Clamp(gridController.height + delta, MinGrid, MaxGrid);
+        if (width == gridController.width && height == gridController.height)
+            return; // already at the limit
+
+        gridController.Rebuild(width, height);
+        InitGrid(width, height);
+        _hud.SetState(_animationState);
     }
 
     private void Update() {
@@ -99,6 +126,11 @@ public class UIController : MonoBehaviour {
             TogglePlayPause();
         if (Input.GetKeyDown(KeyCode.H))
             _hud.ToggleHelp();
+        // - / = resize the grid (= is the unshifted +, don't care about the shift)
+        if (Input.GetKeyDown(KeyCode.Equals))
+            ResizeGrid(GridStep);
+        if (Input.GetKeyDown(KeyCode.Minus))
+            ResizeGrid(-GridStep);
 
         switch (_animationState) {
             case AnimationState.Reloading:

@@ -29,9 +29,20 @@ public class GridController : MonoBehaviour {
     public Vector2Int Size => new Vector2Int(width, height);
 
     private void Start() {
+        Rebuild(width, height);
+    }
+
+    /// <summary>
+    /// (Re)allocate the value array + compute buffer for a grid size and push everything to the
+    /// shader. Buffer is sized to the grid now instead of a flat 2048^2 (64MB), and resizing
+    /// releases the old buffer first. Call this to change the grid size at runtime.
+    /// </summary>
+    public void Rebuild(int newWidth, int newHeight) {
+        width = newWidth;
+        height = newHeight;
         _values = new int[width * height];
-        // TODO: Decide at some point how to improve how the ComputerBuffer's size is allocated.
-        _buffer = new ComputeBuffer((int) Mathf.Pow(2048, 2), 4);
+        _buffer?.Release();
+        _buffer = new ComputeBuffer(width * height, sizeof(int));
 
         // Update all Shader properties
         foreach (PropertyName property in Enum.GetValues(typeof(PropertyName)))
