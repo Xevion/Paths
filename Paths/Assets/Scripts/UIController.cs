@@ -68,6 +68,9 @@ public class UIController : MonoBehaviour {
     public float fadeSpeed = 6f;
     private float _gridFade = 0.7f;
 
+    // on-screen help + play/pause overlay (its own canvas, built in code)
+    private HudOverlay _hud;
+
     private void Start() {
         _solver = new PathSolver(gridController.width, gridController.height);
         _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
@@ -77,6 +80,8 @@ public class UIController : MonoBehaviour {
 
         _gridFade = idleFade;
         gridController.SetFade(_gridFade);
+        _hud = new HudOverlay();
+        _hud.Build(debugText, TogglePlayPause); // copies debugText's font/colour so it matches
 
         Resize();
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
@@ -89,29 +94,11 @@ public class UIController : MonoBehaviour {
         if (_animationState == AnimationState.Reloading && before != AnimationState.Reloading)
             _resumeState = before == AnimationState.Paused ? AnimationState.Paused : AnimationState.Started;
 
-        // Handle user start/stopping
-        if (Input.GetKeyDown(KeyCode.Space)) {
-            switch (_animationState) {
-                case AnimationState.Stopped:
-                    _animationState = AnimationState.Reloading;
-                    _resumeState = AnimationState.Started; // first run just plays from the start
-                    break;
-                case AnimationState.Paused:
-                    _animationState = AnimationState.Started;
-                    break;
-                case AnimationState.Started:
-                    // Restart if already on final frame, else simply pause
-                    if (_playback.AtEnd)
-                        _playback.Rewind();
-                    else
-                        _animationState = AnimationState.Paused;
-                    break;
-                case AnimationState.Reloading:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
+        // Space and the on-screen Play/Pause button both run through here
+        if (Input.GetKeyDown(KeyCode.Space))
+            TogglePlayPause();
+        if (Input.GetKeyDown(KeyCode.H))
+            _hud.ToggleHelp();
 
         switch (_animationState) {
             case AnimationState.Reloading:
@@ -152,12 +139,37 @@ public class UIController : MonoBehaviour {
 
         if (_animationState != _previousAnimationState) {
             _previousAnimationState = _animationState;
+            _hud.SetState(_animationState); // refresh the Play/Pause label
         }
 
         // ease the search-layer dim between the idle and editing levels
         float fadeTarget = _animationState == AnimationState.Reloading ? editFade : idleFade;
         _gridFade = Mathf.MoveTowards(_gridFade, fadeTarget, fadeSpeed * Time.deltaTime);
         gridController.SetFade(_gridFade);
+    }
+
+    /// <summary>
+    /// Play/pause toggle shared by the Spacebar and the HUD button. Off a stopped grid this kicks
+    /// the first solve; on the final frame it rewinds instead of pausing so you can replay.
+    /// </summary>
+    private void TogglePlayPause() {
+        switch (_animationState) {
+            case AnimationState.Stopped:
+                _animationState = AnimationState.Reloading;
+                _resumeState = AnimationState.Started; // first run just plays from the start
+                break;
+            case AnimationState.Paused:
+                _animationState = AnimationState.Started;
+                break;
+            case AnimationState.Started:
+                if (_playback.AtEnd)
+                    _playback.Rewind();
+                else
+                    _animationState = AnimationState.Paused;
+                break;
+            case AnimationState.Reloading:
+                break; // mid-recompute, ignore
+        }
     }
 
     private void GeneratePath() {

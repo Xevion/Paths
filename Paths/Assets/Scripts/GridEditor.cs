@@ -1,6 +1,7 @@
 using System;
 using Algorithms;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// Handles mouse editing of the grid - drawing/erasing walls and dragging the start/end nodes
@@ -34,6 +35,9 @@ public class GridEditor {
     public AnimationState Process(AnimationState state) {
         Dirtied = false;
         if (!Input.GetMouseButton(0))
+            return state;
+        // don't draw walls through the HUD - the button/UI eats the click, not the grid under it
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             return state;
 
         Vector3 worldMouse = _camera.ScreenToWorldPoint(Input.mousePosition);
