@@ -12,6 +12,7 @@ using UnityEngine.UI;
 /// </summary>
 public class HudOverlay {
     private TextMeshProUGUI _help;
+    private TextMeshProUGUI _stats;
     private TextMeshProUGUI _playLabel;
     private bool _showHelp = true;
 
@@ -21,7 +22,8 @@ public class HudOverlay {
         "Click + drag — draw / erase walls\n" +
         "Drag green / red — move start / end\n" +
         "Drag the bar — scrub the search\n" +
-        "- / = — shrink / grow the grid\n\n" +
+        "- / = — shrink / grow the grid\n" +
+        "Scroll / right-drag — zoom / pan\n\n" +
         "H — hide";
 
     /// <summary>Build the canvas + widgets. style is copied for font/colour; onPlayPause fires on the button.</summary>
@@ -40,9 +42,13 @@ public class HudOverlay {
 
         // top-left help block
         _help = MakeText(canvasGo.transform, style, 22, TextAlignmentOptions.TopLeft,
-            new Vector2(0, 1), new Vector2(16, -16), new Vector2(380, 220));
+            new Vector2(0, 1), new Vector2(16, -16), new Vector2(380, 260));
         _help.enableWordWrapping = false;
         _help.text = HelpText;
+
+        // stats readout, top-right (used to be a world-space text that drifted when the camera moved)
+        _stats = MakeText(canvasGo.transform, style, 22, TextAlignmentOptions.TopRight,
+            new Vector2(1, 1), new Vector2(-16, -16), new Vector2(300, 140));
 
         // algorithm picker placeholder, bottom-left above the button
         MakeText(canvasGo.transform, style, 22, TextAlignmentOptions.BottomLeft,
@@ -55,6 +61,11 @@ public class HudOverlay {
     public void SetState(AnimationState state) {
         if (_playLabel != null)
             _playLabel.text = state == AnimationState.Started ? "Pause" : "Play";
+    }
+
+    public void SetStats(string text) {
+        if (_stats != null)
+            _stats.text = text;
     }
 
     public void ToggleHelp() {

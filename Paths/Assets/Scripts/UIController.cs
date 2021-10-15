@@ -71,12 +71,16 @@ public class UIController : MonoBehaviour {
     // on-screen help + play/pause overlay (its own canvas, built in code)
     private HudOverlay _hud;
 
+    // camera framing + zoom/pan
+    private CameraRig _cameraRig;
+
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
     private const int MaxGrid = 160;
     private const int GridStep = 2;
 
     private void Start() {
+        _cameraRig = new CameraRig(mainCamera); // before InitGrid - Resize() frames through it
         InitGrid(gridController.width, gridController.height);
 
         _gridFade = idleFade;
@@ -84,6 +88,7 @@ public class UIController : MonoBehaviour {
         _hud = new HudOverlay();
         _hud.Build(debugText, TogglePlayPause); // copies debugText's font/colour so it matches
         _hud.SetState(_animationState);
+        debugText.enabled = false; // its style lives on in the HUD; the world-space text drifted with the camera
 
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
     }
@@ -115,6 +120,8 @@ public class UIController : MonoBehaviour {
     }
 
     private void Update() {
+        _cameraRig.Update(); // zoom/pan first so edits this frame use the moved camera
+
         AnimationState before = _animationState;
         _animationState = _gridEditor.Process(_animationState);
         // an edit just kicked us into Reloading - remember whether to resume playing or stay parked
@@ -214,9 +221,9 @@ public class UIController : MonoBehaviour {
         gridController.LoadDirtyGridState(state.Current, state.DirtyFlags);
 
         string pathCount = _solver.Path != null ? $"{_solver.Path.Count}" : "N/A";
-        debugText.text = $"{state.CurrentRuntime * 1000.0:F1}ms\n" +
-                                 $"{_playback.DisplayIndex:000} / {_playback.Count:000}\n" +
-                                 $"Path: {pathCount} tiles";
+        _hud.SetStats($"{state.CurrentRuntime * 1000.0:F1}ms\n" +
+                      $"{_playback.DisplayIndex:000} / {_playback.Count:000}\n" +
+                      $"Path: {pathCount} tiles");
     }
 
     public void OnDrawGizmos() {
@@ -250,18 +257,12 @@ public class UIController : MonoBehaviour {
     }
     
     /// <summary>
-    /// Scales the GridController GameObject to fit within the Camera
+    /// Size the grid quad to one world unit per cell and frame the camera on it. The camera does the
+    /// fitting now (so it can be zoomed/panned), instead of stretching the quad to fill the screen.
     /// </summary>
     public void Resize() {
-        float ratioImage = (float) gridController.width / gridController.height;
-        float ratioScreen = mainCamera.aspect;
-
-        var orthographicSize = mainCamera.orthographicSize;
-        var image = new Vector2(gridController.width, gridController.height);
-        var screen = new Vector2(2 * orthographicSize * mainCamera.aspect, orthographicSize * 2);
-
-        gridObject.transform.localScale = ratioScreen > ratioImage
-            ? new Vector3(image.x * screen.y / image.y, screen.y, 0.001f)
-            : new Vector3(screen.x, image.y * screen.x / image.x, 0.001f);
+        var size = new Vector2(gridController.width, gridController.height);
+        gridObject.transform.localScale = new Vector3(size.x, size.y, 0.001f);
+        _cameraRig.Frame(gridObject.transform.position, size);
     }
 }
