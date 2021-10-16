@@ -14,6 +14,11 @@ public class PathSolver {
     public Vector2Int End { get; set; }
     public Stack<Node> Path { get; private set; }
 
+    // what the next Solve() uses - set these from the UI, then re-solve
+    public Algorithm Algorithm { get; set; } = Algorithm.AStar;
+    public Heuristic Heuristic { get; set; } = Heuristic.Manhattan;
+    public bool Diagonal { get; set; }
+
     private IPathfinding _algorithm;
 
     public PathSolver(int width, int height) {
@@ -22,12 +27,27 @@ public class PathSolver {
         End = Grid.RandomPosition();
     }
 
-    /// <summary>Run the algorithm start -> end and hand back the recorded changes to play.</summary>
+    /// <summary>Run the selected algorithm start -> end and hand back the recorded changes to play.</summary>
     public ChangeController Solve() {
         _algorithm?.Cleanup(); // undo the previous run's edits to the node grid
-        _algorithm = new AStar(Grid);
+        _algorithm = Create();
         Path = _algorithm.FindPath(Start, End);
         return _algorithm.ChangeController;
+    }
+
+    private IPathfinding Create() {
+        switch (Algorithm) {
+            case Algorithm.Dijkstra:
+                return new Dijkstra(Grid, Diagonal);
+            case Algorithm.Greedy:
+                return new Greedy(Grid, Heuristic, Diagonal);
+            case Algorithm.BreadthFirst:
+                return new BreadthFirst(Grid, Diagonal);
+            case Algorithm.DepthFirst:
+                return new DepthFirst(Grid, Diagonal);
+            default:
+                return new AStar(Grid, Heuristic, Diagonal);
+        }
     }
 
     public bool IsValid(Vector2Int position) => Grid.IsValid(position);

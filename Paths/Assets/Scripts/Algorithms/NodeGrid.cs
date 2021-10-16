@@ -92,8 +92,41 @@ namespace Algorithms {
             return Grid[position.x, position.y];
         }
 
+        /// <summary>
+        /// Neighbours used by the searches: the 4 cardinal cells, plus the 4 diagonals when diagonal
+        /// is on. Diagonals don't cut corners - both shared orthogonal cells have to be open, else
+        /// you get paths squeezing through wall corners which looks wrong.
+        /// </summary>
+        public List<Node> Neighbors(Node node, bool diagonal) {
+            int x = node.Position.x, y = node.Position.y;
+            bool up = y + 1 < Height, down = y - 1 >= 0, left = x - 1 >= 0, right = x + 1 < Width;
+
+            var result = new List<Node>(diagonal ? 8 : 4);
+            if (up) result.Add(Grid[x, y + 1]);
+            if (down) result.Add(Grid[x, y - 1]);
+            if (left) result.Add(Grid[x - 1, y]);
+            if (right) result.Add(Grid[x + 1, y]);
+
+            if (diagonal) {
+                if (up && right && Grid[x, y + 1].Walkable && Grid[x + 1, y].Walkable) result.Add(Grid[x + 1, y + 1]);
+                if (up && left && Grid[x, y + 1].Walkable && Grid[x - 1, y].Walkable) result.Add(Grid[x - 1, y + 1]);
+                if (down && right && Grid[x, y - 1].Walkable && Grid[x + 1, y].Walkable) result.Add(Grid[x + 1, y - 1]);
+                if (down && left && Grid[x, y - 1].Walkable && Grid[x - 1, y].Walkable) result.Add(Grid[x - 1, y - 1]);
+            }
+            return result;
+        }
+
         public static int Manhattan(Node a, Node b) {
             return Manhattan(a.Position, b.Position);
+        }
+
+        public static float Euclidean(Vector2Int a, Vector2Int b) {
+            float dx = a.x - b.x, dy = a.y - b.y;
+            return Mathf.Sqrt(dx * dx + dy * dy);
+        }
+
+        public static int Chebyshev(Vector2Int a, Vector2Int b) {
+            return Math.Max(Math.Abs(a.x - b.x), Math.Abs(a.y - b.y));
         }
 
         public static int SignedManhattan(Vector2Int a, Vector2Int b) {
