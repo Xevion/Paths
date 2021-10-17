@@ -74,6 +74,11 @@ public class UIController : MonoBehaviour {
     // camera framing + zoom/pan
     private CameraRig _cameraRig;
 
+    // current algorithm selection - kept here so it survives a grid resize (which rebuilds the solver)
+    private Algorithm _algorithm = Algorithm.AStar;
+    private Heuristic _heuristic = Heuristic.Manhattan;
+    private bool _diagonal;
+
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
     private const int MaxGrid = 160;
@@ -88,6 +93,7 @@ public class UIController : MonoBehaviour {
         _hud = new HudOverlay();
         _hud.Build(debugText, TogglePlayPause); // copies debugText's font/colour so it matches
         _hud.SetState(_animationState);
+        _hud.AddAlgorithmControls(_algorithm, OnAlgorithm, _heuristic, OnHeuristic, _diagonal, OnDiagonal);
         debugText.enabled = false; // its style lives on in the HUD; the world-space text drifted with the camera
 
         progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
@@ -99,6 +105,9 @@ public class UIController : MonoBehaviour {
     /// </summary>
     private void InitGrid(int width, int height) {
         _solver = new PathSolver(width, height);
+        _solver.Algorithm = _algorithm; // a fresh solver defaults to A* - re-apply the current pick
+        _solver.Heuristic = _heuristic;
+        _solver.Diagonal = _diagonal;
         _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
         _playback = new Playback(speed, clampIncrement);
         _animationState = AnimationState.Stopped;
@@ -209,6 +218,35 @@ public class UIController : MonoBehaviour {
             case AnimationState.Reloading:
                 break; // mid-recompute, ignore
         }
+    }
+
+    private void OnAlgorithm(Algorithm algorithm) {
+        _algorithm = algorithm;
+        _solver.Algorithm = algorithm;
+        Resolve();
+    }
+
+    private void OnHeuristic(Heuristic heuristic) {
+        _heuristic = heuristic;
+        _solver.Heuristic = heuristic;
+        Resolve();
+    }
+
+    private void OnDiagonal(bool diagonal) {
+        _diagonal = diagonal;
+        _solver.Diagonal = diagonal;
+        Resolve();
+    }
+
+    /// <summary>
+    /// Re-run the search after a setting change, keeping the playhead pinned so you can watch the
+    /// same step under a different algorithm. No-op if nothing's been solved yet (applies on play).
+    /// </summary>
+    private void Resolve() {
+        if (_playback.State == null)
+            return;
+        GeneratePath();
+        LoadNextState();
     }
 
     private void GeneratePath() {
