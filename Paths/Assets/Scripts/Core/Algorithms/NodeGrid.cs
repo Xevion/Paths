@@ -33,8 +33,8 @@ namespace Algorithms {
         public NodeGrid(Node[,] grid) {
             this.Grid = grid;
 
-            Height = this.Grid.GetLength(0);
-            Width = this.Grid.GetLength(1);
+            Width = this.Grid.GetLength(0);
+            Height = this.Grid.GetLength(1);
         }
 
         /// <summary>
