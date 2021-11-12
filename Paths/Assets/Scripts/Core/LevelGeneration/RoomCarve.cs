@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Algorithms;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 namespace LevelGeneration {
     public class RoomCarve : ILevelGenerator {
@@ -18,7 +17,7 @@ namespace LevelGeneration {
         }
 
         public NodeGrid Generate(NodeGrid nodeGrid) {
-            int roomCount = Random.Range(_roomRange.x, _roomRange.y);
+            int roomCount = nodeGrid.Next(_roomRange.x, _roomRange.y);
             int attempts = 0;
 
             // Generate rooms
@@ -34,8 +33,8 @@ namespace LevelGeneration {
                 
                 
                 var size = new Vector2Int(
-                    Math.Min(Random.Range(_roomSizeRange.x, _roomSizeRange.y), nodeGrid.Width - pos.x),
-                    Math.Min(Random.Range(_roomSizeRange.x, _roomSizeRange.y), nodeGrid.Height - pos.y)
+                    Math.Min(nodeGrid.Next(_roomSizeRange.x, _roomSizeRange.y), nodeGrid.Width - pos.x),
+                    Math.Min(nodeGrid.Next(_roomSizeRange.x, _roomSizeRange.y), nodeGrid.Height - pos.y)
                 );
                 var newRoom = new RectInt(pos, size);
 

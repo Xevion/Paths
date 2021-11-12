@@ -21,8 +21,8 @@ public class PathSolver {
 
     private IPathfinding _algorithm;
 
-    public PathSolver(int width, int height) {
-        Grid = new NodeGrid(width, height);
+    public PathSolver(int width, int height, System.Random random = null) {
+        Grid = new NodeGrid(width, height, random);
         Start = Grid.RandomPosition();
         End = Grid.RandomPosition();
     }

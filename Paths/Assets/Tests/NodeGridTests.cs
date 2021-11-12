@@ -26,6 +26,14 @@ namespace Paths.Tests {
         }
 
         [Test]
+        public void SameSeedGivesSameRandomPositions() {
+            var a = new NodeGrid(20, 20, new System.Random(1234));
+            var b = new NodeGrid(20, 20, new System.Random(1234));
+            for (int i = 0; i < 16; i++)
+                Assert.AreEqual(a.RandomPosition(), b.RandomPosition());
+        }
+
+        [Test]
         public void IsValidRejectsOutOfBounds() {
             var grid = new NodeGrid(4, 4);
             Assert.IsTrue(grid.IsValid(new Vector2Int(0, 0)));

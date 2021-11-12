@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Random = UnityEngine.Random;
+using Random = System.Random;
 
 namespace Algorithms {
     public class NodeGrid {
@@ -11,7 +11,11 @@ namespace Algorithms {
         public readonly int Height;
         public int CellCount => this.Width * this.Height;
 
-        public NodeGrid(int width, int height) {
+        // its own RNG instead of the global UnityEngine.Random - pass a seeded one for reproducible
+        // grids (the tests rely on this), leave it null and you get a different layout each run.
+        private readonly Random _random;
+
+        public NodeGrid(int width, int height, Random random = null) {
             if (width <= 0)
                 throw new ArgumentOutOfRangeException(nameof(width),
                     "The width of the grid must be a positive non-zero integer.");
@@ -19,6 +23,7 @@ namespace Algorithms {
                 throw new ArgumentOutOfRangeException(nameof(height),
                     "The height of the grid must be a positive non-zero integer.");
 
+            _random = random ?? new Random();
 
             // Fill grid with width*height nodes, zero-indexed
             Grid = new Node[width, height];
@@ -30,8 +35,9 @@ namespace Algorithms {
             Height = height;
         }
 
-        public NodeGrid(Node[,] grid) {
+        public NodeGrid(Node[,] grid, Random random = null) {
             this.Grid = grid;
+            _random = random ?? new Random();
 
             Width = this.Grid.GetLength(0);
             Height = this.Grid.GetLength(1);
@@ -142,8 +148,11 @@ namespace Algorithms {
         /// </summary>
         /// <returns>a valid Vector2Int position within the grid</returns>
         public Vector2Int RandomPosition() {
-            return new Vector2Int(Random.Range(0, Width), Random.Range(0, Height));
+            return new Vector2Int(_random.Next(0, Width), _random.Next(0, Height));
         }
+
+        /// <summary>A random int in [min, max) off the grid's own RNG - generators draw through this.</summary>
+        public int Next(int min, int max) => _random.Next(min, max);
 
         /// <summary>
         /// Applies a ILevelGenerators's generate function to a NodeGrid
@@ -172,7 +181,7 @@ namespace Algorithms {
         /// </summary>
         /// <returns>A Node object.</returns>
         public Node GetRandomNode() {
-            return Grid[Random.Range(0, Width), Random.Range(0, Height)];
+            return Grid[_random.Next(0, Width), _random.Next(0, Height)];
         }
 
         public static NodeGrid GetFilledNodeGrid(int width, int height) {
