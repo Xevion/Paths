@@ -45,6 +45,8 @@ public class PathSolver {
                 return new BreadthFirst(Grid, Diagonal);
             case Algorithm.DepthFirst:
                 return new DepthFirst(Grid, Diagonal);
+            case Algorithm.JumpPoint:
+                return new JumpPoint(Grid); // always 8-connected, the Diagonal toggle doesn't apply
             default:
                 return new AStar(Grid, Heuristic, Diagonal);
         }

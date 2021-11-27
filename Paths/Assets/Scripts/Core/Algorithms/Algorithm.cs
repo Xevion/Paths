@@ -5,6 +5,7 @@ namespace Algorithms {
         Dijkstra,
         Greedy,
         BreadthFirst,
-        DepthFirst
+        DepthFirst,
+        JumpPoint
     }
 }

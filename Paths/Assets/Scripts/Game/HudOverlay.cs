@@ -85,6 +85,7 @@ public class HudOverlay {
             case Algorithm.Greedy: return "Greedy";
             case Algorithm.BreadthFirst: return "BFS";
             case Algorithm.DepthFirst: return "DFS";
+            case Algorithm.JumpPoint: return "JPS";
             default: return algorithm.ToString();
         }
     }
