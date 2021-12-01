@@ -38,12 +38,13 @@ public enum AnimationState {
 /// all the scene references. Used to do everything itself, slowly being broken apart.
 /// </summary>
 public class UIController : MonoBehaviour {
-    // UI & important App references
-    public CustomSlider progressSlider;
-    public GridController gridController;
-    public Camera mainCamera;
-    public TextMeshPro debugText;
-    public GameObject gridObject;
+    // UI & important App references - serialized but private now, nothing outside this class reaches
+    // into them. still wired in the scene exactly as before (the field names didn't change).
+    [SerializeField] private CustomSlider progressSlider;
+    [SerializeField] private GridController gridController;
+    [SerializeField] private Camera mainCamera;
+    [SerializeField] private TextMeshPro debugText;
+    [SerializeField] private GameObject gridObject;
 
     // Animation State
     private AnimationState _animationState;
@@ -56,16 +57,16 @@ public class UIController : MonoBehaviour {
     private GridEditor _gridEditor;
 
     // Playback (timeline scrubbing lives in Playback now)
-    public float clampIncrement;
-    public float speed;
+    [SerializeField] private float clampIncrement;
+    [SerializeField] private float speed;
     private Playback _playback;
 
     // the search layer (seen/expanded/path) is always dimmed a touch so the walls/start/end read
     // clearly on top of it, and dimmed harder while you're editing so the change you're drawing
     // stands out against the still-animating search. structural cells never fade (handled in-shader).
-    public float idleFade = 0.7f;
-    public float editFade = 0.32f;
-    public float fadeSpeed = 6f;
+    [SerializeField] private float idleFade = 0.7f;
+    [SerializeField] private float editFade = 0.32f;
+    [SerializeField] private float fadeSpeed = 6f;
     private float _gridFade = 0.7f;
 
     // on-screen help + play/pause overlay (its own canvas, built in code)
