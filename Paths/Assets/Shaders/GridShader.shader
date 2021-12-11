@@ -1,5 +1,3 @@
-﻿// Upgrade NOTE: upgraded instancing buffer 'Props' to new syntax.
-
 Shader "PDT Shaders/TestGrid"
 {
     Properties
@@ -12,131 +10,79 @@ Shader "PDT Shaders/TestGrid"
         _SeenColor ("Seen Cell Color", Color) = (0.99, 0.93, 0.01, 1)
         _ExpandedColor ("Expanded Cell Color", Color) = (0.89, 0.25, 0.04, 1)
         _PathColor ("Path Cell Color", Color) = (0.65, 0.01, 0.2, 1)
-        
-        [PerRendererData] _MainTex ("Albedo (RGB)", 2D) = "white" {}
-        [IntRange] _GridSize("Grid Size", Range(1,100)) = 10
+
+        // one texel per cell, the state index packed into the red channel. set from GridController.
+        [PerRendererData] _GridTex ("Grid State", 2D) = "black" {}
         _LineSize("Line Size", Range(0,1)) = 0.15
         _Fade("Search Fade", Range(0,1)) = 0.7
     }
     SubShader
     {
-        Tags
+        Tags { "RenderType"="Opaque" }
+        LOD 100
+
+        Pass
         {
-            "Queue"="AlphaTest" "RenderType"="TransparentCutout"
-        }
-        LOD 200
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+            #include "UnityCG.cginc"
 
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct v2f { float2 uv : TEXCOORD0; float4 pos : SV_POSITION; };
 
-        CGPROGRAM
-        // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
-        #pragma target 5.0
+            // point-sampled, so each cell reads exactly its texel - no bleed between states
+            sampler2D _GridTex;
 
-        sampler2D _MainTex;
+            float4 _LineColor;
+            float4 _EmptyColor;
+            float4 _WallColor;
+            float4 _StartColor;
+            float4 _EndColor;
+            float4 _SeenColor;
+            float4 _ExpandedColor;
+            float4 _PathColor;
 
-        struct Input
-        {
-            float2 uv_MainTex;
-        };
+            float _GridWidth;
+            float _GridHeight;
+            float _LineSize;
+            float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
 
-        half _Glossiness = 0.0;
-        half _Metallic = 0.0;
-
-        float4 _LineColor;
-        float4 _EmptyColor;
-        float4 _WallColor;
-        float4 _StartColor;
-        float4 _EndColor;
-        float4 _SeenColor;
-        float4 _ExpandedColor;
-        float4 _PathColor;
-
-        static const float4 _gridColors[7] = {
-            _EmptyColor,
-            _WallColor,
-            _StartColor,
-            _EndColor,
-            _SeenColor,
-            _ExpandedColor,
-            _PathColor
-        };
-
-        float _GridWidth;
-        float _GridHeight;
-        float _LineSize;
-        float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
-
-        // StructuredBuffer is what GridController actually binds (SetBuffer), so use it on
-        // every SM5 target that supports it - not just DX11, or the grid is blank on GL/Vulkan.
-        // The float[] is a last-ditch fallback for GLES/WebGL (and blows the constant limit, so
-        // it doesn't really link there anyway - that path gets replaced later).
-        #if defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12) || defined(SHADER_API_GLCORE) || defined(SHADER_API_VULKAN) || defined(SHADER_API_METAL)
-        StructuredBuffer<int> _values;
-        #else
-		float _values[1024];
-        #endif
-        float _valueLength;
-
-
-        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
-        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
-        // #pragma instancing_options assumeuniformscaling
-        UNITY_INSTANCING_BUFFER_START(Props)
-        // put more per-instance properties here
-        UNITY_INSTANCING_BUFFER_END(Props)
-
-        void surf(Input IN, inout SurfaceOutputStandard o)
-        {
-            // Albedo comes from a texture tinted by color
-
-            float2 uv = IN.uv_MainTex;
-
-            fixed4 c = float4(0.0, 0.0, 0.0, 0.0);
-            float gsize_width = floor(_GridWidth) + _LineSize;
-            float gsize_height = floor(_GridHeight) + _LineSize;
-
-            float2 id = float2(
-                floor(uv.x / (1.0 / gsize_width)), floor(uv.y / (1.0 / gsize_height))
-            );
-
-            float4 color = _EmptyColor;
-            float brightness = _EmptyColor.w;
-            // only the search layer (seen/expanded/path) dims - walls/start/end/lines stay solid
-            float cellFade = 1.0;
-
-            // Line Color Check
-            if (_LineSize > 0.0 && (frac(uv.x * gsize_width) <= _LineSize || frac(uv.y * gsize_height) <= _LineSize))
+            v2f vert(appdata v)
             {
-                color = _LineColor;
-                brightness = color.w;
-                // Heatmap Value Fallback
-            }
-            else
-            {
-                float pos = id.y * _GridWidth + id.x;
-                if (pos < _valueLength)
-                {
-                    float index = _values[pos];
-                    color = _gridColors[index];
-                    // color = lerp(_InactiveColor, _ActiveColor, _values[pos]);
-                    brightness = color.w;
-                    // indices 4/5/6 are Seen/Expanded/Path - the only cells we fade
-                    if (index >= 3.5)
-                        cellFade = _Fade;
-                }
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                return o;
             }
 
-            // Clip transparent spots using alpha cutout
-            if (brightness == 0.0)
-                clip(c.a - 1.0);
+            fixed4 frag(v2f i) : SV_Target
+            {
+                float4 colors[7] = {
+                    _EmptyColor, _WallColor, _StartColor, _EndColor,
+                    _SeenColor, _ExpandedColor, _PathColor
+                };
 
-            o.Albedo = float4(color.x * brightness * cellFade, color.y * brightness * cellFade, color.z * brightness * cellFade, brightness);
-            // Metallic and smoothness come from slider variables
-            o.Metallic = 0.0;
-            o.Smoothness = 0.0;
-            o.Alpha = 0.0;
+                float2 uv = i.uv;
+                float gw = floor(_GridWidth) + _LineSize;
+                float gh = floor(_GridHeight) + _LineSize;
+
+                // the thin gap between cells draws as the line colour and never fades
+                if (_LineSize > 0.0 && (frac(uv.x * gw) <= _LineSize || frac(uv.y * gh) <= _LineSize))
+                    return float4(_LineColor.rgb * _LineColor.a, 1.0);
+
+                // which cell we're in, then read that cell's state out of the texture
+                float2 id = float2(floor(uv.x / (1.0 / gw)), floor(uv.y / (1.0 / gh)));
+                float2 cellUv = (id + 0.5) / float2(_GridWidth, _GridHeight);
+                int index = (int) floor(tex2D(_GridTex, cellUv).r * 255.0 + 0.5);
+
+                float4 color = colors[index];
+                // indices 4/5/6 are Seen/Expanded/Path - the only cells that dim
+                float fade = index >= 4 ? _Fade : 1.0;
+                return float4(color.rgb * color.a * fade, 1.0);
+            }
+            ENDCG
         }
-        ENDCG
     }
-    FallBack "Diffuse"
 }

@@ -4,25 +4,25 @@ using UnityEngine;
 public enum PropertyName {
     GridWidth,
     GridHeight,
-    ValueLength,
     Values
 }
 
 /// <summary>
-/// A simple Grid Rendering system controlling a Shader through a ComputeBuffer
+/// A simple Grid Rendering system that drives the Grid Shader. Cell states live in a Texture2D
+/// (one texel per cell, state index in the red channel) the shader samples - a StructuredBuffer
+/// did the job on desktop but doesn't exist on WebGL, a texture runs everywhere.
 /// </summary>
 public class GridController : MonoBehaviour {
     public Material gridMaterial; // Maintain reference to the Grid Material the Shader is implanted upon
     public int width;
     public int height;
-    
-    // Value management
-    private int[] _values;
-    private ComputeBuffer _buffer;
+
+    // cell states, one texel each. _pixels is the CPU-side copy we edit, then upload to _texture.
+    private Color32[] _pixels;
+    private Texture2D _texture;
 
     // Get all property IDs
-    private static readonly int ValueLength = Shader.PropertyToID("_valueLength");
-    private static readonly int Values = Shader.PropertyToID("_values");
+    private static readonly int GridTex = Shader.PropertyToID("_GridTex");
     private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
     private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
     private static readonly int Fade = Shader.PropertyToID("_Fade");
@@ -33,16 +33,22 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
-    /// (Re)allocate the value array + compute buffer for a grid size and push everything to the
-    /// shader. Buffer is sized to the grid now instead of a flat 2048^2 (64MB), and resizing
-    /// releases the old buffer first. Call this to change the grid size at runtime.
+    /// (Re)allocate the pixel array + state texture for a grid size and push everything to the
+    /// shader. The texture is sized to the grid, and resizing destroys the old one first. Call
+    /// this to change the grid size at runtime.
     /// </summary>
     public void Rebuild(int newWidth, int newHeight) {
         width = newWidth;
         height = newHeight;
-        _values = new int[width * height];
-        _buffer?.Release();
-        _buffer = new ComputeBuffer(width * height, sizeof(int));
+        _pixels = new Color32[width * height];
+
+        if (_texture != null)
+            Destroy(_texture);
+        _texture = new Texture2D(width, height, TextureFormat.RGBA32, false) {
+            filterMode = FilterMode.Point, // one texel = one cell, never interpolate between states
+            wrapMode = TextureWrapMode.Clamp
+        };
+        gridMaterial.SetTexture(GridTex, _texture);
 
         // Update all Shader properties
         foreach (PropertyName property in Enum.GetValues(typeof(PropertyName)))
@@ -63,11 +69,8 @@ public class GridController : MonoBehaviour {
                 gridMaterial.SetFloat(GridHeight, height);
                 break;
             case PropertyName.Values:
-                _buffer.SetData(_values);
-                gridMaterial.SetBuffer(Values, _buffer);
-                break;
-            case PropertyName.ValueLength:
-                gridMaterial.SetFloat(ValueLength, _values.Length);
+                _texture.SetPixels32(_pixels);
+                _texture.Apply(false);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(property), property, null);
@@ -81,13 +84,13 @@ public class GridController : MonoBehaviour {
         gridMaterial.SetFloat(Fade, fade);
     }
 
-    private void OnApplicationQuit() {
-        // Release ComputeBuffer memory
-        _buffer.Release();
+    private void OnDestroy() {
+        if (_texture != null)
+            Destroy(_texture);
     }
 
     /// <summary>
-    /// Loads a GridState into the Grid Shader's StructuredBuffer
+    /// Loads a whole GridState into the state texture (every cell), then uploads it.
     /// </summary>
     /// <param name="state"></param>
     public void LoadGridState(GridNodeType[,] state) {
@@ -123,35 +126,16 @@ public class GridController : MonoBehaviour {
     }
     
     /// <summary>
-    /// Sets a value in the 1D array at a particular 2D coordinate
+    /// Packs a cell's state index into its texel (red channel). Uploaded to the GPU on the next
+    /// UpdateShader(Values).
     /// </summary>
     /// <param name="x">the X coordinate</param>
     /// <param name="y">the Y coordinate</param>
-    /// <param name="value">the integer value</param>
+    /// <param name="value">the GridNodeType index</param>
     public void SetValue(int x, int y, int value) {
-        _values[width * y + x] = value;
+        _pixels[width * y + x] = new Color32((byte) value, 0, 0, 255);
     }
 
-    /// <summary>
-    /// Returns the value at a 2D coordinate within the 1D array
-    /// </summary>
-    /// <param name="x">the X coordinate</param>
-    /// <param name="y">the Y coordinate</param>
-    /// <returns>a integer value</returns>
-    public int GetValue(int x, int y) {
-        return _values[width * y + x];
-    }
-
-    /// <summary>
-    /// Converts a 2D coordinate into a 1D array index
-    /// </summary>
-    /// <param name="x">the X coordinate</param>
-    /// <param name="y">the Y coordinate</param>
-    /// <returns>the integer array index</returns>
-    public int GetIndex(int x, int y) {
-        return width * y + x;
-    }
-    
     /// <summary>
     /// Translate a world position to the approximate position on the Grid.
     /// May not return valid grid coordinates (outside the range).
