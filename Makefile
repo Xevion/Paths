@@ -4,9 +4,12 @@
 UNITY ?= unity
 PROJECT := Paths
 PLAYER := Build/Linux/Paths
+WEB := Build/WebGL
+PORT ?= 8000
 # Unity stamps the launcher with the template's mtime, not the build time, so we
 # can't use it as the make target - touch our own stamp once a build succeeds.
 STAMP := Build/.built
+WEBSTAMP := Build/.web
 
 # machine-local overrides (the UNITY path, mostly)
 -include local.mk
@@ -24,11 +27,16 @@ endif
 # vendored, never changes, and the space in the path trips up make's prereq parsing.
 SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \) -not -path '*/TextMesh Pro/*')
 
-.PHONY: demo build run play compile test open clean
+.PHONY: demo build run play web compile test open clean
 
 # build if stale, then run the demo
 demo: $(STAMP)
 	./$(PLAYER)
+
+# build the WebGL demo if stale, then serve it (WebGL can't run off file://)
+web: $(WEBSTAMP)
+	@echo "serving $(WEB) at http://localhost:$(PORT) - ctrl-c to stop"
+	cd $(WEB) && python3 -m http.server $(PORT)
 
 build: $(STAMP)
 
@@ -41,6 +49,12 @@ $(STAMP): $(SOURCES)
 	@$(UNITY) -batchmode -nographics -projectPath $(PROJECT) -executeMethod Editor.Build.Linux $(LOGARG) \
 		&& touch $(STAMP) && echo "build OK -> $(PLAYER)" \
 		|| (echo "build FAILED (see $(LOG)):"; grep -snE 'error CS|: error |BuildFailedException' $(LOG) | head -40; false)
+
+$(WEBSTAMP): $(SOURCES)
+	@mkdir -p Build
+	@$(UNITY) -batchmode -nographics -projectPath $(PROJECT) -executeMethod Editor.Build.WebGL $(LOGARG) \
+		&& touch $(WEBSTAMP) && echo "web build OK -> $(WEB)" \
+		|| (echo "web build FAILED (see $(LOG)):"; grep -snE 'error CS|: error |BuildFailedException' $(LOG) | head -40; false)
 
 run:
 	./$(PLAYER)
