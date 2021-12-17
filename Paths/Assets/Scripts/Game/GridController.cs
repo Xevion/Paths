@@ -44,7 +44,10 @@ public class GridController : MonoBehaviour {
 
         if (_texture != null)
             Destroy(_texture);
-        _texture = new Texture2D(width, height, TextureFormat.RGBA32, false) {
+        // linear:true - we're packing a raw state index in the red byte, not a colour. without it
+        // the texture samples as sRGB and the project's linear space gamma-decodes the byte, so the
+        // low indices (start/end/walls) collapse to ~0 and the grid comes up blank.
+        _texture = new Texture2D(width, height, TextureFormat.RGBA32, false, true) {
             filterMode = FilterMode.Point, // one texel = one cell, never interpolate between states
             wrapMode = TextureWrapMode.Clamp
         };
