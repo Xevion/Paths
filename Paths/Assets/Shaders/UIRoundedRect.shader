@@ -9,6 +9,8 @@ Shader "UI/RoundedRect"
         _ShadowOffset ("Shadow Offset", Vector) = (0, -4, 0, 0)
         // a faint top-lit sheen across every surface so flat fills read with a little depth
         _GradientStrength ("Gradient Strength", Float) = 0.05
+        // ordered dither to break up banding in the dark gradients (Linear space bands badly)
+        _DitherStrength ("Dither Strength", Float) = 1.0
     }
     SubShader
     {
@@ -55,6 +57,7 @@ Shader "UI/RoundedRect"
             float4 _ShadowColor;
             float4 _ShadowOffset;
             float _GradientStrength;
+            float _DitherStrength;
             float4 _ClipRect;
 
             // signed distance to a rounded box: <0 inside, 0 on the edge, >0 outside
@@ -102,6 +105,10 @@ Shader "UI/RoundedRect"
 
                 float outA = shapeAlpha + shadowAlpha * (1.0 - shapeAlpha);
                 float3 outRGB = (rgb * shapeAlpha + _ShadowColor.rgb * shadowAlpha * (1.0 - shapeAlpha)) / max(outA, 1e-5);
+
+                // ordered-ish dither: half an 8-bit step of screen-space hash noise, kills banding
+                float n = frac(sin(dot(i.pos.xy, float2(12.9898, 78.233))) * 43758.5453);
+                outRGB += (n - 0.5) * (_DitherStrength / 255.0);
 
                 #ifdef UNITY_UI_CLIP_RECT
                 outA *= UnityGet2DClipping(i.world.xy, _ClipRect);
