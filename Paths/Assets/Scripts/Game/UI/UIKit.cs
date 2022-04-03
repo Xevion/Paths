@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +11,7 @@ namespace Game.UI {
     /// </summary>
     public static class UIKit {
         public enum Type { Caption, Body, Title }
+        public enum ButtonStyle { Primary, Secondary, Danger, Ghost }
 
         /// <summary>A rounded surface card with a vertical layout group. Returns its RectTransform.</summary>
         public static RectTransform Panel(Transform parent, Color fill, float radius = Theme.RadiusMd,
@@ -95,6 +97,88 @@ namespace Game.UI {
             var element = rt.gameObject.AddComponent<LayoutElement>();
             element.minHeight = element.preferredHeight = 1f;
             element.flexibleWidth = 1f;
+        }
+
+        /// <summary>A square icon-only button (close, etc.).</summary>
+        public static Button IconButton(Transform parent, string glyph, Action onClick,
+            ButtonStyle style = ButtonStyle.Ghost) {
+            Button button = Button(parent, null, null, onClick, style, 36f, glyph);
+            button.GetComponent<LayoutElement>().minWidth = 36f;
+            button.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(0, 0, 0, 0);
+            return button;
+        }
+
+        public static Button Button(Transform parent, TMP_FontAsset font, string text, Action onClick,
+            ButtonStyle style = ButtonStyle.Primary, float minWidth = 96f, string icon = null) {
+            var rt = New("Button", parent);
+            var bg = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            bg.cornerRadius = Theme.RadiusSm;
+            bg.raycastTarget = true;
+
+            Color fill, textColor;
+            switch (style) {
+                case ButtonStyle.Secondary: fill = Theme.SurfaceRaised; textColor = Theme.Text; break;
+                case ButtonStyle.Danger: fill = Theme.Danger; textColor = Theme.Text; break;
+                case ButtonStyle.Ghost: fill = new Color(1f, 1f, 1f, 0.04f); textColor = Theme.Text; break;
+                default: fill = Theme.Accent; textColor = Theme.AccentText; break;
+            }
+            bg.color = fill;
+
+            var button = rt.gameObject.AddComponent<Button>();
+            button.targetGraphic = bg;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = Tint();
+            AddCursor(rt.gameObject, CursorKind.Hand);
+            button.onClick.AddListener(() => onClick());
+
+            // an inner horizontal group with side padding lets the button hug its label (+ padding) so
+            // text never overflows; the LayoutElement minWidth is just a floor for short labels.
+            var pad = rt.gameObject.AddComponent<HorizontalLayoutGroup>();
+            pad.padding = new RectOffset(16, 16, 0, 0);
+            pad.spacing = 7f;
+            pad.childAlignment = TextAnchor.MiddleCenter;
+            pad.childControlWidth = pad.childControlHeight = true;
+            pad.childForceExpandWidth = pad.childForceExpandHeight = true;
+
+            if (icon != null)
+                Icon.Make(rt, icon, Theme.Body, textColor);
+            if (!string.IsNullOrEmpty(text)) {
+                TextMeshProUGUI label = Label(rt, Fonts.SemiBold, text, Type.Body, textColor);
+                label.alignment = TextAlignmentOptions.Center;
+            }
+
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = element.preferredHeight = 34f;
+            element.minWidth = minWidth;
+
+            // a sheen sweep on hover for the solid styles (ghost has no fill to catch the light). a dark
+            // fill needs far less white to read the same as the bright accent, or the band looks blown out.
+            if (style != ButtonStyle.Ghost) {
+                var shine = rt.gameObject.AddComponent<ShineSweep>();
+                shine.duration = 0.4f;
+                shine.peakAlpha = style == ButtonStyle.Primary || style == ButtonStyle.Danger ? 0.13f : 0.06f;
+                shine.Build();
+            }
+            return button;
+        }
+
+        private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = normal;
+            colors.highlightedColor = highlighted;
+            colors.pressedColor = pressed;
+            colors.selectedColor = selected ?? normal;
+            colors.fadeDuration = 0.1f;
+            return colors;
+        }
+
+        // ColorTint multiplies targetGraphic.color, so keep white-ish multipliers and lift on hover
+        private static ColorBlock Tint() =>
+            MakeTint(Color.white, new Color(1.12f, 1.12f, 1.12f, 1f), new Color(0.86f, 0.86f, 0.86f, 1f));
+
+        // swap the hardware cursor while this control is hovered (events bubble up from child graphics)
+        private static void AddCursor(GameObject go, CursorKind kind) {
+            go.AddComponent<HoverCursor>().kind = kind;
         }
 
         private static float Size(Type type) {
