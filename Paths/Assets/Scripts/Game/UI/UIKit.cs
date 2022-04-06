@@ -116,10 +116,12 @@ namespace Game.UI {
             bg.raycastTarget = true;
 
             Color fill, textColor;
+            bool ghost = style == ButtonStyle.Ghost;
             switch (style) {
                 case ButtonStyle.Secondary: fill = Theme.SurfaceRaised; textColor = Theme.Text; break;
                 case ButtonStyle.Danger: fill = Theme.Danger; textColor = Theme.Text; break;
-                case ButtonStyle.Ghost: fill = new Color(1f, 1f, 1f, 0.04f); textColor = Theme.Text; break;
+                // ghost starts invisible; its hover is carried by alpha, so the base stays full-alpha white
+                case ButtonStyle.Ghost: fill = Color.white; textColor = Theme.Text; break;
                 default: fill = Theme.Accent; textColor = Theme.AccentText; break;
             }
             bg.color = fill;
@@ -127,7 +129,9 @@ namespace Game.UI {
             var button = rt.gameObject.AddComponent<Button>();
             button.targetGraphic = bg;
             button.transition = Selectable.Transition.ColorTint;
-            button.colors = Tint();
+            // ColorTint multiplies the base colour, so a 0.04-alpha base can't brighten - ghost drives
+            // alpha instead (transparent at rest, a faint white wash on hover).
+            button.colors = ghost ? GhostTint() : Tint();
             AddCursor(rt.gameObject, CursorKind.Hand);
             button.onClick.AddListener(() => onClick());
 
@@ -138,7 +142,9 @@ namespace Game.UI {
             pad.spacing = 7f;
             pad.childAlignment = TextAnchor.MiddleCenter;
             pad.childControlWidth = pad.childControlHeight = true;
-            pad.childForceExpandWidth = pad.childForceExpandHeight = true;
+            // hug content on BOTH axes - forcing expand makes the button advertise flexible size to its
+            // parent row and balloon (first wide About buttons, then extremely tall ones).
+            pad.childForceExpandWidth = pad.childForceExpandHeight = false;
 
             if (icon != null)
                 Icon.Make(rt, icon, Theme.Body, textColor);
@@ -147,13 +153,15 @@ namespace Game.UI {
                 label.alignment = TextAlignmentOptions.Center;
             }
 
+            // fixed size, no flex - the row can't stretch it
             var element = rt.gameObject.AddComponent<LayoutElement>();
             element.minHeight = element.preferredHeight = 34f;
             element.minWidth = minWidth;
+            element.flexibleWidth = element.flexibleHeight = 0f;
 
             // a sheen sweep on hover for the solid styles (ghost has no fill to catch the light). a dark
             // fill needs far less white to read the same as the bright accent, or the band looks blown out.
-            if (style != ButtonStyle.Ghost) {
+            if (!ghost) {
                 var shine = rt.gameObject.AddComponent<ShineSweep>();
                 shine.duration = 0.4f;
                 shine.peakAlpha = style == ButtonStyle.Primary || style == ButtonStyle.Danger ? 0.13f : 0.06f;
@@ -175,6 +183,10 @@ namespace Game.UI {
         // ColorTint multiplies targetGraphic.color, so keep white-ish multipliers and lift on hover
         private static ColorBlock Tint() =>
             MakeTint(Color.white, new Color(1.12f, 1.12f, 1.12f, 1f), new Color(0.86f, 0.86f, 0.86f, 1f));
+
+        // ghost buttons: white base, alpha-only tint - invisible at rest, a faint wash on hover/press
+        private static ColorBlock GhostTint() =>
+            MakeTint(new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0.10f), new Color(1f, 1f, 1f, 0.16f));
 
         // swap the hardware cursor while this control is hovered (events bubble up from child graphics)
         private static void AddCursor(GameObject go, CursorKind kind) {
