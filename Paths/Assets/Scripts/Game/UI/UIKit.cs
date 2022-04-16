@@ -49,6 +49,28 @@ namespace Game.UI {
             return rt;
         }
 
+        /// <summary>
+        /// A labelled form row: a fixed-width caption on the left, then the caller's control. By default a
+        /// flexible gap pushes the control flush to the right edge so every row's control aligns; pass
+        /// fill=true (sliders) to let a stretching control eat the gap instead.
+        /// </summary>
+        public static RectTransform Field(Transform parent, TMP_FontAsset font, string label,
+            bool fill = false, float labelWidth = 150f) {
+            RectTransform row = Row(parent);
+            row.gameObject.AddComponent<LayoutElement>().minHeight = 34f;
+            TextMeshProUGUI caption = Label(row, font, label);
+            caption.color = Theme.Muted;
+            Width(caption.gameObject, labelWidth);
+            if (!fill) Flexible(row);
+            return row;
+        }
+
+        /// <summary>A flexible spacer that eats leftover space in a row/column.</summary>
+        public static void Flexible(Transform parent) {
+            var rt = New("Spacer", parent);
+            rt.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+        }
+
         public static TextMeshProUGUI Label(Transform parent, TMP_FontAsset font, string text,
             Type type = Type.Body, Color? color = null) {
             var rt = New("Label", parent);
@@ -228,6 +250,11 @@ namespace Game.UI {
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(0f, height);
             rt.anchoredPosition = Vector2.zero;
+        }
+
+        private static void Width(GameObject go, float width) {
+            var element = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+            element.preferredWidth = element.minWidth = width;
         }
     }
 }
