@@ -192,6 +192,35 @@ namespace Game.UI {
             return button;
         }
 
+        /// <summary>A labelled checkbox row (label left, box right) matching the other fields. Returns the Toggle.</summary>
+        public static Toggle Checkbox(Transform parent, TMP_FontAsset font, string text, bool on,
+            Action<bool> onChange) {
+            RectTransform row = Field(parent, font, text);
+
+            var boxRt = New("Box", row);
+            var box = boxRt.gameObject.AddComponent<RoundedRectGraphic>();
+            box.color = on ? Theme.Accent : Theme.SurfaceRaised;
+            box.cornerRadius = Theme.RadiusSm;
+            Size(boxRt.gameObject, 24f, 24f);
+
+            TextMeshProUGUI check = Icon.Make(boxRt, Icon.Check, 13f, Theme.AccentText);
+            Stretch(check.rectTransform);
+            check.enabled = on;
+
+            var toggle = row.gameObject.AddComponent<Toggle>();
+            toggle.transition = Selectable.Transition.ColorTint;
+            toggle.targetGraphic = box;
+            toggle.colors = Tint();
+            toggle.isOn = on;
+            toggle.onValueChanged.AddListener(v => {
+                box.color = v ? Theme.Accent : Theme.SurfaceRaised;
+                check.enabled = v;
+                onChange(v);
+            });
+            AddCursor(row.gameObject, CursorKind.Hand);
+            return toggle;
+        }
+
         private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
             var colors = ColorBlock.defaultColorBlock;
             colors.normalColor = normal;
@@ -244,6 +273,12 @@ namespace Game.UI {
             if (fitWidth) fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         }
 
+        private static void Stretch(RectTransform rt) {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+        }
+
         private static void CenterBand(RectTransform rt, float height) {
             rt.anchorMin = new Vector2(0f, 0.5f);
             rt.anchorMax = new Vector2(1f, 0.5f);
@@ -255,6 +290,12 @@ namespace Game.UI {
         private static void Width(GameObject go, float width) {
             var element = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
             element.preferredWidth = element.minWidth = width;
+        }
+
+        private static void Size(GameObject go, float width, float height) {
+            var element = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+            element.preferredWidth = element.minWidth = width;
+            element.preferredHeight = element.minHeight = height;
         }
     }
 }
