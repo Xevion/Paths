@@ -10,6 +10,7 @@ namespace Game.UI {
     public class RoundedRectGraphic : MaskableGraphic {
         public float cornerRadius = Theme.RadiusMd;
         public float shadowSize;
+        public float innerShadow; // 0 = flat, >0 = inset groove (slider tracks, input wells)
 
         private static Material _shared;
 
@@ -64,7 +65,7 @@ namespace Game.UI {
             var vert = UIVertex.simpleVert;
             vert.position = new Vector3(x, y);
             vert.color = color;
-            vert.uv0 = new Vector4(x - center.x, y - center.y, 0f, 0f);
+            vert.uv0 = new Vector4(x - center.x, y - center.y, innerShadow, 0f);
             vert.uv1 = new Vector4(half.x, half.y, radius, shadowSize);
             vh.AddVert(vert);
         }

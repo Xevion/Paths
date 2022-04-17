@@ -11,6 +11,10 @@ Shader "UI/RoundedRect"
         _GradientStrength ("Gradient Strength", Float) = 0.05
         // ordered dither to break up banding in the dark gradients (Linear space bands badly)
         _DitherStrength ("Dither Strength", Float) = 1.0
+        // inset shadow for grooves/wells - strength rides per-vertex (uv0.z), look is global
+        _InnerShadowColor ("Inner Shadow Color", Color) = (0, 0, 0, 0.5)
+        _InnerShadowDist ("Inner Shadow Distance", Float) = 4.0
+        _InnerShadowSoft ("Inner Shadow Softness", Float) = 6.0
     }
     SubShader
     {
@@ -39,7 +43,7 @@ Shader "UI/RoundedRect"
             {
                 float4 vertex : POSITION;
                 float4 color : COLOR;
-                float4 uv0 : TEXCOORD0; // xy = pixel offset from the rect centre
+                float4 uv0 : TEXCOORD0; // xy = pixel offset from the rect centre, z = inner-shadow strength
                 float4 uv1 : TEXCOORD1; // xy = half size, z = corner radius, w = shadow size
             };
 
@@ -48,7 +52,7 @@ Shader "UI/RoundedRect"
                 float4 pos : SV_POSITION;
                 float4 color : COLOR;
                 float4 local : TEXCOORD0; // xy offset, zw half size
-                float2 shape : TEXCOORD1; // x radius, y shadow size
+                float3 shape : TEXCOORD1; // x radius, y shadow size, z inner-shadow strength
                 float4 world : TEXCOORD2; // canvas-space position, for RectMask2D clipping
             };
 
@@ -58,6 +62,9 @@ Shader "UI/RoundedRect"
             float4 _ShadowOffset;
             float _GradientStrength;
             float _DitherStrength;
+            float4 _InnerShadowColor;
+            float _InnerShadowDist;
+            float _InnerShadowSoft;
             float4 _ClipRect;
 
             // signed distance to a rounded box: <0 inside, 0 on the edge, >0 outside
@@ -73,7 +80,7 @@ Shader "UI/RoundedRect"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.color = v.color;
                 o.local = float4(v.uv0.xy, v.uv1.xy);
-                o.shape = v.uv1.zw;
+                o.shape = float3(v.uv1.zw, v.uv0.z);
                 o.world = v.vertex;
                 return o;
             }
@@ -84,6 +91,7 @@ Shader "UI/RoundedRect"
                 float2 halfSize = i.local.zw;
                 float radius = i.shape.x;
                 float shadowSize = i.shape.y;
+                float innerStrength = i.shape.z;
 
                 float d = sdRoundedBox(p, halfSize, radius);
                 float aa = max(fwidth(d), 1e-5) * 0.5; // ~1px AA band - crisp, not soft
@@ -97,6 +105,15 @@ Shader "UI/RoundedRect"
                 float innerMask = 1.0 - smoothstep(-aa, aa, d + _Border);
                 // border lives in the outer ring only, blended by its own alpha so it stays a hairline
                 float3 rgb = lerp(fillRGB, _BorderColor.rgb, (1.0 - innerMask) * _BorderColor.a);
+
+                // inset shadow along the top inner edge (light from above) for grooves/wells
+                if (innerStrength > 0.001)
+                {
+                    float id = sdRoundedBox(p + float2(0.0, _InnerShadowDist), halfSize, radius);
+                    float inner = smoothstep(0.0, _InnerShadowSoft, id) * shapeAlpha
+                                  * innerStrength * _InnerShadowColor.a;
+                    rgb = lerp(rgb, _InnerShadowColor.rgb, inner);
+                }
 
                 // soft drop shadow behind the shape, only where the shape isn't already opaque
                 float sd = sdRoundedBox(p - _ShadowOffset.xy, halfSize, radius);
