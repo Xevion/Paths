@@ -55,14 +55,40 @@ namespace Game.UI {
         /// fill=true (sliders) to let a stretching control eat the gap instead.
         /// </summary>
         public static RectTransform Field(Transform parent, TMP_FontAsset font, string label,
-            bool fill = false, float labelWidth = 150f) {
+            bool fill = false, string tooltip = null, float labelWidth = 150f) {
             RectTransform row = Row(parent);
             row.gameObject.AddComponent<LayoutElement>().minHeight = 34f;
+            if (tooltip != null) AddTooltip(row.gameObject, tooltip);
             TextMeshProUGUI caption = Label(row, font, label);
             caption.color = Theme.Muted;
             Width(caption.gameObject, labelWidth);
+            if (tooltip != null) DashUnderline(caption); // quiet "hover for info" affordance
             if (!fill) Flexible(row);
             return row;
+        }
+
+        // a dashed rule just under a label's text (sized to the text, not the whole slot), marking it as
+        // tooltip-bearing. GetPreferredValues gives the text box up front so the dashes match its width.
+        private static void DashUnderline(TextMeshProUGUI caption) {
+            Vector2 pref = caption.GetPreferredValues(caption.text);
+            var rt = New("Underline", caption.transform);
+            var u = rt.gameObject.AddComponent<DashedUnderline>();
+            u.color = new Color(Theme.Muted.r, Theme.Muted.g, Theme.Muted.b, 0.32f);
+            u.raycastTarget = false;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f); // top-left of the label rect
+            rt.sizeDelta = new Vector2(pref.x, 1f);
+            rt.anchoredPosition = new Vector2(0f, -pref.y - 1f); // tuck just under the text baseline
+        }
+
+        /// <summary>Make a control hoverable for a tooltip. Adds a transparent raycast surface if needed.</summary>
+        public static void AddTooltip(GameObject go, string text) {
+            // Unity fires pointer enter/exit on the whole ancestor chain, so a transparent surface on the
+            // row lets a hover anywhere on it (including over the control) raise the tooltip.
+            if (go.GetComponent<Graphic>() == null) {
+                var hit = go.AddComponent<Image>();
+                hit.color = new Color(0f, 0f, 0f, 0f);
+            }
+            go.AddComponent<Tooltip>().text = text;
         }
 
         /// <summary>A flexible spacer that eats leftover space in a row/column.</summary>
