@@ -33,6 +33,11 @@ namespace Game.UI {
                 canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
         }
 
+        protected override void OnCanvasHierarchyChanged() {
+            base.OnCanvasHierarchyChanged();
+            EnableExtraChannel();
+        }
+
         protected override void OnPopulateMesh(VertexHelper vh) {
             vh.Clear();
 
