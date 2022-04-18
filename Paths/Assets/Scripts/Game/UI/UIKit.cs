@@ -247,6 +247,44 @@ namespace Game.UI {
             return toggle;
         }
 
+        /// <summary>An iOS-style switch: a pill track and a sliding knob. Returns the Toggle.</summary>
+        public static Toggle Switch(Transform parent, bool on, Action<bool> onChange) {
+            var rt = New("Switch", parent);
+            Size(rt.gameObject, 46f, 26f);
+            rt.gameObject.AddComponent<LayoutElement>();
+
+            var track = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            track.color = on ? Theme.Accent : Theme.Track;
+            track.cornerRadius = 13f;
+
+            var knobRt = New("Knob", rt);
+            var knob = knobRt.gameObject.AddComponent<RoundedRectGraphic>();
+            knob.color = Color.white;
+            knob.cornerRadius = 11f;
+            knob.raycastTarget = false;
+            knobRt.sizeDelta = new Vector2(20f, 20f);
+            knobRt.anchorMin = knobRt.anchorMax = new Vector2(0f, 0.5f);
+            knobRt.pivot = new Vector2(0.5f, 0.5f);
+            knobRt.anchoredPosition = new Vector2(on ? 33f : 13f, 0f);
+
+            var anim = rt.gameObject.AddComponent<UISwitch>();
+            anim.knob = knobRt;
+            anim.knobGraphic = knob;
+            anim.track = track;
+            anim.Init(on);
+
+            var toggle = rt.gameObject.AddComponent<Toggle>();
+            toggle.transition = Selectable.Transition.None;
+            toggle.targetGraphic = track;
+            toggle.isOn = on;
+            toggle.onValueChanged.AddListener(v => {
+                anim.Set(v);
+                onChange(v);
+            });
+            AddCursor(rt.gameObject, CursorKind.Hand);
+            return toggle;
+        }
+
         private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
             var colors = ColorBlock.defaultColorBlock;
             colors.normalColor = normal;
