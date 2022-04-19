@@ -285,6 +285,63 @@ namespace Game.UI {
             return toggle;
         }
 
+        /// <summary>A track + fill + round handle slider. Returns the Slider.</summary>
+        public static Slider Slider(Transform parent, float min, float max, float value, Action<float> onChange) {
+            var rt = New("Slider", parent);
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = 24f;
+            element.flexibleWidth = 1f;
+
+            var trackRt = New("Track", rt);
+            var track = trackRt.gameObject.AddComponent<RoundedRectGraphic>();
+            track.color = Theme.Track;
+            track.cornerRadius = 3f;
+            track.innerShadow = 1f; // the groove reads recessed
+            track.raycastTarget = true;
+            CenterBand(trackRt, 6f);
+
+            var fillAreaRt = New("Fill Area", rt);
+            CenterBand(fillAreaRt, 6f);
+            var fillRt = New("Fill", fillAreaRt);
+            var fill = fillRt.gameObject.AddComponent<RoundedRectGraphic>();
+            fill.color = Theme.Accent;
+            fill.cornerRadius = 3f;
+            fill.raycastTarget = false;
+            fillRt.anchorMin = new Vector2(0f, 0f);
+            fillRt.anchorMax = new Vector2(1f, 1f);
+            fillRt.sizeDelta = Vector2.zero;
+
+            // Slider drives the handle to anchorMin=(val,0)/anchorMax=(val,1), so it stretches over the
+            // slide area's height - keep the area a fixed-height band (inset on x by the handle radius) so
+            // the handle reads as a round 18px knob instead of a tall sliver.
+            var handleAreaRt = New("Handle Slide Area", rt);
+            handleAreaRt.anchorMin = new Vector2(0f, 0.5f);
+            handleAreaRt.anchorMax = new Vector2(1f, 0.5f);
+            handleAreaRt.pivot = new Vector2(0.5f, 0.5f);
+            handleAreaRt.sizeDelta = new Vector2(-20f, 18f);
+            handleAreaRt.anchoredPosition = Vector2.zero;
+            var handleRt = New("Handle", handleAreaRt);
+            var handle = handleRt.gameObject.AddComponent<RoundedRectGraphic>();
+            handle.color = Color.white;
+            handle.cornerRadius = 9f;
+            handle.shadowSize = 7f;
+            handleRt.pivot = new Vector2(0.5f, 0.5f);
+            handleRt.sizeDelta = new Vector2(18f, 0f);
+
+            var slider = rt.gameObject.AddComponent<UISlider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = handleRt;
+            slider.targetGraphic = handle;
+            AddCursor(rt.gameObject, CursorKind.ResizeH);
+            slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.value = value;
+            slider.onValueChanged.AddListener(v => onChange(v));
+            rt.gameObject.AddComponent<SliderScroll>().slider = slider;
+            return slider;
+        }
+
         private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
             var colors = ColorBlock.defaultColorBlock;
             colors.normalColor = normal;
