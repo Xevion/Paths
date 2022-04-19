@@ -342,6 +342,64 @@ namespace Game.UI {
             return slider;
         }
 
+        /// <summary>
+        /// A thick progress-bar style slider: drag anywhere on the bar, the value reads out (mono) inside it,
+        /// and the fill brightens on hover. No floating handle - the fill edge is the position.
+        /// </summary>
+        public static Slider ValueSlider(Transform parent, float min, float max, float value,
+            Func<float, string> format, Action<float> onChange, float height = 26f) {
+            var rt = New("ValueSlider", parent);
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = element.preferredHeight = height;
+            element.flexibleWidth = 1f;
+
+            var track = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            track.color = Theme.Track;
+            track.cornerRadius = Theme.RadiusSm;
+            track.innerShadow = 1f; // the bar reads recessed under the fill
+            track.raycastTarget = true; // drag surface
+
+            var fillAreaRt = New("Fill Area", rt);
+            Stretch(fillAreaRt);
+            var fillRt = New("Fill", fillAreaRt);
+            var fill = fillRt.gameObject.AddComponent<RoundedRectGraphic>();
+            fill.color = Theme.Accent;
+            fill.cornerRadius = Theme.RadiusSm;
+            fill.raycastTarget = false;
+            fillRt.anchorMin = Vector2.zero;
+            fillRt.anchorMax = Vector2.one;
+            fillRt.sizeDelta = Vector2.zero;
+
+            var valueRt = New("Value", rt);
+            Stretch(valueRt);
+            valueRt.offsetMin = new Vector2(12f, 0f);
+            valueRt.offsetMax = new Vector2(-12f, 0f);
+            var valueLabel = valueRt.gameObject.AddComponent<TextMeshProUGUI>();
+            valueLabel.font = Fonts.Mono;
+            valueLabel.text = format(value);
+            valueLabel.fontSize = 14f;
+            valueLabel.color = Theme.Text;
+            valueLabel.alignment = TextAlignmentOptions.MidlineRight;
+            valueLabel.raycastTarget = false;
+
+            var slider = rt.gameObject.AddComponent<UISlider>();
+            slider.fillRect = fillRt;
+            slider.targetGraphic = fill; // hover/press brightens the fill
+            AddCursor(rt.gameObject, CursorKind.ResizeH);
+            slider.transition = Selectable.Transition.ColorTint;
+            slider.colors = Tint();
+            slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.value = value;
+            slider.onValueChanged.AddListener(v => {
+                valueLabel.text = format(v);
+                onChange(v);
+            });
+            rt.gameObject.AddComponent<SliderScroll>().slider = slider;
+            return slider;
+        }
+
         private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
             var colors = ColorBlock.defaultColorBlock;
             colors.normalColor = normal;
