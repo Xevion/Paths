@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -398,6 +399,161 @@ namespace Game.UI {
             });
             rt.gameObject.AddComponent<SliderScroll>().slider = slider;
             return slider;
+        }
+
+        /// <summary>
+        /// A single-select segmented button group - one click, no popup, no open-then-pick tax. Suits short
+        /// exclusive sets; lay it out horizontally (a few options) or vertically (a taller list). Idempotent:
+        /// re-picking the active segment does nothing.
+        /// </summary>
+        public static void Segmented(Transform parent, IList<string> options, int index, Action<int> onChange,
+            bool vertical = false) {
+            RectTransform rt = New("Segmented", parent);
+            var groove = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            groove.color = Theme.Track;
+            groove.cornerRadius = Theme.RadiusSm;
+            groove.innerShadow = 1f;
+            groove.raycastTarget = false;
+
+            var group = vertical
+                ? (HorizontalOrVerticalLayoutGroup) rt.gameObject.AddComponent<VerticalLayoutGroup>()
+                : rt.gameObject.AddComponent<HorizontalLayoutGroup>();
+            group.padding = new RectOffset(3, 3, 3, 3);
+            group.spacing = 3f;
+            group.childControlWidth = group.childControlHeight = true;
+            group.childForceExpandWidth = group.childForceExpandHeight = true;
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.flexibleWidth = 1f;
+            if (!vertical) element.minHeight = element.preferredHeight = 32f;
+
+            var control = rt.gameObject.AddComponent<SegmentedControl>();
+            control.transition = Selectable.Transition.None; // the segments carry the visuals, not the group
+
+            var fills = new List<RoundedRectGraphic>();
+            var labels = new List<TextMeshProUGUI>();
+            var segs = new List<RectTransform>();
+            int current = Mathf.Clamp(index, 0, options.Count - 1);
+
+            void Apply(int sel) {
+                for (int i = 0; i < fills.Count; i++) {
+                    bool on = i == sel;
+                    fills[i].color = on ? Theme.Accent : new Color(1f, 1f, 1f, 0f);
+                    // dark text on the accent fill when active, light text when not (like the checkbox check)
+                    labels[i].color = on ? Theme.AccentText : Theme.Text;
+                }
+            }
+
+            for (int i = 0; i < options.Count; i++) {
+                RectTransform seg = New("Seg", rt);
+                if (vertical) seg.gameObject.AddComponent<LayoutElement>().minHeight = 30f;
+                var fill = seg.gameObject.AddComponent<RoundedRectGraphic>();
+                fill.cornerRadius = Theme.RadiusSm;
+                fill.raycastTarget = true;
+                fills.Add(fill);
+
+                TextMeshProUGUI label = Label(seg, Fonts.SemiBold, options[i], Type.Caption, Theme.Text);
+                label.fontSize = Theme.Body; // match the field labels, not the smaller caption size
+                label.alignment = TextAlignmentOptions.Center;
+                Stretch(label.rectTransform);
+                labels.Add(label);
+
+                var click = seg.gameObject.AddComponent<SegmentClick>();
+                click.control = control;
+                click.index = i;
+                click.fill = fill;
+                AddCursor(seg.gameObject, CursorKind.Hand);
+                segs.Add(seg);
+            }
+
+            control.segments = segs.ToArray();
+            control.visuals = Apply;
+            control.onChange = onChange;
+            control.Init(current);
+            Apply(current);
+        }
+
+        /// <summary>
+        /// A segmented control that keeps every option on one row by showing inactive options as a short
+        /// tag and expanding the selected one to its full label (it absorbs the leftover width, so the row
+        /// never grows). Tooltips carry the full name of each. Suits a primary pick with more options than
+        /// a plain segmented row would fit. Idempotent.
+        /// </summary>
+        public static void SegmentedExpand(Transform parent, IList<string> tags, IList<string> full, int index,
+            Action<int> onChange) {
+            RectTransform rt = New("SegmentedExpand", parent);
+            var groove = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            groove.color = Theme.Track;
+            groove.cornerRadius = Theme.RadiusSm;
+            groove.innerShadow = 1f;
+            groove.raycastTarget = false;
+            var group = rt.gameObject.AddComponent<HorizontalLayoutGroup>();
+            group.padding = new RectOffset(3, 3, 3, 3);
+            group.spacing = 3f;
+            group.childControlWidth = group.childControlHeight = true;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = true;
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = element.preferredHeight = 32f;
+            element.flexibleWidth = 1f;
+
+            var control = rt.gameObject.AddComponent<SegmentedControl>();
+            control.transition = Selectable.Transition.None;
+
+            var fills = new List<RoundedRectGraphic>();
+            var labels = new List<TextMeshProUGUI>();
+            var elements = new List<LayoutElement>();
+            var segs = new List<RectTransform>();
+            int current = Mathf.Clamp(index, 0, tags.Count - 1);
+
+            // colours + label text (the width is eased separately by SegmentExpandAnim)
+            void Visuals(int sel) {
+                for (int i = 0; i < fills.Count; i++) {
+                    bool on = i == sel;
+                    fills[i].color = on ? Theme.Accent : new Color(1f, 1f, 1f, 0f);
+                    labels[i].text = on ? full[i] : tags[i];
+                    labels[i].color = on ? Theme.AccentText : Theme.Text;
+                }
+            }
+
+            for (int i = 0; i < tags.Count; i++) {
+                RectTransform seg = New("Seg", rt);
+                var fill = seg.gameObject.AddComponent<RoundedRectGraphic>();
+                fill.cornerRadius = Theme.RadiusSm;
+                fill.raycastTarget = true;
+                fills.Add(fill);
+                seg.gameObject.AddComponent<RectMask2D>(); // clip the label so it reveals as the box grows
+                var inner = seg.gameObject.AddComponent<HorizontalLayoutGroup>();
+                inner.padding = new RectOffset(8, 8, 0, 0);
+                inner.childAlignment = TextAnchor.MiddleCenter;
+                inner.childControlWidth = inner.childControlHeight = true;
+                inner.childForceExpandWidth = inner.childForceExpandHeight = false;
+                elements.Add(seg.gameObject.AddComponent<LayoutElement>());
+
+                TextMeshProUGUI label = Label(seg, Fonts.SemiBold, tags[i], Type.Caption, Theme.Text);
+                label.fontSize = Theme.Body; // match the field labels, not the smaller caption size
+                label.alignment = TextAlignmentOptions.Center;
+                labels.Add(label);
+
+                AddTooltip(seg.gameObject, full[i]);
+                var click = seg.gameObject.AddComponent<SegmentClick>();
+                click.control = control;
+                click.index = i;
+                click.fill = fill;
+                AddCursor(seg.gameObject, CursorKind.Hand);
+                segs.Add(seg);
+            }
+
+            var anim = rt.gameObject.AddComponent<SegmentExpandAnim>();
+            anim.elements = elements.ToArray();
+            anim.target = current;
+            for (int i = 0; i < elements.Count; i++) elements[i].flexibleWidth = i == current ? 1f : 0f;
+
+            control.segments = segs.ToArray();
+            control.visuals = Visuals;
+            control.animate = anim.Select;
+            control.onChange = onChange;
+            control.Init(current);
+            Visuals(current);
         }
 
         private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
