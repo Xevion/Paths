@@ -623,6 +623,61 @@ namespace Game.UI {
             Visuals(current);
         }
 
+        /// <summary>
+        /// A numeric field you drag horizontally (or scroll over) to change - no popup, no typing, no tiny
+        /// handle to hit. Mono value flanked by faint scrub chevrons. Returns the ScrubControl.
+        /// </summary>
+        public static ScrubControl ScrubField(Transform parent, int value, int min, int max, string suffix,
+            Action<int> onChange, float width = 96f) {
+            RectTransform rt = New("Scrub", parent);
+            var bg = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            bg.color = Theme.SurfaceRaised;
+            bg.cornerRadius = Theme.RadiusSm;
+            bg.raycastTarget = true; // the whole field is the drag surface
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = element.preferredHeight = 34f;
+            element.minWidth = element.preferredWidth = width;
+            element.flexibleWidth = 0f;
+
+            Pin(Icon.Make(rt, Icon.AngleLeft, 12f, Theme.Muted).rectTransform, 0f, 9f);
+            Pin(Icon.Make(rt, Icon.AngleRight, 12f, Theme.Muted).rectTransform, 1f, -9f);
+
+            RectTransform valueRt = New("Value", rt);
+            Stretch(valueRt);
+            var label = valueRt.gameObject.AddComponent<TextMeshProUGUI>();
+            label.font = Fonts.Mono;
+            label.fontSize = 14f;
+            label.color = Theme.Text;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+
+            var scrub = rt.gameObject.AddComponent<ScrubControl>();
+            scrub.transition = Selectable.Transition.None; // ControlHover drives the hover tint, not the Selectable
+            scrub.targetGraphic = bg;
+            scrub.label = label;
+            scrub.value = value;
+            scrub.min = min;
+            scrub.max = max;
+            scrub.suffix = suffix;
+            scrub.onChange = onChange;
+            scrub.Render();
+
+            var hover = rt.gameObject.AddComponent<ControlHover>();
+            hover.target = bg;
+            hover.normal = Theme.SurfaceRaised;
+            hover.hover = Color.Lerp(Theme.SurfaceRaised, Theme.Border, 0.85f);
+            AddCursor(rt.gameObject, CursorKind.ResizeH);
+            return scrub;
+        }
+
+        // pin a small element flush to the left (anchorX 0) or right (anchorX 1) edge, centred vertically
+        private static void Pin(RectTransform rt, float anchorX, float x) {
+            rt.anchorMin = rt.anchorMax = new Vector2(anchorX, 0.5f);
+            rt.pivot = new Vector2(anchorX, 0.5f);
+            rt.sizeDelta = new Vector2(14f, 14f);
+            rt.anchoredPosition = new Vector2(x, 0f);
+        }
+
         private static void ControlShell(Transform parent, out RectTransform inner, out RoundedRectGraphic bg,
             float width = 220f) {
             var rt = New("Control", parent);

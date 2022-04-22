@@ -2,7 +2,8 @@
     "name": "Paths.Game",
     "references": [
         "Paths.Core",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
