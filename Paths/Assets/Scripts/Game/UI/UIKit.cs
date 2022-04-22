@@ -445,6 +445,29 @@ namespace Game.UI {
             return dropdown;
         }
 
+        /// <summary>A dark-themed text field. Returns the TMP_InputField.</summary>
+        public static TMP_InputField InputField(Transform parent, TMP_FontAsset font, string text,
+            string placeholder, Action<string> onChange) {
+            ControlShell(parent, out RectTransform inner, out RoundedRectGraphic shell);
+
+            GameObject go = TMP_DefaultControls.CreateInputField(new TMP_DefaultControls.Resources());
+            go.transform.SetParent(inner, false);
+            Stretch((RectTransform) go.transform);
+
+            var input = go.GetComponent<TMP_InputField>();
+            Transparent(go.GetComponent<Image>());
+            input.targetGraphic = shell; // hover/focus tints the shell
+            input.transition = Selectable.Transition.ColorTint;
+            input.colors = ControlTint();
+            input.caretColor = Theme.Accent;
+            input.selectionColor = new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.3f);
+            input.customCaretColor = true;
+            AddCursor(go, CursorKind.Text);
+            StyleInput(input, font, text, placeholder);
+            input.onValueChanged.AddListener(v => onChange(v));
+            return input;
+        }
+
         /// <summary>
         /// A single-select segmented button group - one click, no popup, no open-then-pick tax. Suits short
         /// exclusive sets; lay it out horizontally (a few options) or vertically (a taller list). Idempotent:
@@ -625,6 +648,10 @@ namespace Game.UI {
             return colors;
         }
 
+        // tints the SurfaceRaised control shell up a notch on hover/press
+        private static ColorBlock ControlTint() =>
+            MakeTint(Color.white, new Color(1.18f, 1.18f, 1.18f, 1f), new Color(1.28f, 1.28f, 1.28f, 1f));
+
         private static void StyleDropdown(TMP_Dropdown dropdown, TMP_FontAsset font) {
             if (dropdown.captionText != null) {
                 dropdown.captionText.font = font;
@@ -706,6 +733,21 @@ namespace Game.UI {
                     mrt.anchoredPosition = Vector2.zero;
                 }
             }
+        }
+
+        private static void StyleInput(TMP_InputField input, TMP_FontAsset font, string text, string placeholder) {
+            if (input.textComponent != null) {
+                input.textComponent.font = font;
+                input.textComponent.color = Theme.Text;
+                input.textComponent.fontSize = Theme.Body;
+            }
+            if (input.placeholder is TextMeshProUGUI ph) {
+                ph.font = font;
+                ph.color = Theme.Muted;
+                ph.fontSize = Theme.Body;
+                ph.text = placeholder;
+            }
+            input.text = text;
         }
 
         // ColorTint multiplies targetGraphic.color, so keep white-ish multipliers and lift on hover
