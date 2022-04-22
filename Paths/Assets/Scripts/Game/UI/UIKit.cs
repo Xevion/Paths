@@ -401,6 +401,50 @@ namespace Game.UI {
             return slider;
         }
 
+        /// <summary>A dark-themed dropdown over string options. Returns the TMP_Dropdown.</summary>
+        public static TMP_Dropdown Dropdown(Transform parent, TMP_FontAsset font, IList<string> options,
+            int index, Action<int> onChange, float width = 220f) {
+            ControlShell(parent, out RectTransform inner, out RoundedRectGraphic shell, width);
+
+            GameObject go = TMP_DefaultControls.CreateDropdown(new TMP_DefaultControls.Resources());
+            go.transform.SetParent(inner, false);
+            Stretch((RectTransform) go.transform);
+
+            var dropdown = go.GetComponent<TMP_Dropdown>();
+            Transparent(go.GetComponent<Image>()); // our rounded shell is the background; keep it clickable
+            // the popup is a child of the dropdown, so a Selectable ColorTint would light the shell up
+            // whenever a row is hovered. Drive the shell tint ourselves and force the "open" look instead.
+            dropdown.targetGraphic = shell;
+            dropdown.transition = Selectable.Transition.None;
+            var hover = inner.gameObject.AddComponent<ControlHover>();
+            hover.target = shell;
+            hover.normal = Theme.SurfaceRaised;
+            hover.hover = Color.Lerp(Theme.SurfaceRaised, Theme.Border, 0.85f);
+            hover.active = () => dropdown.IsExpanded;
+            AddCursor(go, CursorKind.Hand);
+            StyleDropdown(dropdown, font);
+
+            dropdown.ClearOptions();
+            dropdown.AddOptions(new List<string>(options));
+            dropdown.value = Mathf.Clamp(index, 0, options.Count - 1);
+            dropdown.RefreshShownValue();
+            dropdown.onValueChanged.AddListener(i => onChange(i));
+
+            // chevron pinned to the right edge of the shell, above the (transparent) dropdown graphic
+            TextMeshProUGUI chevron = Icon.Make(inner, Icon.ChevronDown, 12f, Theme.Muted);
+            RectTransform crt = chevron.rectTransform;
+            crt.anchorMin = crt.anchorMax = new Vector2(1f, 0.5f);
+            crt.pivot = new Vector2(0.5f, 0.5f); // rotate about the glyph centre
+            crt.sizeDelta = new Vector2(18f, 18f);
+            crt.anchoredPosition = new Vector2(-13f, 0f);
+
+            var fx = go.AddComponent<DropdownChevron>();
+            fx.dropdown = dropdown;
+            fx.chevron = crt;
+            go.AddComponent<DropdownPopupAnim>();
+            return dropdown;
+        }
+
         /// <summary>
         /// A single-select segmented button group - one click, no popup, no open-then-pick tax. Suits short
         /// exclusive sets; lay it out horizontally (a few options) or vertically (a taller list). Idempotent:
@@ -556,6 +600,21 @@ namespace Game.UI {
             Visuals(current);
         }
 
+        private static void ControlShell(Transform parent, out RectTransform inner, out RoundedRectGraphic bg,
+            float width = 220f) {
+            var rt = New("Control", parent);
+            bg = rt.gameObject.AddComponent<RoundedRectGraphic>();
+            bg.color = Theme.SurfaceRaised;
+            bg.cornerRadius = Theme.RadiusSm;
+            bg.raycastTarget = false;
+            var element = rt.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = element.preferredHeight = 34f;
+            // a fixed control width, not flex - dropdowns/fields shouldn't stretch across the whole row
+            element.preferredWidth = element.minWidth = width;
+            element.flexibleWidth = 0f;
+            inner = rt;
+        }
+
         private static ColorBlock MakeTint(Color normal, Color highlighted, Color pressed, Color? selected = null) {
             var colors = ColorBlock.defaultColorBlock;
             colors.normalColor = normal;
@@ -566,6 +625,89 @@ namespace Game.UI {
             return colors;
         }
 
+        private static void StyleDropdown(TMP_Dropdown dropdown, TMP_FontAsset font) {
+            if (dropdown.captionText != null) {
+                dropdown.captionText.font = font;
+                dropdown.captionText.color = Theme.Text;
+                dropdown.captionText.fontSize = Theme.Body;
+            }
+            if (dropdown.itemText != null) {
+                dropdown.itemText.font = font;
+                dropdown.itemText.color = Theme.Text;
+                dropdown.itemText.fontSize = Theme.Body;
+            }
+            // TMP's default Resources have no sprites, so its arrow/checkmark Images draw as solid white
+            // boxes - drop them. Selection in the open list reads off the row highlight instead.
+            Transform arrow = dropdown.transform.Find("Arrow");
+            var arrowImage = arrow != null ? arrow.GetComponent<Image>() : null;
+            if (arrowImage != null) arrowImage.enabled = false;
+
+            // recolour the popup template to the dark theme + give the rows room for the larger font
+            RectTransform template = dropdown.template;
+            if (template != null) {
+                // a plain square surface + a built-in drop shadow for depth. (A RoundedRectGraphic can't be
+                // used here: TMP reparents the open popup under a nested Canvas that strips the TexCoord1
+                // channel the rounding rides in, so it'd lose its shape after the first frame.)
+                var templateBg = template.GetComponent<Image>();
+                if (templateBg != null) {
+                    templateBg.enabled = true;
+                    templateBg.sprite = null;
+                    // a shade darker than the control so the open list reads as a separate surface
+                    templateBg.color = Theme.Window;
+                    var shadow = templateBg.GetComponent<Shadow>() ?? templateBg.gameObject.AddComponent<Shadow>();
+                    shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
+                    shadow.effectDistance = new Vector2(0f, -8f);
+                }
+
+                // stop the mask from drawing its (white, sprite-less) fill - but DON'T make it transparent,
+                // a zero-alpha mask graphic clips every item away. showMaskGraphic=false keeps the clip,
+                // hides the fill.
+                Transform viewport = template.Find("Viewport");
+                var viewportMask = viewport != null ? viewport.GetComponent<Mask>() : null;
+                if (viewportMask != null) viewportMask.showMaskGraphic = false;
+
+                // give the popup room so our short lists never need the (sprite-less, white-box) scrollbar,
+                // and blank its images either way so a longer list scrolls invisibly instead of showing them
+                template.sizeDelta = new Vector2(template.sizeDelta.x, 280f);
+                Transform scrollbar = template.Find("Scrollbar");
+                if (scrollbar != null)
+                    foreach (Image img in scrollbar.GetComponentsInChildren<Image>(true))
+                        img.enabled = false;
+                Transform item = dropdown.itemText != null ? dropdown.itemText.transform.parent : null;
+                if (item is RectTransform itemRt)
+                    itemRt.sizeDelta = new Vector2(itemRt.sizeDelta.x, 30f);
+                if (dropdown.itemText != null) {
+                    dropdown.itemText.alignment = TextAlignmentOptions.MidlineLeft;
+                    dropdown.itemText.margin = new Vector4(12f, 0f, 12f, 0f); // breathing room on the left
+                }
+                var itemToggle = item != null ? item.GetComponent<Toggle>() : null;
+                if (itemToggle != null) {
+                    var colors = itemToggle.colors;
+                    colors.normalColor = Theme.Window;
+                    colors.highlightedColor = Color.Lerp(Theme.Window, Theme.Accent, 0.22f);
+                    colors.selectedColor = Color.Lerp(Theme.Window, Theme.Accent, 0.12f);
+                    colors.pressedColor = Color.Lerp(Theme.Window, Theme.Accent, 0.30f);
+                    colors.fadeDuration = 0.08f;
+                    itemToggle.colors = colors;
+                }
+                // TMP marks the current option by enabling its checkmark Image. The default sprite is a
+                // white box, so re-skin it into a slim accent bar down the active row's left edge.
+                Transform checkmark = item != null ? item.Find("Item Checkmark") : null;
+                var checkImage = checkmark != null ? checkmark.GetComponent<Image>() : null;
+                if (checkImage != null) {
+                    checkImage.enabled = true;
+                    checkImage.sprite = WhiteSprite();
+                    checkImage.color = Theme.Accent;
+                    RectTransform mrt = checkImage.rectTransform;
+                    mrt.anchorMin = new Vector2(0f, 0f);
+                    mrt.anchorMax = new Vector2(0f, 1f);
+                    mrt.pivot = new Vector2(0f, 0.5f);
+                    mrt.sizeDelta = new Vector2(3f, 0f);
+                    mrt.anchoredPosition = Vector2.zero;
+                }
+            }
+        }
+
         // ColorTint multiplies targetGraphic.color, so keep white-ish multipliers and lift on hover
         private static ColorBlock Tint() =>
             MakeTint(Color.white, new Color(1.12f, 1.12f, 1.12f, 1f), new Color(0.86f, 0.86f, 0.86f, 1f));
@@ -574,9 +716,26 @@ namespace Game.UI {
         private static ColorBlock GhostTint() =>
             MakeTint(new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0.10f), new Color(1f, 1f, 1f, 0.16f));
 
+        private static void Transparent(Image image) {
+            if (image != null) image.color = new Color(0f, 0f, 0f, 0f);
+        }
+
         // swap the hardware cursor while this control is hovered (events bubble up from child graphics)
         private static void AddCursor(GameObject go, CursorKind kind) {
             go.AddComponent<HoverCursor>().kind = kind;
+        }
+
+        private static Sprite _white;
+
+        /// <summary>A shared 1x1 white sprite for solid-fill Images (tinted by the Image's colour).</summary>
+        private static Sprite WhiteSprite() {
+            if (_white == null) {
+                var tex = new Texture2D(1, 1);
+                tex.SetPixel(0, 0, Color.white);
+                tex.Apply();
+                _white = Sprite.Create(tex, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+            }
+            return _white;
         }
 
         private static float Size(Type type) {
