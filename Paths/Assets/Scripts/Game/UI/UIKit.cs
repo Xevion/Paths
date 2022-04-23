@@ -14,6 +14,12 @@ namespace Game.UI {
         public enum Type { Caption, Body, Title }
         public enum ButtonStyle { Primary, Secondary, Danger, Ghost }
 
+        /// <summary>A title + one-line description, for the option-card list.</summary>
+        public struct Choice {
+            public string title, desc;
+            public Choice(string title, string desc) { this.title = title; this.desc = desc; }
+        }
+
         /// <summary>A rounded surface card with a vertical layout group. Returns its RectTransform.</summary>
         public static RectTransform Panel(Transform parent, Color fill, float radius = Theme.RadiusMd,
             float padding = Theme.Space4, float spacing = Theme.Space2, bool shadow = true, bool fit = true,
@@ -678,6 +684,135 @@ namespace Game.UI {
             rt.anchoredPosition = new Vector2(x, 0f);
         }
 
+        /// <summary>
+        /// An underline tab strip (technical, not button-like): the active tab carries an accent underline
+        /// and an emphasized label; the others are muted. Calls onSelect; index 0 starts active.
+        /// </summary>
+        public static void TabBar(Transform parent, TMP_FontAsset font, IList<string> tabs, Action<int> onSelect) {
+            RectTransform bar = Row(parent, Theme.Space4);
+            bar.gameObject.AddComponent<LayoutElement>().minHeight = 34f;
+            var labels = new List<TextMeshProUGUI>();
+            var underlines = new List<RectTransform>();
+
+            for (int i = 0; i < tabs.Count; i++) {
+                int index = i;
+                RectTransform tab = New("Tab", bar);
+                var inner = tab.gameObject.AddComponent<HorizontalLayoutGroup>();
+                inner.padding = new RectOffset(2, 2, 0, 0);
+                inner.childAlignment = TextAnchor.MiddleCenter;
+                inner.childControlWidth = inner.childControlHeight = true;
+                inner.childForceExpandWidth = inner.childForceExpandHeight = false;
+                var hit = tab.gameObject.AddComponent<Image>();
+                hit.color = new Color(0f, 0f, 0f, 0f); // transparent click surface
+
+                // every tab keeps the SemiBold cut so switching can't change a tab's width and shift the
+                // row; the active state rides on colour + the underline, not the weight.
+                TextMeshProUGUI label = Label(tab, Fonts.SemiBold, tabs[i], Type.Body, Theme.Muted);
+                labels.Add(label);
+
+                // accent underline pinned to the tab's bottom edge, outside the layout flow
+                RectTransform under = New("Underline", tab);
+                under.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                under.anchorMin = new Vector2(0f, 0f);
+                under.anchorMax = new Vector2(1f, 0f);
+                under.pivot = new Vector2(0.5f, 0f);
+                under.sizeDelta = new Vector2(0f, 2f);
+                under.anchoredPosition = new Vector2(0f, -6f);
+                var underG = under.gameObject.AddComponent<RoundedRectGraphic>();
+                underG.color = Theme.Accent;
+                underG.cornerRadius = 1f;
+                underG.raycastTarget = false;
+                underlines.Add(under);
+
+                var button = tab.gameObject.AddComponent<Button>();
+                button.targetGraphic = hit;
+                button.transition = Selectable.Transition.None;
+                tab.gameObject.AddComponent<FocusRingBottomInset>(); // keep the focus ring off the underline
+                AddCursor(tab.gameObject, CursorKind.Hand);
+                button.onClick.AddListener(() => {
+                    for (int j = 0; j < labels.Count; j++) {
+                        bool active = j == index;
+                        labels[j].color = active ? Theme.Text : Theme.Muted;
+                        underlines[j].gameObject.SetActive(active);
+                    }
+                    onSelect(index);
+                });
+            }
+            // first tab starts selected
+            labels[0].color = Theme.Text;
+            for (int i = 0; i < underlines.Count; i++) underlines[i].gameObject.SetActive(i == 0);
+        }
+
+        /// <summary>
+        /// A vertical radio list of selectable cards, each a title + one-line description. Unlike a dropdown
+        /// it keeps every option (and its blurb) on screen, so it suits a primary choice where the options
+        /// carry real differences. Returns nothing; index 0..n-1 reports through onChange.
+        /// </summary>
+        public static void OptionCards(Transform parent, IList<Choice> choices, int index, Action<int> onChange) {
+            RectTransform col = Column(parent, Theme.Space1);
+            var backs = new List<RoundedRectGraphic>();
+            var dots = new List<RoundedRectGraphic>();
+            var titles = new List<TextMeshProUGUI>();
+            int current = Mathf.Clamp(index, 0, choices.Count - 1);
+
+            void Apply(int sel) {
+                for (int i = 0; i < backs.Count; i++) {
+                    bool on = i == sel;
+                    backs[i].color = on ? Color.Lerp(Theme.SurfaceRaised, Theme.Accent, 0.16f) : Theme.SurfaceRaised;
+                    dots[i].color = on ? Theme.Accent : Theme.Track;
+                    titles[i].color = on ? Theme.Text : Theme.Muted;
+                }
+            }
+
+            for (int i = 0; i < choices.Count; i++) {
+                int idx = i;
+                RectTransform card = New("Option", col);
+                var bg = card.gameObject.AddComponent<RoundedRectGraphic>();
+                bg.cornerRadius = Theme.RadiusSm;
+                bg.raycastTarget = true;
+                backs.Add(bg);
+
+                var h = card.gameObject.AddComponent<HorizontalLayoutGroup>();
+                h.padding = new RectOffset(12, 12, 9, 9);
+                h.spacing = Theme.Space3;
+                h.childAlignment = TextAnchor.MiddleLeft;
+                h.childControlWidth = h.childControlHeight = true;
+                h.childForceExpandWidth = h.childForceExpandHeight = false;
+
+                RectTransform dot = New("Dot", card);
+                Size(dot.gameObject, 12f, 12f);
+                var ring = dot.gameObject.AddComponent<RoundedRectGraphic>();
+                ring.color = Theme.Track;
+                ring.cornerRadius = 6f;
+                ring.raycastTarget = false;
+                dots.Add(ring);
+
+                RectTransform textCol = New("Text", card);
+                var v = textCol.gameObject.AddComponent<VerticalLayoutGroup>();
+                v.spacing = 1f;
+                v.childControlWidth = v.childControlHeight = true;
+                v.childForceExpandWidth = v.childForceExpandHeight = false;
+                textCol.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+                titles.Add(Label(textCol, Fonts.SemiBold, choices[i].title, Type.Body));
+                TextMeshProUGUI desc = Label(textCol, Fonts.Regular, choices[i].desc, Type.Caption, Theme.Muted);
+                desc.enableWordWrapping = true;
+
+                var button = card.gameObject.AddComponent<Button>();
+                button.targetGraphic = bg;
+                button.transition = Selectable.Transition.ColorTint;
+                button.colors = Tint();
+                AddCursor(card.gameObject, CursorKind.Hand);
+                // idempotent: re-picking the current option changes nothing and never fires onChange
+                button.onClick.AddListener(() => {
+                    if (idx == current) return;
+                    current = idx;
+                    Apply(idx);
+                    onChange(idx);
+                });
+            }
+            Apply(current);
+        }
+
         private static void ControlShell(Transform parent, out RectTransform inner, out RoundedRectGraphic bg,
             float width = 220f) {
             var rt = New("Control", parent);
@@ -868,6 +1003,13 @@ namespace Game.UI {
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = rt.offsetMax = Vector2.zero;
+        }
+
+        private static void Inset(RectTransform rt, float inset) {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(inset, inset);
+            rt.offsetMax = new Vector2(-inset, -inset);
         }
 
         private static void CenterBand(RectTransform rt, float height) {
