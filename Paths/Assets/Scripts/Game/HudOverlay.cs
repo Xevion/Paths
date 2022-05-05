@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Algorithms;
+using Game.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -38,11 +39,13 @@ public class HudOverlay {
         var canvas = canvasGo.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10; // over the slider's canvas
+        canvas.pixelPerfect = true; // snap to the pixel grid - crisp text/edges
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280, 800);
         scaler.matchWidthOrHeight = 0.5f;
         canvasGo.AddComponent<GraphicRaycaster>();
+        canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1; // RoundedRect reads it
 
         _root = canvasGo.transform;
         _style = style;
@@ -53,12 +56,18 @@ public class HudOverlay {
         _help.enableWordWrapping = false;
         _help.text = HelpText;
 
-        // stats readout, top-right (used to be a world-space text that drifted when the camera moved)
-        _stats = MakeText(_root, style, 22, TextAlignmentOptions.TopRight,
-            new Vector2(1, 1), new Vector2(-16, -16), new Vector2(300, 140));
+        // stats card, top-right - kit panel + label, hugging its text
+        RectTransform statsCard = UIKit.Panel(_root, Theme.Surface, fitWidth: true);
+        Anchor(statsCard, new Vector2(1, 1), new Vector2(-16, -16));
+        _stats = UIKit.Label(statsCard, Fonts.Regular, "", UIKit.Type.Body);
+        _stats.alignment = TextAlignmentOptions.TopLeft;
 
-        // play/pause button, bottom-left clear of the slider
-        MakeButton(_root, style, onPlayPause, out _playLabel);
+        // play/pause card, bottom-left clear of the slider
+        RectTransform playCard = UIKit.Panel(_root, Theme.Surface, Theme.RadiusMd, Theme.Space2, Theme.Space2,
+            fitWidth: true);
+        Anchor(playCard, new Vector2(0, 0), new Vector2(16, 60));
+        Button playButton = UIKit.Button(playCard, Fonts.Regular, "Play", onPlayPause);
+        _playLabel = playButton.GetComponentInChildren<TextMeshProUGUI>();
     }
 
     /// <summary>
@@ -111,10 +120,9 @@ public class HudOverlay {
         var go = new GameObject("HUD Text");
         go.transform.SetParent(parent, false);
         var t = go.AddComponent<TextMeshProUGUI>();
-        if (style != null) {
-            t.font = style.font;
+        t.font = Game.UI.Fonts.Regular;
+        if (style != null)
             t.color = style.color;
-        }
         t.fontSize = size;
         t.alignment = align;
         t.raycastTarget = false; // text never eats clicks meant for the grid
@@ -173,10 +181,8 @@ public class HudOverlay {
         dropdown.onValueChanged.AddListener(index => onChange(values[index]));
 
         // match the HUD font (leave the default light dropdown colours so the popup text stays readable)
-        if (_style != null) {
-            if (dropdown.captionText != null) dropdown.captionText.font = _style.font;
-            if (dropdown.itemText != null) dropdown.itemText.font = _style.font;
-        }
+        if (dropdown.captionText != null) dropdown.captionText.font = Game.UI.Fonts.Regular;
+        if (dropdown.itemText != null) dropdown.itemText.font = Game.UI.Fonts.Regular;
     }
 
     /// <summary>A small checkbox + label, dark box / light tick so it reads on the grid.</summary>
@@ -214,6 +220,12 @@ public class HudOverlay {
         toggle.graphic = check;
         toggle.isOn = on;
         toggle.onValueChanged.AddListener(value => onChange(value));
+    }
+
+    // pin a content-sized card to a corner: anchor + pivot share the corner, pos is the inset from it
+    private static void Anchor(RectTransform rt, Vector2 corner, Vector2 pos) {
+        rt.anchorMin = rt.anchorMax = rt.pivot = corner;
+        rt.anchoredPosition = pos;
     }
 
     // there's already one for the slider, but build doesn't cost anything if there isn't
