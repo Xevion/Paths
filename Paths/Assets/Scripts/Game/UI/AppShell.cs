@@ -1,3 +1,6 @@
+using System;
+using Algorithms;
+using LevelGeneration;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -5,21 +8,49 @@ using UnityEngine.UI;
 
 namespace Game.UI {
     /// <summary>
-    /// A standalone showcase of the always-on desktop layout: a transport toolbar plus a collapsible,
-    /// scrollable right sidebar of fast controls (segmented pickers, drag-scrub fields, sliders) over a
-    /// faux pathfinding grid. The gear opens the settings modal (UIShowcase) for the rarely-touched stuff.
-    /// Spawned by ShowcaseLauncher (F3, or -desktop). Not wired into the app yet - a proof of the surface.
+    /// The app's UI: a transport toolbar over a collapsible, scrollable right sidebar of controls, laid
+    /// over the live pathfinding grid (which shows through the transparent body). Grew out of the desktop
+    /// showcase - the controls now drive the real solver/playback through the callbacks UIController binds,
+    /// and the stats/scrubber/play state are pushed back in through the Set* methods each frame.
     /// </summary>
-    public class DesktopShowcase : MonoBehaviour {
+    public class AppShell : MonoBehaviour {
         private const float SidebarWidth = 268f;
         private const float Scale = 0.84f; // the whole sidebar reads one notch smaller than the toolbar
 
+        // wired by UIController before Build(). null-safe so a half-bound shell still runs.
+        public Action onPlayPause;
+        public Action onGenerate;
+        public Action<float> onSpeed;
+        public Action<float> onScrub;      // 0..1 along the timeline
+        public Action<Algorithm> onAlgorithm;
+        public Action<Heuristic> onHeuristic;
+        public Action<bool> onDiagonal;
+        public Action<float> onWeight;
+        public Action<int> onWidth, onHeight, onSeed;
+        public Action<Generator> onGenerator;
+        public Action<float> onDensity;
+        public Action<float> onStepDelay;
+        public Action<bool> onLoop;
+
+        // initial values UIController seeds so the controls open reflecting the real state
+        public int initialWidth = 32, initialHeight = 24, initialSeed = 1;
+        public bool initialDiagonal;
+
         private TMP_FontAsset _font;
         private PanelSlide _sidebar;
-
         private GameObject _modal;
 
-        private void Start() {
+        // toolbar bits pushed from UIController each frame
+        private Button _play;
+        private TextMeshProUGUI _playIcon;
+        private Slider _scrubber;
+        private TextMeshProUGUI _statExpanded, _statFrontier, _statPath, _statTime;
+        private ScrubPress _scrubPress;
+
+        // the timeline slider is being dragged - UIController stops auto-advancing so it doesn't fight the drag
+        public bool Scrubbing => _scrubPress != null && _scrubPress.pressed;
+
+        public void Build() {
             _font = Fonts.Regular;
             BuildCanvas();
 
@@ -34,17 +65,42 @@ namespace Game.UI {
 
             Toolbar(root);
 
-            // body has no layout group: the grid fills it and the sidebar overlays the right edge, so the
-            // grid scene stays fixed when the sidebar slides in/out (it's not a layout sibling that reflows).
+            // the body carries no graphic - the live grid renders behind this overlay canvas and shows
+            // through. the sidebar overlays its right edge without reflowing the grid area.
             RectTransform body = New("Body", root);
             body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
 
-            GridBackdrop(body);
             _sidebar = Sidebar(body);
 
             new GameObject("Focus Ring").AddComponent<FocusRing>(); // follows the selected control
             gameObject.AddComponent<KeyboardFocus>(); // Tab moves focus so the ring is keyboard-reachable
             KeyboardFocus.DisableArrowNav(gameObject); // Tab navigates; arrows adjust the focused control
+        }
+
+        /// <summary>Update the toolbar stat chips from the real search (called each rendered frame).</summary>
+        public void SetStats(int expanded, int frontier, int pathLen, double seconds) {
+            _statExpanded.text = expanded.ToString("N0");
+            _statFrontier.text = frontier.ToString();
+            _statPath.text = pathLen > 0 ? pathLen.ToString() : "—";
+            _statTime.text = FormatTime(seconds);
+        }
+
+        /// <summary>Move the timeline slider without firing onScrub (driven by playback, not the user).</summary>
+        public void SetPlayhead(float fraction) {
+            if (_scrubber != null) _scrubber.SetValueWithoutNotify(Mathf.Clamp01(fraction));
+        }
+
+        /// <summary>Swap the transport button between play and pause glyphs.</summary>
+        public void SetPlaying(bool playing) {
+            if (_playIcon != null) _playIcon.text = playing ? Icon.Pause : Icon.Play;
+        }
+
+        // pick the unit that keeps the number readable, with one decimal: ns -> µs -> ms
+        private static string FormatTime(double seconds) {
+            double ns = seconds * 1e9;
+            if (ns < 1000.0) return ns.ToString("0.0") + " ns";
+            if (ns < 1e6) return (ns / 1e3).ToString("0.0") + " µs";
+            return (ns / 1e6).ToString("0.0") + " ms";
         }
 
         private void Toolbar(Transform parent) {
@@ -62,18 +118,17 @@ namespace Game.UI {
             h.childControlWidth = h.childControlHeight = true;
             h.childForceExpandWidth = h.childForceExpandHeight = false;
 
-            bool playing = false;
-            Button play = UIKit.IconButton(bar, Icon.Play, null, UIKit.ButtonStyle.Primary);
-            var playIcon = play.GetComponentInChildren<TextMeshProUGUI>();
-            play.onClick.AddListener(() => {
-                playing = !playing;
-                playIcon.text = playing ? Icon.Pause : Icon.Play;
-            });
-            UIKit.Button(bar, _font, "Generate", () => { }, UIKit.ButtonStyle.Secondary, 96f, Icon.Random);
+            _play = UIKit.IconButton(bar, Icon.Play, () => onPlayPause?.Invoke(), UIKit.ButtonStyle.Primary);
+            _playIcon = _play.GetComponentInChildren<TextMeshProUGUI>();
+            UIKit.Button(bar, _font, "Generate", () => onGenerate?.Invoke(), UIKit.ButtonStyle.Secondary, 96f, Icon.Random);
 
             ToolbarSep(bar);
             Stats(bar);
-            UIKit.Flexible(bar);
+
+            // the transport scrubber takes the flexible middle of the bar
+            _scrubber = UIKit.Slider(bar, 0f, 1f, 0f, f => onScrub?.Invoke(f));
+            _scrubPress = _scrubber.gameObject.AddComponent<ScrubPress>();
+
             Legend(bar);
             ToolbarSep(bar);
 
@@ -83,20 +138,20 @@ namespace Game.UI {
             speedLe.preferredWidth = speedLe.minWidth = 168f;
             speedLe.flexibleWidth = 0f;
             Icon.Make(speed, Icon.Bolt, Theme.Body, Theme.Muted);
-            UIKit.ValueSlider(speed, 0f, 1f, 0.5f, x => Mathf.RoundToInt(x * 100f) + "%", _ => { }, height: 22f);
+            UIKit.ValueSlider(speed, 0f, 1f, 0.5f, x => Mathf.RoundToInt(x * 100f) + "%",
+                x => onSpeed?.Invoke(x), height: 22f);
 
             UIKit.IconButton(bar, Icon.Sliders, () => _sidebar.Toggle());
             UIKit.IconButton(bar, Icon.Cog, OpenModal);
         }
 
-        // the live readout - a row of stacked stat chips fed by a looping fake search
+        // the live readout - a row of stacked stat chips fed by SetStats off the real solver
         private void Stats(Transform bar) {
             RectTransform row = UIKit.Row(bar, Theme.Space4);
-            var anim = gameObject.AddComponent<StatsAnimator>();
-            anim.expanded = StatChip(row, "Expanded", 58f);
-            anim.frontier = StatChip(row, "Frontier", 38f);
-            anim.path = StatChip(row, "Path", 38f);
-            anim.time = StatChip(row, "Time", 72f);
+            _statExpanded = StatChip(row, "Expanded", 58f);
+            _statFrontier = StatChip(row, "Frontier", 38f);
+            _statPath = StatChip(row, "Path", 38f);
+            _statTime = StatChip(row, "Time", 72f);
         }
 
         // a tiny caption over a mono value; the value carries a min width so its digits don't jiggle the row
@@ -123,7 +178,7 @@ namespace Game.UI {
             return val;
         }
 
-        // a colour key matching the grid's cell states (opaque equivalents of the faux grid's tints)
+        // a colour key matching the grid's cell states
         private void Legend(Transform bar) {
             RectTransform row = UIKit.Row(bar, Theme.Space3);
             LegendSwatch(row, new Color(0.45f, 0.82f, 0.5f), "Start");
@@ -157,15 +212,6 @@ namespace Game.UI {
             le.minWidth = le.preferredWidth = 1f;
             le.minHeight = le.preferredHeight = 24f;
             le.flexibleWidth = le.flexibleHeight = 0f;
-        }
-
-        private void GridBackdrop(Transform parent) {
-            RectTransform grid = New("Grid", parent);
-            Stretch(grid); // fixed full-body scene, never reflows
-            grid.gameObject.AddComponent<Image>().color = Theme.Window; // base behind the cells / grid lines
-            RectTransform cells = New("Cells", grid);
-            Stretch(cells);
-            cells.gameObject.AddComponent<FauxGrid>();
         }
 
         private PanelSlide Sidebar(Transform parent) {
@@ -218,35 +264,45 @@ namespace Game.UI {
             UIKit.SegmentedExpand(col,
                 new[] { "A*", "Dij", "Grd", "BFS", "DFS", "JPS" },
                 new[] { "A*", "Dijkstra", "Greedy", "Breadth-first", "Depth-first", "JPS" }, 0,
-                i => heuristic.gameObject.SetActive(i == 0 || i == 2 || i == 5)); // A*, Greedy, JPS use a heuristic
+                i => {
+                    onAlgorithm?.Invoke((Algorithm) i);
+                    heuristic.gameObject.SetActive(i == 0 || i == 2 || i == 5); // A*, Greedy, JPS use a heuristic
+                });
             heuristic = UIKit.Column(col, Theme.Space2);
             Sub(heuristic, "Heuristic");
-            UIKit.Segmented(heuristic, new[] { "Manhattan", "Euclidean", "Chebyshev" }, 0, _ => { });
+            UIKit.Segmented(heuristic, new[] { "Manhattan", "Euclidean", "Chebyshev" }, 0,
+                i => onHeuristic?.Invoke((Heuristic) i));
             UIKit.ValueSlider(Field(heuristic, "Weight", fill: true,
                     tooltip: "Scales the estimate - above 1x trades optimality for speed"),
-                1f, 3f, 1f, x => x.ToString("0.0") + "x", _ => { });
-            UIKit.Switch(Field(col, "Diagonal", tooltip: "Let the search step diagonally between cells"), true, _ => { });
+                1f, 3f, 1f, x => x.ToString("0.0") + "x", x => onWeight?.Invoke(x));
+            UIKit.Switch(Field(col, "Diagonal", tooltip: "Let the search step diagonally between cells"),
+                initialDiagonal, b => onDiagonal?.Invoke(b));
+            // TODO: bidirectional search isn't built yet - parked, inert until the Core side lands
             UIKit.Switch(Field(col, "Bidirectional", tooltip: "Search from both ends and meet in the middle"),
                 false, _ => { });
 
             UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
-            UIKit.ScrubField(Field(col, "Width", tooltip: "Grid width in cells"), 32, 8, 200, "", _ => { });
-            UIKit.ScrubField(Field(col, "Height", tooltip: "Grid height in cells"), 24, 8, 200, "", _ => { });
+            UIKit.ScrubField(Field(col, "Width", tooltip: "Grid width in cells"), initialWidth, 8, 200, "",
+                i => onWidth?.Invoke(i));
+            UIKit.ScrubField(Field(col, "Height", tooltip: "Grid height in cells"), initialHeight, 8, 200, "",
+                i => onHeight?.Invoke(i));
             UIKit.ScrubField(Field(col, "Seed", tooltip: "Random seed - same seed regenerates the same maze"),
-                7, 0, 999, "", _ => { });
+                initialSeed, 0, 999, "", i => onSeed?.Invoke(i));
             UIKit.Dropdown(Field(col, "Generator", tooltip: "How the starting maze is built"), _font,
-                new[] { "Empty", "Rooms", "Random", "Maze" }, 1, _ => { }, 150f);
+                new[] { "Empty", "Rooms", "Random" }, 1, i => onGenerator?.Invoke((Generator) i), 150f);
             UIKit.ValueSlider(Field(col, "Density", fill: true, tooltip: "Fraction of cells that become walls"),
-                0f, 1f, 0.25f, x => Mathf.RoundToInt(x * 100f) + "%", _ => { });
+                0f, 1f, 0.25f, x => Mathf.RoundToInt(x * 100f) + "%", x => onDensity?.Invoke(x));
 
             UIKit.SectionHeader(col, _font, "Playback", Icon.Play);
             UIKit.ValueSlider(Field(col, "Speed", fill: true, tooltip: "How fast the search animates"),
-                0f, 1f, 0.5f, x => Mathf.RoundToInt(x * 100f) + "%", _ => { });
+                0f, 1f, 0.5f, x => Mathf.RoundToInt(x * 100f) + "%", x => onSpeed?.Invoke(x));
             UIKit.ValueSlider(Field(col, "Step delay", fill: true, tooltip: "Pause between expanded cells"),
-                0f, 200f, 30f, x => Mathf.RoundToInt(x) + "ms", _ => { });
-            UIKit.Switch(Field(col, "Loop", tooltip: "Restart the search when it finishes"), false, _ => { });
+                0f, 200f, 30f, x => Mathf.RoundToInt(x) + "ms", x => onStepDelay?.Invoke(x));
+            UIKit.Switch(Field(col, "Loop", tooltip: "Restart the search when it finishes"), false,
+                b => onLoop?.Invoke(b));
 
             UIKit.SectionHeader(col, _font, "Display", Icon.Eye);
+            // TODO: these display toggles are parked - the render path doesn't expose them yet
             UIKit.Checkbox(col, _font, "Grid lines", true, _ => { });
             UIKit.Checkbox(col, _font, "Animate search", true, _ => { });
             UIKit.Checkbox(col, _font, "Show statistics", true, _ => { });
@@ -296,7 +352,7 @@ namespace Game.UI {
         private void BuildCanvas() {
             var canvas = gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 50; // below the modal (100) so the gear opens it on top
+            canvas.sortingOrder = 50; // over the grid, below the settings modal (100)
             canvas.pixelPerfect = true;
             canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
 
@@ -324,5 +380,12 @@ namespace Game.UI {
             rt.anchorMax = Vector2.one;
             rt.offsetMin = rt.offsetMax = Vector2.zero;
         }
+    }
+
+    /// <summary>Tracks whether a control is being pressed, so the timeline knows when it's being dragged.</summary>
+    public class ScrubPress : MonoBehaviour, IPointerDownHandler, IPointerUpHandler {
+        public bool pressed;
+        public void OnPointerDown(PointerEventData e) => pressed = true;
+        public void OnPointerUp(PointerEventData e) => pressed = false;
     }
 }
