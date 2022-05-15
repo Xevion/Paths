@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using Algorithms;
+using Game.UI;
 using TMPro;
 #if UNITY_EDITOR
 using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds otherwise
@@ -15,8 +16,7 @@ public enum ClickType {
     Add,
     Remove,
     Start,
-    End,
-    ProgressBar
+    End
 }
 
 /// <summary>
@@ -34,12 +34,13 @@ public enum AnimationState {
 
 /// <summary>
 /// Ties the pieces together each frame: feeds input to the GridEditor, runs the play/pause state
-/// machine, and drives the PathSolver + Playback into the GridController for rendering. Still holds
-/// all the scene references. Used to do everything itself, slowly being broken apart.
+/// machine, and drives the PathSolver + Playback into the GridController for rendering. Builds the
+/// AppShell UI in code and binds its controls to the solver/playback; still holds the scene refs.
 /// </summary>
 public class UIController : MonoBehaviour {
     // UI & important App references - serialized but private now, nothing outside this class reaches
     // into them. still wired in the scene exactly as before (the field names didn't change).
+    // progressSlider is the legacy bottom slider - retired (hidden) now the toolbar owns the timeline.
     [SerializeField] private CustomSlider progressSlider;
     [SerializeField] private GridController gridController;
     [SerializeField] private Camera mainCamera;
@@ -69,8 +70,8 @@ public class UIController : MonoBehaviour {
     [SerializeField] private float fadeSpeed = 6f;
     private float _gridFade = 0.7f;
 
-    // on-screen help + play/pause overlay (its own canvas, built in code)
-    private HudOverlay _hud;
+    // the code-built toolbar + sidebar UI; owns the timeline scrubber and the stat readout
+    private AppShell _shell;
 
     // camera framing + zoom/pan
     private CameraRig _cameraRig;
@@ -91,13 +92,28 @@ public class UIController : MonoBehaviour {
 
         _gridFade = idleFade;
         gridController.SetFade(_gridFade);
-        _hud = new HudOverlay();
-        _hud.Build(debugText, TogglePlayPause); // copies debugText's font/colour so it matches
-        _hud.SetState(_animationState);
-        _hud.AddAlgorithmControls(_algorithm, OnAlgorithm, _heuristic, OnHeuristic, _diagonal, OnDiagonal);
-        debugText.enabled = false; // its style lives on in the HUD; the world-space text drifted with the camera
 
-        progressSlider.onValueChanged.AddListener((value) => MoveToSlider(value));
+        // the old bottom slider is retired - the toolbar owns the timeline now. hide the scene object.
+        if (progressSlider != null) progressSlider.gameObject.SetActive(false);
+        if (debugText != null) debugText.enabled = false;
+
+        BuildShell();
+    }
+
+    /// <summary>Build the toolbar + sidebar UI and wire its controls into the solver/playback.</summary>
+    private void BuildShell() {
+        var go = new GameObject("App Shell");
+        _shell = go.AddComponent<AppShell>();
+        _shell.initialWidth = gridController.width;
+        _shell.initialHeight = gridController.height;
+        _shell.initialDiagonal = _diagonal;
+        _shell.onPlayPause = TogglePlayPause;
+        _shell.onScrub = fraction => _playback.SeekFraction(fraction);
+        _shell.onAlgorithm = OnAlgorithm;
+        _shell.onHeuristic = OnHeuristic;
+        _shell.onDiagonal = OnDiagonal;
+        _shell.Build();
+        _shell.SetPlaying(false);
     }
 
     /// <summary>
@@ -109,11 +125,11 @@ public class UIController : MonoBehaviour {
         _solver.Algorithm = _algorithm; // a fresh solver defaults to A* - re-apply the current pick
         _solver.Heuristic = _heuristic;
         _solver.Diagonal = _diagonal;
-        _gridEditor = new GridEditor(mainCamera, gridController, progressSlider, _solver);
+        _gridEditor = new GridEditor(mainCamera, gridController, _solver);
         _playback = new Playback(speed, clampIncrement);
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
-        progressSlider.SetValueWithoutNotify(0f);
+        _shell?.SetPlayhead(0f);
         Resize();
     }
 
@@ -126,7 +142,7 @@ public class UIController : MonoBehaviour {
 
         gridController.Rebuild(width, height);
         InitGrid(width, height);
-        _hud.SetState(_animationState);
+        _shell.SetPlaying(_animationState == AnimationState.Started);
     }
 
     private void Update() {
@@ -141,8 +157,6 @@ public class UIController : MonoBehaviour {
         // Space and the on-screen Play/Pause button both run through here
         if (Input.GetKeyDown(KeyCode.Space))
             TogglePlayPause();
-        if (Input.GetKeyDown(KeyCode.H))
-            _hud.ToggleHelp();
         // - / = resize the grid (= is the unshifted +, don't care about the shift)
         if (Input.GetKeyDown(KeyCode.Equals))
             ResizeGrid(GridStep);
@@ -153,23 +167,21 @@ public class UIController : MonoBehaviour {
             case AnimationState.Reloading:
                 // keep replaying live while you draw - recompute the moment an edit lands and
                 // render the pinned step, rather than blanking to the bare grid until mouse-up.
-                // the wall's already in the grid Solve() runs on, so the search shows it right away.
-                // State == null is the first run off a Stopped grid - nothing to replay yet, solve once
                 if (_gridEditor.Dirtied || _playback.State == null)
                     GeneratePath();
                 LoadNextState();
-                progressSlider.SetValueWithoutNotify(_playback.Fraction);
+                _shell.SetPlayhead(_playback.Fraction);
 
                 // mouse up: settle back to playing or parked, whichever we were before the edit
                 if (!Input.GetMouseButton(0))
                     _animationState = _resumeState;
                 break;
             case AnimationState.Started:
-                // Calculate how much to move forward
-                if (!progressSlider.IsPressed)
+                // don't auto-advance while the user is dragging the timeline scrubber
+                if (!_shell.Scrubbing)
                     _playback.Advance(Time.deltaTime);
 
-                progressSlider.SetValueWithoutNotify(_playback.Fraction);
+                _shell.SetPlayhead(_playback.Fraction);
 
                 if (_playback.HasFramesLeft)
                     LoadNextState();
@@ -188,7 +200,7 @@ public class UIController : MonoBehaviour {
 
         if (_animationState != _previousAnimationState) {
             _previousAnimationState = _animationState;
-            _hud.SetState(_animationState); // refresh the Play/Pause label
+            _shell.SetPlaying(_animationState == AnimationState.Started); // refresh the transport icon
         }
 
         // ease the search-layer dim between the idle and editing levels
@@ -198,7 +210,7 @@ public class UIController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Play/pause toggle shared by the Spacebar and the HUD button. Off a stopped grid this kicks
+    /// Play/pause toggle shared by the Spacebar and the toolbar button. Off a stopped grid this kicks
     /// the first solve; on the final frame it rewinds instead of pausing so you can replay.
     /// </summary>
     private void TogglePlayPause() {
@@ -258,11 +270,6 @@ public class UIController : MonoBehaviour {
         _playback.SyncState();
         ChangeController state = _playback.State;
         gridController.LoadDirtyGridState(state.Current, state.DirtyFlags);
-
-        string pathCount = _solver.Path != null ? $"{_solver.Path.Count}" : "N/A";
-        _hud.SetStats($"{state.CurrentRuntime * 1000.0:F1}ms\n" +
-                      $"{_playback.DisplayIndex:000} / {_playback.Count:000}\n" +
-                      $"Path: {pathCount} tiles");
     }
 
     public void OnDrawGizmos() {
@@ -287,14 +294,6 @@ public class UIController : MonoBehaviour {
         #endif
     }
 
-    /// <summary>
-    /// Update the animation progress to the slider's (new) position.
-    /// </summary>
-    /// <param name="new">The new position on the slider.</param>
-    private void MoveToSlider(float @new) {
-        _playback.SeekFraction(@new);
-    }
-    
     /// <summary>
     /// Size the grid quad to one world unit per cell and frame the camera on it. The camera does the
     /// fitting now (so it can be zoomed/panned), instead of stretching the quad to fill the screen.

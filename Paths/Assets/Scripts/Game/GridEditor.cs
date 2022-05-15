@@ -11,7 +11,6 @@ using UnityEngine.EventSystems;
 public class GridEditor {
     private readonly Camera _camera;
     private readonly GridController _gridController;
-    private readonly CustomSlider _slider;
     private readonly PathSolver _solver;
 
     private ClickType _modify;
@@ -21,10 +20,9 @@ public class GridEditor {
     // knows to recompute the path live mid-drag instead of waiting for the mouse to come up
     public bool Dirtied { get; private set; }
 
-    public GridEditor(Camera camera, GridController gridController, CustomSlider slider, PathSolver solver) {
+    public GridEditor(Camera camera, GridController gridController, PathSolver solver) {
         _camera = camera;
         _gridController = gridController;
-        _slider = slider;
         _solver = solver;
     }
 
@@ -36,18 +34,19 @@ public class GridEditor {
         Dirtied = false;
         if (!Input.GetMouseButton(0))
             return state;
-        // don't draw walls through the HUD - the button/UI eats the click, not the grid under it
+        // don't draw walls through the UI - the toolbar/sidebar/scrubber eat the click, not the grid under it
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             return state;
 
         Vector3 worldMouse = _camera.ScreenToWorldPoint(Input.mousePosition);
         Vector2Int position = _gridController.GetGridPosition(worldMouse);
+        // the camera can be zoomed/panned so the cursor is easily off the grid - ignore those clicks
+        if (!_solver.IsValid(position))
+            return state;
 
         // Initial click, remember what they grabbed
         if (Input.GetMouseButtonDown(0)) {
-            if (_slider.IsPressed)
-                _modify = ClickType.ProgressBar;
-            else if (position == _solver.Start)
+            if (position == _solver.Start)
                 _modify = ClickType.Start;
             else if (position == _solver.End)
                 _modify = ClickType.End;
@@ -66,45 +65,41 @@ public class GridEditor {
         // still holding the button & dragged onto a new cell
         else if (_lastClickLocation != position) {
             _lastClickLocation = position;
-            if (_solver.IsValid(position)) {
-                Node node = _solver.GetNode(position);
-                switch (_modify) {
-                    // wall toggling reloads instantly, but only a real start/end move reloads
-                    case ClickType.Add:
-                        node.Walkable = false;
+            Node node = _solver.GetNode(position);
+            switch (_modify) {
+                // wall toggling reloads instantly, but only a real start/end move reloads
+                case ClickType.Add:
+                    node.Walkable = false;
+                    Dirtied = true;
+                    if (ShouldReload(state))
+                        state = AnimationState.Reloading;
+                    break;
+                case ClickType.Remove:
+                    node.Walkable = true;
+                    Dirtied = true;
+                    if (ShouldReload(state))
+                        state = AnimationState.Reloading;
+                    break;
+                case ClickType.Start:
+                    if (node.Walkable) {
+                        _solver.Start = position;
                         Dirtied = true;
                         if (ShouldReload(state))
                             state = AnimationState.Reloading;
-                        break;
-                    case ClickType.Remove:
-                        node.Walkable = true;
+                    }
+
+                    break;
+                case ClickType.End:
+                    if (node.Walkable) {
+                        _solver.End = position;
                         Dirtied = true;
                         if (ShouldReload(state))
                             state = AnimationState.Reloading;
-                        break;
-                    case ClickType.Start:
-                        if (node.Walkable) {
-                            _solver.Start = position;
-                            Dirtied = true;
-                            if (ShouldReload(state))
-                                state = AnimationState.Reloading;
-                        }
+                    }
 
-                        break;
-                    case ClickType.End:
-                        if (node.Walkable) {
-                            _solver.End = position;
-                            Dirtied = true;
-                            if (ShouldReload(state))
-                                state = AnimationState.Reloading;
-                        }
-
-                        break;
-                    case ClickType.ProgressBar:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
