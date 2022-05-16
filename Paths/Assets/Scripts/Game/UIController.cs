@@ -270,6 +270,30 @@ public class UIController : MonoBehaviour {
         _playback.SyncState();
         ChangeController state = _playback.State;
         gridController.LoadDirtyGridState(state.Current, state.DirtyFlags);
+        FeedStats(state);
+    }
+
+    // count the search's live footprint straight off the rendered grid: closed cells (expanded +
+    // the path drawn over them) and the open frontier (seen-but-not-yet-expanded), plus the path
+    // length and the recorded search time up to this step.
+    private void FeedStats(ChangeController state) {
+        GridNodeType[,] cells = state.Current;
+        int width = cells.GetLength(0), height = cells.GetLength(1);
+        int expanded = 0, frontier = 0;
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+                switch (cells[x, y]) {
+                    case GridNodeType.Expanded:
+                    case GridNodeType.Path:
+                        expanded++;
+                        break;
+                    case GridNodeType.Seen:
+                        frontier++;
+                        break;
+                }
+
+        int pathLength = _solver.Path?.Count ?? 0;
+        _shell.SetStats(expanded, frontier, pathLength, state.CurrentRuntime);
     }
 
     public void OnDrawGizmos() {
