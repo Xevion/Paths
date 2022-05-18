@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Algorithms;
+using LevelGeneration;
 using UnityEngine;
 
 /// <summary>
@@ -25,6 +26,31 @@ public class PathSolver {
         Grid = new NodeGrid(width, height, random);
         Start = Grid.RandomPosition();
         End = Grid.RandomPosition();
+    }
+
+    /// <summary>
+    /// Build a grid from a seed + generator: the same seed always lays out the same walls and start/end.
+    /// The generator paints the walls, then start/end are dropped on walkable cells so they never open
+    /// buried in a wall.
+    /// </summary>
+    public PathSolver(int width, int height, int seed, Generator generator, float density) {
+        Grid = new NodeGrid(width, height, new System.Random(seed));
+        if (generator == Generator.Random)
+            Grid.ApplyGenerator(new RandomPlacement(density, true, true));
+        // Empty: every cell stays walkable
+
+        Start = RandomWalkable();
+        End = RandomWalkable(Start);
+    }
+
+    // a random walkable cell, so start/end never land on a wall; optionally distinct from another
+    private Vector2Int RandomWalkable(Vector2Int? avoid = null) {
+        for (int i = 0; i < 500; i++) {
+            Vector2Int p = Grid.RandomPosition();
+            if (Grid.GetNode(p).Walkable && (!avoid.HasValue || p != avoid.Value))
+                return p;
+        }
+        return Grid.RandomPosition(); // grid packed solid - give up and take anything
     }
 
     /// <summary>Run the selected algorithm start -> end and hand back the recorded changes to play.</summary>

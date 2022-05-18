@@ -1,6 +1,7 @@
 using System;
 using Algorithms;
 using Game.UI;
+using LevelGeneration;
 using TMPro;
 #if UNITY_EDITOR
 using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds otherwise
@@ -81,9 +82,15 @@ public class UIController : MonoBehaviour {
     private Heuristic _heuristic = Heuristic.Manhattan;
     private bool _diagonal;
 
+    // grid generation - a seed + a generator + wall density; the sidebar's Grid section drives these,
+    // and they're kept here so a resize/regen rebuilds the same layout from the same seed.
+    private int _seed = 1;
+    private Generator _generator = Generator.Random;
+    private float _density = 0.25f;
+
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
-    private const int MaxGrid = 160;
+    private const int MaxGrid = 200;
     private const int GridStep = 2;
 
     private void Start() {
@@ -106,12 +113,19 @@ public class UIController : MonoBehaviour {
         _shell = go.AddComponent<AppShell>();
         _shell.initialWidth = gridController.width;
         _shell.initialHeight = gridController.height;
+        _shell.initialSeed = _seed;
         _shell.initialDiagonal = _diagonal;
         _shell.onPlayPause = TogglePlayPause;
         _shell.onScrub = fraction => _playback.SeekFraction(fraction);
         _shell.onAlgorithm = OnAlgorithm;
         _shell.onHeuristic = OnHeuristic;
         _shell.onDiagonal = OnDiagonal;
+        _shell.onGenerate = () => RegenGrid(gridController.width, gridController.height);
+        _shell.onWidth = w => RegenGrid(w, gridController.height);
+        _shell.onHeight = h => RegenGrid(gridController.width, h);
+        _shell.onSeed = s => { _seed = s; RegenGrid(gridController.width, gridController.height); };
+        _shell.onGenerator = g => { _generator = g; RegenGrid(gridController.width, gridController.height); };
+        _shell.onDensity = d => { _density = d; RegenGrid(gridController.width, gridController.height); };
         _shell.Build();
         _shell.SetPlaying(false);
     }
@@ -121,7 +135,7 @@ public class UIController : MonoBehaviour {
     /// startup and on resize. Leaves us Stopped on a fresh grid (new walls, new start/end).
     /// </summary>
     private void InitGrid(int width, int height) {
-        _solver = new PathSolver(width, height);
+        _solver = new PathSolver(width, height, _seed, _generator, _density);
         _solver.Algorithm = _algorithm; // a fresh solver defaults to A* - re-apply the current pick
         _solver.Heuristic = _heuristic;
         _solver.Diagonal = _diagonal;
@@ -133,16 +147,13 @@ public class UIController : MonoBehaviour {
         Resize();
     }
 
-    /// <summary>Grow/shrink the grid by delta cells (both axes) and regenerate it.</summary>
-    private void ResizeGrid(int delta) {
-        int width = Mathf.Clamp(gridController.width + delta, MinGrid, MaxGrid);
-        int height = Mathf.Clamp(gridController.height + delta, MinGrid, MaxGrid);
-        if (width == gridController.width && height == gridController.height)
-            return; // already at the limit
-
+    /// <summary>Rebuild the grid at a (clamped) size and regenerate it from the current seed/generator.</summary>
+    private void RegenGrid(int width, int height) {
+        width = Mathf.Clamp(width, MinGrid, MaxGrid);
+        height = Mathf.Clamp(height, MinGrid, MaxGrid);
         gridController.Rebuild(width, height);
         InitGrid(width, height);
-        _shell.SetPlaying(_animationState == AnimationState.Started);
+        _shell?.SetPlaying(_animationState == AnimationState.Started);
     }
 
     private void Update() {
@@ -159,9 +170,9 @@ public class UIController : MonoBehaviour {
             TogglePlayPause();
         // - / = resize the grid (= is the unshifted +, don't care about the shift)
         if (Input.GetKeyDown(KeyCode.Equals))
-            ResizeGrid(GridStep);
+            RegenGrid(gridController.width + GridStep, gridController.height + GridStep);
         if (Input.GetKeyDown(KeyCode.Minus))
-            ResizeGrid(-GridStep);
+            RegenGrid(gridController.width - GridStep, gridController.height - GridStep);
 
         switch (_animationState) {
             case AnimationState.Reloading:

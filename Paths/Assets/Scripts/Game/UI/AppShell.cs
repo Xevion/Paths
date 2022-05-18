@@ -288,8 +288,8 @@ namespace Game.UI {
                 i => onHeight?.Invoke(i));
             UIKit.ScrubField(Field(col, "Seed", tooltip: "Random seed - same seed regenerates the same maze"),
                 initialSeed, 0, 999, "", i => onSeed?.Invoke(i));
-            UIKit.Dropdown(Field(col, "Generator", tooltip: "How the starting maze is built"), _font,
-                new[] { "Empty", "Rooms", "Random" }, 1, i => onGenerator?.Invoke((Generator) i), 150f);
+            UIKit.Dropdown(Field(col, "Generator", tooltip: "How the starting layout is built"), _font,
+                new[] { "Empty", "Random" }, 1, i => onGenerator?.Invoke((Generator) i), 150f);
             UIKit.ValueSlider(Field(col, "Density", fill: true, tooltip: "Fraction of cells that become walls"),
                 0f, 1f, 0.25f, x => Mathf.RoundToInt(x * 100f) + "%", x => onDensity?.Invoke(x));
 
