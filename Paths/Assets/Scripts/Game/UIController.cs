@@ -87,6 +87,12 @@ public class UIController : MonoBehaviour {
     private int _seed = 1;
     private Generator _generator = Generator.Random;
     private float _density = 0.25f;
+    private float _weight = 1f; // A* heuristic weight
+
+    // playback pace - a 0..1 speed scale, an optional per-step delay (ms), and loop-on-finish
+    private float _speedScale = 0.5f;
+    private float _stepDelay = 30f;
+    private bool _loop;
 
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
@@ -120,12 +126,16 @@ public class UIController : MonoBehaviour {
         _shell.onAlgorithm = OnAlgorithm;
         _shell.onHeuristic = OnHeuristic;
         _shell.onDiagonal = OnDiagonal;
+        _shell.onWeight = w => { _weight = w; _solver.Weight = w; Resolve(); };
         _shell.onGenerate = () => RegenGrid(gridController.width, gridController.height);
         _shell.onWidth = w => RegenGrid(w, gridController.height);
         _shell.onHeight = h => RegenGrid(gridController.width, h);
         _shell.onSeed = s => { _seed = s; RegenGrid(gridController.width, gridController.height); };
         _shell.onGenerator = g => { _generator = g; RegenGrid(gridController.width, gridController.height); };
         _shell.onDensity = d => { _density = d; RegenGrid(gridController.width, gridController.height); };
+        _shell.onSpeed = f => { _speedScale = f; _playback.Speed = SpeedFor(f); };
+        _shell.onStepDelay = ms => { _stepDelay = ms; _playback.StepDelay = ms; };
+        _shell.onLoop = on => _loop = on;
         _shell.Build();
         _shell.SetPlaying(false);
     }
@@ -139,8 +149,11 @@ public class UIController : MonoBehaviour {
         _solver.Algorithm = _algorithm; // a fresh solver defaults to A* - re-apply the current pick
         _solver.Heuristic = _heuristic;
         _solver.Diagonal = _diagonal;
+        _solver.Weight = _weight;
         _gridEditor = new GridEditor(mainCamera, gridController, _solver);
         _playback = new Playback(speed, clampIncrement);
+        _playback.Speed = SpeedFor(_speedScale);
+        _playback.StepDelay = _stepDelay;
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
         _shell?.SetPlayhead(0f);
@@ -155,6 +168,9 @@ public class UIController : MonoBehaviour {
         InitGrid(width, height);
         _shell?.SetPlaying(_animationState == AnimationState.Started);
     }
+
+    // map the sidebar's 0..1 speed scale to steps/sec, quadratic so the slow end has finer control
+    private static float SpeedFor(float scale) => Mathf.Lerp(2f, 250f, scale * scale);
 
     private void Update() {
         _cameraRig.Update(); // zoom/pan first so edits this frame use the moved camera
@@ -196,6 +212,8 @@ public class UIController : MonoBehaviour {
 
                 if (_playback.HasFramesLeft)
                     LoadNextState();
+                else if (_loop)
+                    _playback.Rewind(); // hit the end with loop on - replay from the start
                 break;
             case AnimationState.Stopped:
                 // Render editable grid when fully stopped

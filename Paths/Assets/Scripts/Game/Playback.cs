@@ -7,7 +7,8 @@ using UnityEngine;
 /// isn't all tangled up with input and rendering. The pin-on-edit logic will live here too.
 /// </summary>
 public class Playback {
-    private readonly float _speed;
+    public float Speed { get; set; }     // steps/sec the playhead advances at
+    public float StepDelay { get; set; } // ms; >0 caps the pace to one expanded step per StepDelay
     private readonly float _clampIncrement;
     private float _runtime;
 
@@ -28,7 +29,7 @@ public class Playback {
     public bool HasFramesLeft => _runtime < Count;
 
     public Playback(float speed, float clampIncrement) {
-        _speed = speed;
+        Speed = speed;
         _clampIncrement = clampIncrement;
     }
 
@@ -53,7 +54,10 @@ public class Playback {
 
     /// <summary>Step the playhead forward by a frame's worth of time.</summary>
     public void Advance(float deltaTime) {
-        var increment = deltaTime * _speed * CurrentMultiplier();
+        var increment = deltaTime * Speed * CurrentMultiplier();
+        // step delay caps the pace: never more than one step per StepDelay milliseconds
+        if (StepDelay > 0f)
+            increment = Mathf.Min(increment, deltaTime * 1000f / StepDelay);
         if (_clampIncrement > 0)
             increment = Mathf.Clamp(increment, 0, Count * deltaTime / _clampIncrement);
         _runtime += increment;
