@@ -19,6 +19,7 @@ public class PathSolver {
     public Algorithm Algorithm { get; set; } = Algorithm.AStar;
     public Heuristic Heuristic { get; set; } = Heuristic.Manhattan;
     public bool Diagonal { get; set; }
+    public float Weight { get; set; } = 1f; // A* heuristic weight (1 = optimal)
 
     private IPathfinding _algorithm;
 
@@ -74,7 +75,7 @@ public class PathSolver {
             case Algorithm.JumpPoint:
                 return new JumpPoint(Grid); // always 8-connected, the Diagonal toggle doesn't apply
             default:
-                return new AStar(Grid, Heuristic, Diagonal);
+                return new AStar(Grid, Heuristic, Diagonal, Weight);
         }
     }
 
