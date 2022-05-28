@@ -13,9 +13,13 @@ public enum PropertyName {
 /// did the job on desktop but doesn't exist on WebGL, a texture runs everywhere.
 /// </summary>
 public class GridController : MonoBehaviour {
-    public Material gridMaterial; // Maintain reference to the Grid Material the Shader is implanted upon
     public int width;
     public int height;
+
+    // a per-renderer instance of the grid material. everything the code sets (texture, colors,
+    // fade) goes here, never to the shared .mat asset - poking the asset from script leaks the
+    // runtime values back into it in the editor.
+    private Material _material;
 
     // cell states, one texel each. _pixels is the CPU-side copy we edit, then upload to _texture.
     private Color32[] _pixels;
@@ -26,10 +30,39 @@ public class GridController : MonoBehaviour {
     private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
     private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
     private static readonly int Fade = Shader.PropertyToID("_Fade");
+    private static readonly int LineColor = Shader.PropertyToID("_LineColor");
+    private static readonly int EmptyColor = Shader.PropertyToID("_EmptyColor");
+    private static readonly int WallColor = Shader.PropertyToID("_WallColor");
+    private static readonly int StartColor = Shader.PropertyToID("_StartColor");
+    private static readonly int EndColor = Shader.PropertyToID("_EndColor");
+    private static readonly int SeenColor = Shader.PropertyToID("_SeenColor");
+    private static readonly int ExpandedColor = Shader.PropertyToID("_ExpandedColor");
+    private static readonly int PathColor = Shader.PropertyToID("_PathColor");
     public Vector2Int Size => new Vector2Int(width, height);
+
+    private void Awake() {
+        // .material instantiates a copy owned by this renderer; released in OnDestroy
+        _material = GetComponent<MeshRenderer>().material;
+    }
 
     private void Start() {
         Rebuild(width, height);
+    }
+
+    /// <summary>
+    /// Push a palette into the grid material. Deliberately no sRGB-to-linear conversion: uGUI
+    /// passes the same theme tokens through as raw vertex colors, so converting here would render
+    /// the grid darker than the panels sitting next to it. Raw values keep them on one encode.
+    /// </summary>
+    public void ApplyTheme(GridTheme theme) {
+        _material.SetColor(LineColor, theme.line);
+        _material.SetColor(EmptyColor, theme.empty);
+        _material.SetColor(WallColor, theme.wall);
+        _material.SetColor(StartColor, theme.start);
+        _material.SetColor(EndColor, theme.end);
+        _material.SetColor(SeenColor, theme.seen);
+        _material.SetColor(ExpandedColor, theme.expanded);
+        _material.SetColor(PathColor, theme.path);
     }
 
     /// <summary>
@@ -51,7 +84,7 @@ public class GridController : MonoBehaviour {
             filterMode = FilterMode.Point, // one texel = one cell, never interpolate between states
             wrapMode = TextureWrapMode.Clamp
         };
-        gridMaterial.SetTexture(GridTex, _texture);
+        _material.SetTexture(GridTex, _texture);
 
         // Update all Shader properties
         foreach (PropertyName property in Enum.GetValues(typeof(PropertyName)))
@@ -66,10 +99,10 @@ public class GridController : MonoBehaviour {
     public void UpdateShader(PropertyName property) {
         switch (property) {
             case PropertyName.GridWidth:
-                gridMaterial.SetFloat(GridWidth, width);
+                _material.SetFloat(GridWidth, width);
                 break;
             case PropertyName.GridHeight:
-                gridMaterial.SetFloat(GridHeight, height);
+                _material.SetFloat(GridHeight, height);
                 break;
             case PropertyName.Values:
                 _texture.SetPixels32(_pixels);
@@ -84,12 +117,14 @@ public class GridController : MonoBehaviour {
     /// Global brightness multiplier on the whole grid (1 = full). Used to dim while editing.
     /// </summary>
     public void SetFade(float fade) {
-        gridMaterial.SetFloat(Fade, fade);
+        _material.SetFloat(Fade, fade);
     }
 
     private void OnDestroy() {
         if (_texture != null)
             Destroy(_texture);
+        if (_material != null)
+            Destroy(_material);
     }
 
     /// <summary>

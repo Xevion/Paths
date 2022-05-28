@@ -103,6 +103,9 @@ public class UIController : MonoBehaviour {
         _cameraRig = new CameraRig(mainCamera); // before InitGrid - Resize() frames through it
         InitGrid(gridController.width, gridController.height);
 
+        GridTheme theme = GridTheme.Dark();
+        gridController.ApplyTheme(theme);
+        mainCamera.backgroundColor = theme.backdrop; // the scene's clear color is an off-theme gray
         _gridFade = idleFade;
         gridController.SetFade(_gridFade);
 
