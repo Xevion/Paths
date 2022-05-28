@@ -140,30 +140,30 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Translate a world position to the approximate position on the Grid.
-    /// May not return valid grid coordinates (outside the range).
+    /// World position to grid cell, the one mapping every picker (editing, hover, gizmos) goes
+    /// through. Returns whether the position actually lands on the grid. The quad's UVs run
+    /// opposite to world XY, so cell (0,0) is the far corner - GetWorldPosition mirrors this.
     /// </summary>
-    /// <param name="worldPosition">a Vector3 World Position; Z coordinates are inconsequential.</param>
-    /// <returns>A Vector2Int representing a grid position from the bottom left.</returns>
-    public Vector2Int GetGridPosition(Vector3 worldPosition) {
-        Vector3 localScale = transform.localScale;
-        Vector2 gridPosition = (worldPosition + (localScale / 2f)) / new Vector2(localScale.x, localScale.y);
-        return Size - new Vector2Int(
-            (int) (gridPosition.x * width),
-            (int) (gridPosition.y * height)) - Vector2Int.one;
+    public bool CellAt(Vector3 worldPosition, out Vector2Int cell) {
+        Transform t = transform;
+        Vector3 local = worldPosition - t.position;
+        Vector3 scale = t.localScale;
+        // floor, not cast: a click just off the low edge is cell -1, not cell 0 - a truncate
+        // wraps it through the flip onto the far column/row and paints a cell you never touched
+        int x = width - 1 - Mathf.FloorToInt((local.x / scale.x + 0.5f) * width);
+        int y = height - 1 - Mathf.FloorToInt((local.y / scale.y + 0.5f) * height);
+        cell = new Vector2Int(x, y);
+        return x >= 0 && x < width && y >= 0 && y < height;
     }
 
-    /// <summary>
-    /// Translates a position on the grid into a real World Position.
-    /// </summary>
-    /// <param name="gridPosition">The XY position on the grid</param>
-    /// <returns>A Vector3 centered on the grid square in the World</returns>
+    /// <summary>The world position at the center of a grid cell. Inverse of CellAt.</summary>
     public Vector3 GetWorldPosition(Vector2Int gridPosition) {
-        Transform ttransform = transform;
-        Vector3 localScale = ttransform.localScale;
-        Vector2 topRight = ttransform.position + (localScale / 2f);
-        var singleSquare = new Vector2(localScale.x / width, localScale.y / height);
-        Vector2 worldPosition = topRight - (singleSquare * (gridPosition + Vector2Int.one)) + (singleSquare / 2f);
-        return worldPosition;
+        Transform t = transform;
+        Vector3 scale = t.localScale;
+        var cellSize = new Vector2(scale.x / width, scale.y / height);
+        // counted back from the far corner, matching CellAt's flip
+        float x = (width - 1 - gridPosition.x + 0.5f) * cellSize.x - scale.x / 2f;
+        float y = (height - 1 - gridPosition.y + 0.5f) * cellSize.y - scale.y / 2f;
+        return t.position + new Vector3(x, y);
     }
 }

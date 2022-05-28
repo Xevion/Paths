@@ -330,7 +330,7 @@ public class UIController : MonoBehaviour {
 
         Vector3 mouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
         Vector3 localScale = gridObject.transform.localScale;
-        Vector2Int gridPosition = gridController.GetGridPosition(mouse);
+        bool onGrid = gridController.CellAt(mouse, out Vector2Int gridPosition);
 
         var style = new GUIStyle();
         style.normal.textColor = Color.blue;
@@ -340,7 +340,7 @@ public class UIController : MonoBehaviour {
         #if UNITY_EDITOR
         Handles.Label(mouse, String.Format("{0}{1}",
             gridPosition,
-            _playback.State != null && _solver.IsValid(gridPosition)
+            onGrid && _playback.State != null
                 ? $"\n{_playback.State.Current[gridPosition.x, gridPosition.y]}"
                 : ""
         ), style);

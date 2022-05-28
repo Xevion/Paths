@@ -39,9 +39,8 @@ public class GridEditor {
             return state;
 
         Vector3 worldMouse = _camera.ScreenToWorldPoint(Input.mousePosition);
-        Vector2Int position = _gridController.GetGridPosition(worldMouse);
         // the camera can be zoomed/panned so the cursor is easily off the grid - ignore those clicks
-        if (!_solver.IsValid(position))
+        if (!_gridController.CellAt(worldMouse, out Vector2Int position))
             return state;
 
         // Initial click, remember what they grabbed
