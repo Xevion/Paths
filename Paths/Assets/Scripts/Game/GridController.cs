@@ -130,14 +130,13 @@ public class GridController : MonoBehaviour {
     /// <summary>
     /// Loads a whole GridState into the state texture (every cell), then uploads it.
     /// </summary>
-    /// <param name="state"></param>
-    public void LoadGridState(GridNodeType[,] state) {
+    public void LoadGridState(GridNodeType[,] state, bool animate = true) {
         // Loop over matrix and set values via cast Enum to int
         int gridWidth = state.GetLength(0);
         int gridHeight = state.GetLength(1);
         for (int x = 0; x < gridWidth; x++) {
             for (int y = 0; y < gridHeight; y++)
-                SetValue(x, y, (int) state[x, y]);
+                SetValue(x, y, (int) state[x, y], animate);
         }
 
         UpdateShader(PropertyName.Values);
@@ -146,32 +145,38 @@ public class GridController : MonoBehaviour {
     /// <summary>
     /// A more performant method of loading GridState values into the shader.
     /// </summary>
-    /// <param name="state"></param>
-    /// <param name="dirtyFlags"></param>
-    public void LoadDirtyGridState(GridNodeType[,] state, bool[,] dirtyFlags) {
+    public void LoadDirtyGridState(GridNodeType[,] state, bool[,] dirtyFlags, bool animate = true) {
         int gridWidth = state.GetLength(0);
         for (int x = 0; x < gridWidth; x++) {
             int gridHeight = state.GetLength(1);
             for (int y = 0; y < gridHeight; y++)
                 // only set value if the value has been marked as dirty
                 if (dirtyFlags[x, y]) {
-                    SetValue(x, y, (int) state[x, y]);
+                    SetValue(x, y, (int) state[x, y], animate);
                     dirtyFlags[x, y] = false;
                 }
         }
 
         UpdateShader(PropertyName.Values);
     }
-    
+
     /// <summary>
-    /// Packs a cell's state index into its texel (red channel). Uploaded to the GPU on the next
-    /// UpdateShader(Values).
+    /// Packs a cell into its texel: current state in R, the state it came from in G, and when it
+    /// changed in BA (16-bit, 0.02s units of Time.time - wraps every ~22 min, the shader handles
+    /// the wrap when it computes the age). Only cells whose state actually changed are restamped,
+    /// so full repaints don't retrigger animations. animate=false snaps: prev is written equal to
+    /// current so there's no transition to play - scrubs and reloads use it, otherwise a seek
+    /// would fire hundreds of transitions in one frame.
+    /// Per-cell scalar data (a g-cost heatmap, say) would go in a second texture next to this one,
+    /// not in here - all four channels are spoken for.
     /// </summary>
-    /// <param name="x">the X coordinate</param>
-    /// <param name="y">the Y coordinate</param>
-    /// <param name="value">the GridNodeType index</param>
-    public void SetValue(int x, int y, int value) {
-        _pixels[width * y + x] = new Color32((byte) value, 0, 0, 255);
+    public void SetValue(int x, int y, int value, bool animate = true) {
+        int i = width * y + x;
+        var v = (byte) value;
+        if (_pixels[i].r == v)
+            return;
+        ushort stamp = (ushort) Mathf.RoundToInt(Time.time * 50f);
+        _pixels[i] = new Color32(v, animate ? _pixels[i].r : v, (byte) (stamp & 0xFF), (byte) (stamp >> 8));
     }
 
     /// <summary>

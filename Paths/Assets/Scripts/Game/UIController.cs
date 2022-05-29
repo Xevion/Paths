@@ -199,7 +199,7 @@ public class UIController : MonoBehaviour {
                 // render the pinned step, rather than blanking to the bare grid until mouse-up.
                 if (_gridEditor.Dirtied || _playback.State == null)
                     GeneratePath();
-                LoadNextState();
+                LoadNextState(false); // a reload relays the whole search - snap, don't replay every cell's pop
                 _shell.SetPlayhead(_playback.Fraction);
 
                 // mouse up: settle back to playing or parked, whichever we were before the edit
@@ -214,7 +214,7 @@ public class UIController : MonoBehaviour {
                 _shell.SetPlayhead(_playback.Fraction);
 
                 if (_playback.HasFramesLeft)
-                    LoadNextState();
+                    LoadNextState(!_shell.Scrubbing); // dragging the timeline is a seek, not playback
                 else if (_loop)
                     _playback.Rewind(); // hit the end with loop on - replay from the start
                 break;
@@ -224,7 +224,7 @@ public class UIController : MonoBehaviour {
                 break;
             case AnimationState.Paused:
                 if (_playback.HasFramesLeft)
-                    LoadNextState();
+                    LoadNextState(!_shell.Scrubbing);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -291,17 +291,17 @@ public class UIController : MonoBehaviour {
         if (_playback.State == null)
             return;
         GeneratePath();
-        LoadNextState();
+        LoadNextState(false); // swapping algorithm re-lays the whole search at the pinned step
     }
 
     private void GeneratePath() {
         _playback.Load(_solver.Solve());
     }
 
-    private void LoadNextState() {
+    private void LoadNextState(bool animate = true) {
         _playback.SyncState();
         ChangeController state = _playback.State;
-        gridController.LoadDirtyGridState(state.Current, state.DirtyFlags);
+        gridController.LoadDirtyGridState(state.Current, state.DirtyFlags, animate);
         FeedStats(state);
     }
 
