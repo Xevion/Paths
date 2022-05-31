@@ -1,20 +1,21 @@
-Shader "PDT Shaders/TestGrid"
+Shader "Paths/Grid"
 {
     Properties
     {
-        _LineColor ("Line Color", Color) = (1,1,1,1)
-        _EmptyColor ("Empty Cell Color", Color) = (0,0,0,1)
-        _WallColor ("Wall Cell Color", Color) = (0.02, 0.02, 0.02, 1)
-        _StartColor ("Start Cell Color", Color) = (0, 1, 0, 1)
-        _EndColor ("End Cell Color", Color) = (1,0,0,1)
-        _SeenColor ("Seen Cell Color", Color) = (0.99, 0.93, 0.01, 1)
-        _ExpandedColor ("Expanded Cell Color", Color) = (0.89, 0.25, 0.04, 1)
-        _PathColor ("Path Cell Color", Color) = (0.65, 0.01, 0.2, 1)
+        _LineColor ("Gap Color", Color) = (0.09, 0.1, 0.13, 1)
+        _EmptyColor ("Empty Cell Color", Color) = (0.1, 0.11, 0.14, 1)
+        _WallColor ("Wall Cell Color", Color) = (0.16, 0.18, 0.22, 1)
+        _StartColor ("Start Cell Color", Color) = (0.45, 0.82, 0.5, 1)
+        _EndColor ("End Cell Color", Color) = (0.88, 0.34, 0.31, 1)
+        _SeenColor ("Seen Cell Color", Color) = (0.16, 0.55, 0.6, 1)
+        _ExpandedColor ("Expanded Cell Color", Color) = (0.13, 0.29, 0.33, 1)
+        _PathColor ("Path Cell Color", Color) = (0.16, 0.83, 0.9, 1)
 
-        // one texel per cell, the state index packed into the red channel. set from GridController.
+        // one texel per cell: state in R, previous state in G, change time in BA. set from GridController.
         [PerRendererData] _GridTex ("Grid State", 2D) = "black" {}
-        _LineSize("Line Size", Range(0,1)) = 0.15
-        _Fade("Search Fade", Range(0,1)) = 0.7
+        _Gap ("Tile Gap", Range(0, 0.5)) = 0.12
+        _Radius ("Corner Radius", Range(0, 0.5)) = 0.1
+        _Fade ("Search Fade", Range(0, 1)) = 0.7
     }
     SubShader
     {
@@ -46,7 +47,8 @@ Shader "PDT Shaders/TestGrid"
 
             float _GridWidth;
             float _GridHeight;
-            float _LineSize;
+            float _Gap;
+            float _Radius;
             float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
 
             v2f vert(appdata v)
@@ -57,6 +59,13 @@ Shader "PDT Shaders/TestGrid"
                 return o;
             }
 
+            // signed distance to a rounded box of half-extent b, corner radius r, centered at 0
+            float RoundedBox(float2 p, float2 b, float r)
+            {
+                float2 q = abs(p) - b + r;
+                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+            }
+
             fixed4 frag(v2f i) : SV_Target
             {
                 float4 colors[7] = {
@@ -64,23 +73,37 @@ Shader "PDT Shaders/TestGrid"
                     _SeenColor, _ExpandedColor, _PathColor
                 };
 
-                float2 uv = i.uv;
-                float gw = floor(_GridWidth) + _LineSize;
-                float gh = floor(_GridHeight) + _LineSize;
+                float2 grid = float2(_GridWidth, _GridHeight);
+                float2 cellCoord = i.uv * grid;
+                float2 id = floor(cellCoord);
+                float2 p = frac(cellCoord) - 0.5; // cell-local, -0.5..0.5
 
-                // the thin gap between cells draws as the line colour and never fades
-                if (_LineSize > 0.0 && (frac(uv.x * gw) <= _LineSize || frac(uv.y * gh) <= _LineSize))
-                    return float4(_LineColor.rgb * _LineColor.a, 1.0);
+                // screen density in cell units - how big a pixel is across a cell. drives both the
+                // edge antialiasing and the zoom-out degrade below.
+                float2 dd = fwidth(cellCoord);
+                float pixel = max(max(dd.x, dd.y), 1e-5);
 
-                // which cell we're in, then read that cell's state out of the texture
-                float2 id = float2(floor(uv.x / (1.0 / gw)), floor(uv.y / (1.0 / gh)));
-                float2 cellUv = (id + 0.5) / float2(_GridWidth, _GridHeight);
-                int index = (int) floor(tex2D(_GridTex, cellUv).r * 255.0 + 0.5);
+                // fade the gap and rounding out as cells shrink toward a few pixels, so the far
+                // view collapses to clean flat color instead of shimmering sub-pixel gaps
+                float k = saturate((1.0 / pixel - 3.0) / 4.0);
+                float2 b = 0.5 - _Gap * 0.5 * k;
+                float r = _Radius * k;
 
-                float4 color = colors[index];
-                // indices 4/5/6 are Seen/Expanded/Path - the only cells that dim
-                float fade = index >= 4 ? _Fade : 1.0;
-                return float4(color.rgb * color.a * fade, 1.0);
+                float dist = RoundedBox(p, b, r);
+                float aa = fwidth(dist);
+                float tile = 1.0 - smoothstep(-aa * 0.5, aa * 0.5, dist);
+
+                float2 cellUv = (id + 0.5) / grid;
+                float4 texel = tex2D(_GridTex, cellUv);
+                int index = (int) floor(texel.r * 255.0 + 0.5);
+
+                float3 color = colors[index].rgb;
+                // indices 4/5/6 are Seen/Expanded/Path - dimming pulls the tint back toward the
+                // plain tile rather than toward black, so the board stays one readable surface
+                if (index >= 4)
+                    color = lerp(_EmptyColor.rgb, color, _Fade);
+
+                return float4(lerp(_LineColor.rgb, color, tile), 1.0);
             }
             ENDCG
         }
