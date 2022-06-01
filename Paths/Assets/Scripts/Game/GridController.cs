@@ -30,6 +30,8 @@ public class GridController : MonoBehaviour {
     private static readonly int GridWidth = Shader.PropertyToID("_GridWidth");
     private static readonly int GridHeight = Shader.PropertyToID("_GridHeight");
     private static readonly int Fade = Shader.PropertyToID("_Fade");
+    private static readonly int Now = Shader.PropertyToID("_Now");
+    private static readonly int TransitionTime = Shader.PropertyToID("_TransitionTime");
     private static readonly int LineColor = Shader.PropertyToID("_LineColor");
     private static readonly int EmptyColor = Shader.PropertyToID("_EmptyColor");
     private static readonly int WallColor = Shader.PropertyToID("_WallColor");
@@ -45,8 +47,17 @@ public class GridController : MonoBehaviour {
         _material = GetComponent<MeshRenderer>().material;
     }
 
+    // the timestamp is 16 bits of 0.02s units, so time wraps here. the shader compares stamps
+    // against _Now on the same clock; both sides have to agree on the period.
+    private const float TimePeriod = 65536 * 0.02f;
+
     private void Start() {
         Rebuild(width, height);
+    }
+
+    private void Update() {
+        // the shader eases cell transitions against this clock, wrapped like the stamps are
+        _material.SetFloat(Now, Time.time % TimePeriod);
     }
 
     /// <summary>
@@ -118,6 +129,14 @@ public class GridController : MonoBehaviour {
     /// </summary>
     public void SetFade(float fade) {
         _material.SetFloat(Fade, fade);
+    }
+
+    /// <summary>
+    /// How long a cell takes to ease from its previous state to the current one. Scaled down at
+    /// high playback speeds so fast sweeps don't smear into each other.
+    /// </summary>
+    public void SetTransitionTime(float seconds) {
+        _material.SetFloat(TransitionTime, seconds);
     }
 
     private void OnDestroy() {

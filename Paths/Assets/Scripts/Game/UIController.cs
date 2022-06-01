@@ -136,7 +136,7 @@ public class UIController : MonoBehaviour {
         _shell.onSeed = s => { _seed = s; RegenGrid(gridController.width, gridController.height); };
         _shell.onGenerator = g => { _generator = g; RegenGrid(gridController.width, gridController.height); };
         _shell.onDensity = d => { _density = d; RegenGrid(gridController.width, gridController.height); };
-        _shell.onSpeed = f => { _speedScale = f; _playback.Speed = SpeedFor(f); };
+        _shell.onSpeed = ApplySpeed;
         _shell.onStepDelay = ms => { _stepDelay = ms; _playback.StepDelay = ms; };
         _shell.onLoop = on => _loop = on;
         _shell.Build();
@@ -155,7 +155,7 @@ public class UIController : MonoBehaviour {
         _solver.Weight = _weight;
         _gridEditor = new GridEditor(mainCamera, gridController, _solver);
         _playback = new Playback(speed, clampIncrement);
-        _playback.Speed = SpeedFor(_speedScale);
+        ApplySpeed(_speedScale);
         _playback.StepDelay = _stepDelay;
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
@@ -174,6 +174,15 @@ public class UIController : MonoBehaviour {
 
     // map the sidebar's 0..1 speed scale to steps/sec, quadratic so the slow end has finer control
     private static float SpeedFor(float scale) => Mathf.Lerp(2f, 250f, scale * scale);
+
+    // playback speed also sets how long a cell transition eases - fast sweeps get snappier pops
+    // so consecutive steps don't smear into one blur
+    private void ApplySpeed(float scale) {
+        _speedScale = scale;
+        float speed = SpeedFor(scale);
+        _playback.Speed = speed;
+        gridController.SetTransitionTime(Mathf.Clamp(8f / speed, 0.06f, 0.35f));
+    }
 
     private void Update() {
         _cameraRig.Update(); // zoom/pan first so edits this frame use the moved camera

@@ -50,6 +50,8 @@ Shader "Paths/Grid"
             float _Gap;
             float _Radius;
             float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
+            float _Now; // Time.time wrapped to the stamp period, pushed per frame from GridController
+            float _TransitionTime; // seconds a state change eases over; shortens at high playback speed
 
             v2f vert(appdata v)
             {
@@ -78,6 +80,20 @@ Shader "Paths/Grid"
                 float2 id = floor(cellCoord);
                 float2 p = frac(cellCoord) - 0.5; // cell-local, -0.5..0.5
 
+                float2 cellUv = (id + 0.5) / grid;
+                float4 texel = tex2D(_GridTex, cellUv);
+                int index = (int) floor(texel.r * 255.0 + 0.5);
+                int prev = (int) floor(texel.g * 255.0 + 0.5);
+
+                // how far into this cell's transition we are: a 16-bit change stamp in BA
+                // (0.02s units, same wrapped clock as _Now - see GridController.TimePeriod)
+                float stamp = (texel.b * 255.0 + texel.a * 65280.0) * 0.02;
+                float age = _Now - stamp;
+                if (age < 0.0)
+                    age += 65536.0 * 0.02; // the clock wrapped past the stamp
+                float t = saturate(age / max(_TransitionTime, 1e-4));
+                float ease = 1.0 - (1.0 - t) * (1.0 - t); // ease-out, snappy start
+
                 // screen density in cell units - how big a pixel is across a cell. drives both the
                 // edge antialiasing and the zoom-out degrade below.
                 float2 dd = fwidth(cellCoord);
@@ -86,22 +102,26 @@ Shader "Paths/Grid"
                 // fade the gap and rounding out as cells shrink toward a few pixels, so the far
                 // view collapses to clean flat color instead of shimmering sub-pixel gaps
                 float k = saturate((1.0 / pixel - 3.0) / 4.0);
-                float2 b = 0.5 - _Gap * 0.5 * k;
-                float r = _Radius * k;
+
+                // cells appearing out of empty scale in as they ease
+                float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
+                float2 b = (0.5 - _Gap * 0.5 * k) * pop;
+                float r = _Radius * k * pop;
 
                 float dist = RoundedBox(p, b, r);
                 float aa = fwidth(dist);
                 float tile = 1.0 - smoothstep(-aa * 0.5, aa * 0.5, dist);
 
-                float2 cellUv = (id + 0.5) / grid;
-                float4 texel = tex2D(_GridTex, cellUv);
-                int index = (int) floor(texel.r * 255.0 + 0.5);
-
+                // ease the fill from the state the cell left toward the one it's in. indices 4/5/6
+                // are Seen/Expanded/Path - dimming pulls the tint back toward the plain tile rather
+                // than toward black, so the board stays one readable surface
+                float3 from = colors[prev].rgb;
+                if (prev >= 4)
+                    from = lerp(_EmptyColor.rgb, from, _Fade);
                 float3 color = colors[index].rgb;
-                // indices 4/5/6 are Seen/Expanded/Path - dimming pulls the tint back toward the
-                // plain tile rather than toward black, so the board stays one readable surface
                 if (index >= 4)
                     color = lerp(_EmptyColor.rgb, color, _Fade);
+                color = lerp(from, color, ease);
 
                 return float4(lerp(_LineColor.rgb, color, tile), 1.0);
             }
