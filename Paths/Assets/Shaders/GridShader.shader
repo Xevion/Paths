@@ -10,6 +10,7 @@ Shader "Paths/Grid"
         _SeenColor ("Seen Cell Color", Color) = (0.16, 0.55, 0.6, 1)
         _ExpandedColor ("Expanded Cell Color", Color) = (0.13, 0.29, 0.33, 1)
         _PathColor ("Path Cell Color", Color) = (0.16, 0.83, 0.9, 1)
+        _HoverColor ("Hover Color", Color) = (0.16, 0.83, 0.9, 1)
 
         // one texel per cell: state in R, previous state in G, change time in BA. set from GridController.
         [PerRendererData] _GridTex ("Grid State", 2D) = "black" {}
@@ -52,6 +53,10 @@ Shader "Paths/Grid"
             float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
             float _Now; // Time.time wrapped to the stamp period, pushed per frame from GridController
             float _TransitionTime; // seconds a state change eases over; shortens at high playback speed
+            float4 _HoverColor;
+            float4 _HoverCell; // xy = grid cell under the cursor; negative when nothing is hovered
+            float _HoverStrength; // eased 0..1, so the highlight doesn't snap on and off
+            float _BrushPreview; // 1 when a left click would draw a wall on the hovered empty cell
 
             v2f vert(appdata v)
             {
@@ -122,6 +127,16 @@ Shader "Paths/Grid"
                 if (index >= 4)
                     color = lerp(_EmptyColor.rgb, color, _Fade);
                 color = lerp(from, color, ease);
+
+                // cursor overlay - additive, all driven from uniforms, so the touch path (which
+                // never sets them) just skips it. the hovered cell gets a gentle lift plus a
+                // brighter inner rim, and an empty cell previews the wall the brush would draw.
+                if (_HoverStrength > 0.001 && all(abs(id - _HoverCell.xy) < 0.5)) {
+                    if (_BrushPreview > 0.5 && index == 0)
+                        color = lerp(color, _WallColor.rgb, 0.4 * _HoverStrength);
+                    float rim = (1.0 - smoothstep(0.0, 0.07, abs(dist))) * k;
+                    color += _HoverColor.rgb * (0.10 + 0.6 * rim) * _HoverStrength;
+                }
 
                 return float4(lerp(_LineColor.rgb, color, tile), 1.0);
             }

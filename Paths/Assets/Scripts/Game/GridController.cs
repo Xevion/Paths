@@ -40,7 +40,18 @@ public class GridController : MonoBehaviour {
     private static readonly int SeenColor = Shader.PropertyToID("_SeenColor");
     private static readonly int ExpandedColor = Shader.PropertyToID("_ExpandedColor");
     private static readonly int PathColor = Shader.PropertyToID("_PathColor");
+    private static readonly int HoverColor = Shader.PropertyToID("_HoverColor");
+    private static readonly int HoverCell = Shader.PropertyToID("_HoverCell");
+    private static readonly int HoverStrength = Shader.PropertyToID("_HoverStrength");
+    private static readonly int BrushPreview = Shader.PropertyToID("_BrushPreview");
     public Vector2Int Size => new Vector2Int(width, height);
+
+    // cursor highlight - the cell under the mouse and a strength eased in/out so it doesn't snap.
+    // nothing sets these on touch, so the overlay just stays off there.
+    private Vector2 _hoverCell = new Vector2(-1, -1);
+    private float _hoverTarget;
+    private float _hoverStrength;
+    private bool _brushPreview;
 
     private void Awake() {
         // .material instantiates a copy owned by this renderer; released in OnDestroy
@@ -58,6 +69,11 @@ public class GridController : MonoBehaviour {
     private void Update() {
         // the shader eases cell transitions against this clock, wrapped like the stamps are
         _material.SetFloat(Now, Time.time % TimePeriod);
+
+        _hoverStrength = Mathf.MoveTowards(_hoverStrength, _hoverTarget, Time.deltaTime * 8f);
+        _material.SetVector(HoverCell, _hoverCell);
+        _material.SetFloat(HoverStrength, _hoverStrength);
+        _material.SetFloat(BrushPreview, _brushPreview ? 1f : 0f);
     }
 
     /// <summary>
@@ -74,6 +90,22 @@ public class GridController : MonoBehaviour {
         _material.SetColor(SeenColor, theme.seen);
         _material.SetColor(ExpandedColor, theme.expanded);
         _material.SetColor(PathColor, theme.path);
+        _material.SetColor(HoverColor, theme.hover);
+    }
+
+    /// <summary>
+    /// Highlight the cell under the cursor. brushPreview hints the wall the left button would
+    /// draw. Call every frame the cursor is over the grid; ClearHover when it leaves.
+    /// </summary>
+    public void SetHover(Vector2Int cell, bool brushPreview) {
+        _hoverCell = cell;
+        _brushPreview = brushPreview;
+        _hoverTarget = 1f;
+    }
+
+    /// <summary>Fade the cursor highlight out - cursor left the grid or moved onto the UI.</summary>
+    public void ClearHover() {
+        _hoverTarget = 0f;
     }
 
     /// <summary>

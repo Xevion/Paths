@@ -17,6 +17,7 @@ public class GridTheme {
     public Color seen;     // the open frontier - the search's bright active edge
     public Color expanded; // closed cells - the big swept area, kept subtle
     public Color path;
+    public Color hover;    // the cursor highlight - lifts the cell under the mouse
 
     public static GridTheme Dark() {
         // search states are accent tints over the empty tile, so the sweep reads as a glow on the
@@ -32,6 +33,7 @@ public class GridTheme {
             seen = Color.Lerp(empty, Theme.Accent, 0.34f),
             expanded = Color.Lerp(empty, Theme.Accent, 0.14f),
             path = Theme.Accent,
+            hover = Theme.Accent,
         };
     }
 }

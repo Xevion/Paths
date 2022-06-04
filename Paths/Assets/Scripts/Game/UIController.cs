@@ -7,6 +7,7 @@ using TMPro;
 using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds otherwise
 #endif
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 
 /// <summary>
@@ -186,6 +187,7 @@ public class UIController : MonoBehaviour {
 
     private void Update() {
         _cameraRig.Update(); // zoom/pan first so edits this frame use the moved camera
+        UpdateHover();
 
         AnimationState before = _animationState;
         _animationState = _gridEditor.Process(_animationState);
@@ -271,6 +273,19 @@ public class UIController : MonoBehaviour {
                 break;
             case AnimationState.Reloading:
                 break; // mid-recompute, ignore
+        }
+    }
+
+    // highlight the cell under the cursor, previewing the wall the brush would draw on an empty
+    // one. off while the pointer's over the toolbar/sidebar (that's a UI click, not a grid one).
+    private void UpdateHover() {
+        Vector3 world = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        if (!overUi && gridController.CellAt(world, out Vector2Int cell)) {
+            bool empty = _solver.GetNode(cell).Walkable && cell != _solver.Start && cell != _solver.End;
+            gridController.SetHover(cell, empty);
+        } else {
+            gridController.ClearHover();
         }
     }
 
