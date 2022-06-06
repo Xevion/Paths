@@ -32,6 +32,8 @@ public class GridController : MonoBehaviour {
     private static readonly int Fade = Shader.PropertyToID("_Fade");
     private static readonly int Now = Shader.PropertyToID("_Now");
     private static readonly int TransitionTime = Shader.PropertyToID("_TransitionTime");
+    private static readonly int Gap = Shader.PropertyToID("_Gap");
+    private float _baseGap; // the shader's authored gap, so grid lines can toggle back to it
     private static readonly int LineColor = Shader.PropertyToID("_LineColor");
     private static readonly int EmptyColor = Shader.PropertyToID("_EmptyColor");
     private static readonly int WallColor = Shader.PropertyToID("_WallColor");
@@ -56,6 +58,7 @@ public class GridController : MonoBehaviour {
     private void Awake() {
         // .material instantiates a copy owned by this renderer; released in OnDestroy
         _material = GetComponent<MeshRenderer>().material;
+        _baseGap = _material.GetFloat(Gap);
     }
 
     // the timestamp is 16 bits of 0.02s units, so time wraps here. the shader compares stamps
@@ -161,6 +164,11 @@ public class GridController : MonoBehaviour {
     /// </summary>
     public void SetFade(float fade) {
         _material.SetFloat(Fade, fade);
+    }
+
+    /// <summary>Toggle the gap between tiles - off closes the tiles into a solid field.</summary>
+    public void SetGridLines(bool on) {
+        _material.SetFloat(Gap, on ? _baseGap : 0f);
     }
 
     /// <summary>

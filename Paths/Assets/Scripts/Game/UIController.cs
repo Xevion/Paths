@@ -94,6 +94,7 @@ public class UIController : MonoBehaviour {
     private float _speedScale = 0.5f;
     private float _stepDelay = 30f;
     private bool _loop;
+    private bool _animateSearch = true; // Display toggle - off snaps each step instead of easing it in
 
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
@@ -140,6 +141,8 @@ public class UIController : MonoBehaviour {
         _shell.onSpeed = ApplySpeed;
         _shell.onStepDelay = ms => { _stepDelay = ms; _playback.StepDelay = ms; };
         _shell.onLoop = on => _loop = on;
+        _shell.onGridLines = on => gridController.SetGridLines(on);
+        _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
         _shell.Build();
         _shell.SetPlaying(false);
     }
@@ -182,7 +185,8 @@ public class UIController : MonoBehaviour {
         _speedScale = scale;
         float speed = SpeedFor(scale);
         _playback.Speed = speed;
-        gridController.SetTransitionTime(Mathf.Clamp(8f / speed, 0.06f, 0.35f));
+        // animate off collapses the transition so cells snap between states
+        gridController.SetTransitionTime(_animateSearch ? Mathf.Clamp(8f / speed, 0.06f, 0.35f) : 0f);
     }
 
     private void Update() {

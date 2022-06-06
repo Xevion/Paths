@@ -31,6 +31,7 @@ namespace Game.UI {
         public Action<float> onDensity;
         public Action<float> onStepDelay;
         public Action<bool> onLoop;
+        public Action<bool> onGridLines, onAnimate;
 
         // initial values UIController seeds so the controls open reflecting the real state
         public int initialWidth = 32, initialHeight = 24, initialSeed = 1;
@@ -45,6 +46,7 @@ namespace Game.UI {
         private TextMeshProUGUI _playIcon;
         private Slider _scrubber;
         private TextMeshProUGUI _statExpanded, _statFrontier, _statPath, _statTime;
+        private RectTransform _statsRow; // toggled by the Show statistics checkbox
         private ScrubPress _scrubPress;
 
         // the timeline slider is being dragged - UIController stops auto-advancing so it doesn't fight the drag
@@ -147,11 +149,11 @@ namespace Game.UI {
 
         // the live readout - a row of stacked stat chips fed by SetStats off the real solver
         private void Stats(Transform bar) {
-            RectTransform row = UIKit.Row(bar, Theme.Space4);
-            _statExpanded = StatChip(row, "Expanded", 58f);
-            _statFrontier = StatChip(row, "Frontier", 38f);
-            _statPath = StatChip(row, "Path", 38f);
-            _statTime = StatChip(row, "Time", 72f);
+            _statsRow = UIKit.Row(bar, Theme.Space4);
+            _statExpanded = StatChip(_statsRow, "Expanded", 58f);
+            _statFrontier = StatChip(_statsRow, "Frontier", 38f);
+            _statPath = StatChip(_statsRow, "Path", 38f);
+            _statTime = StatChip(_statsRow, "Time", 72f);
         }
 
         // a tiny caption over a mono value; the value carries a min width so its digits don't jiggle the row
@@ -302,12 +304,13 @@ namespace Game.UI {
                 b => onLoop?.Invoke(b));
 
             UIKit.SectionHeader(col, _font, "Display", Icon.Eye);
-            // TODO: these display toggles are parked - the render path doesn't expose them yet
-            UIKit.Checkbox(col, _font, "Grid lines", true, _ => { });
-            UIKit.Checkbox(col, _font, "Animate search", true, _ => { });
-            UIKit.Checkbox(col, _font, "Show statistics", true, _ => { });
+            UIKit.Checkbox(col, _font, "Grid lines", true, b => onGridLines?.Invoke(b));
+            UIKit.Checkbox(col, _font, "Animate search", true, b => onAnimate?.Invoke(b));
+            UIKit.Checkbox(col, _font, "Show statistics", true,
+                b => { if (_statsRow != null) _statsRow.gameObject.SetActive(b); });
+            // TODO: the distance heatmap isn't built yet - parked, inert until the render side lands
             UIKit.Checkbox(col, _font, "Show distances", false, _ => { });
-            UIKit.Dropdown(Field(col, "Theme", tooltip: "Color theme for the grid and UI"), _font,
+            UIKit.Dropdown(Field(col, "Theme", tooltip: "Color theme for the grid"), _font,
                 new[] { "Dark", "Midnight", "Light" }, 0, _ => { }, 150f);
         }
 
