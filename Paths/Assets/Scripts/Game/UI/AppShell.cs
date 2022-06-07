@@ -32,6 +32,7 @@ namespace Game.UI {
         public Action<float> onStepDelay;
         public Action<bool> onLoop;
         public Action<bool> onGridLines, onAnimate;
+        public Action<int> onTheme;
 
         // initial values UIController seeds so the controls open reflecting the real state
         public int initialWidth = 32, initialHeight = 24, initialSeed = 1;
@@ -311,7 +312,7 @@ namespace Game.UI {
             // TODO: the distance heatmap isn't built yet - parked, inert until the render side lands
             UIKit.Checkbox(col, _font, "Show distances", false, _ => { });
             UIKit.Dropdown(Field(col, "Theme", tooltip: "Color theme for the grid"), _font,
-                new[] { "Dark", "Midnight", "Light" }, 0, _ => { }, 150f);
+                new[] { "Dark", "Midnight", "Light" }, 0, i => onTheme?.Invoke(i), 150f);
         }
 
         // a sidebar form row with a narrower label than the modal's wide one

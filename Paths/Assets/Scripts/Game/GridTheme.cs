@@ -19,6 +19,15 @@ public class GridTheme {
     public Color path;
     public Color hover;    // the cursor highlight - lifts the cell under the mouse
 
+    /// <summary>The grid palettes, by dropdown index (Dark / Midnight / Light).</summary>
+    public static GridTheme Preset(int index) {
+        switch (index) {
+            case 1: return Midnight();
+            case 2: return Light();
+            default: return Dark();
+        }
+    }
+
     public static GridTheme Dark() {
         // search states are accent tints over the empty tile, so the sweep reads as a glow on the
         // board rather than a separate layer of saturated cells
@@ -35,5 +44,46 @@ public class GridTheme {
             path = Theme.Accent,
             hover = Theme.Accent,
         };
+    }
+
+    // a deeper, cooler dark with a violet search instead of cyan
+    public static GridTheme Midnight() {
+        Color empty = C("#141A2E");
+        Color accent = C("#8A7CF5");
+        return new GridTheme {
+            backdrop = C("#0B0E1A"),
+            line = C("#0B0E1A"),
+            empty = empty,
+            wall = C("#2A3352"),
+            start = C("#4FD98A"),
+            end = C("#E85D8A"),
+            seen = Color.Lerp(empty, accent, 0.42f),
+            expanded = Color.Lerp(empty, accent, 0.16f),
+            path = accent,
+            hover = accent,
+        };
+    }
+
+    // a light board: pale tiles, dark walls, blue search. grid only - the UI stays dark.
+    public static GridTheme Light() {
+        Color empty = C("#EEF1F6");
+        Color accent = C("#2B7FFF");
+        return new GridTheme {
+            backdrop = C("#E4E8F0"),
+            line = C("#CBD2DE"),
+            empty = empty,
+            wall = C("#454E5F"),
+            start = C("#2E9E5B"),
+            end = C("#D6473F"),
+            seen = Color.Lerp(empty, accent, 0.5f),
+            expanded = Color.Lerp(empty, accent, 0.2f),
+            path = accent,
+            hover = accent,
+        };
+    }
+
+    private static Color C(string hex) {
+        ColorUtility.TryParseHtmlString(hex, out Color color);
+        return color;
     }
 }

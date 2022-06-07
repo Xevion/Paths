@@ -105,9 +105,7 @@ public class UIController : MonoBehaviour {
         _cameraRig = new CameraRig(mainCamera); // before InitGrid - Resize() frames through it
         InitGrid(gridController.width, gridController.height);
 
-        GridTheme theme = GridTheme.Dark();
-        gridController.ApplyTheme(theme);
-        mainCamera.backgroundColor = theme.backdrop; // the scene's clear color is an off-theme gray
+        ApplyGridTheme(0); // Dark; the scene's clear color is an off-theme gray we override here
         _gridFade = idleFade;
         gridController.SetFade(_gridFade);
 
@@ -143,6 +141,7 @@ public class UIController : MonoBehaviour {
         _shell.onLoop = on => _loop = on;
         _shell.onGridLines = on => gridController.SetGridLines(on);
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
+        _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetPlaying(false);
     }
@@ -291,6 +290,13 @@ public class UIController : MonoBehaviour {
         } else {
             gridController.ClearHover();
         }
+    }
+
+    // grid-only theming - the palette and camera backdrop swap, the UI panels stay on the dark tokens
+    private void ApplyGridTheme(int index) {
+        GridTheme theme = GridTheme.Preset(index);
+        gridController.ApplyTheme(theme);
+        mainCamera.backgroundColor = theme.backdrop;
     }
 
     private void OnAlgorithm(Algorithm algorithm) {
