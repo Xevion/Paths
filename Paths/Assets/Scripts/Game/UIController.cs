@@ -78,6 +78,9 @@ public class UIController : MonoBehaviour {
     // camera framing + zoom/pan
     private CameraRig _cameraRig;
 
+    // the live grid palette, so the drag ghost can borrow the start/end marker colors
+    private GridTheme _gridTheme = GridTheme.Dark();
+
     // current algorithm selection - kept here so it survives a grid resize (which rebuilds the solver)
     private Algorithm _algorithm = Algorithm.AStar;
     private Heuristic _heuristic = Heuristic.Manhattan;
@@ -198,6 +201,8 @@ public class UIController : MonoBehaviour {
         if (_animationState == AnimationState.Reloading && before != AnimationState.Reloading)
             _resumeState = before == AnimationState.Paused ? AnimationState.Paused : AnimationState.Started;
 
+        UpdateGhost();
+
         // Space and the on-screen Play/Pause button both run through here
         if (Input.GetKeyDown(KeyCode.Space))
             TogglePlayPause();
@@ -294,9 +299,22 @@ public class UIController : MonoBehaviour {
 
     // grid-only theming - the palette and camera backdrop swap, the UI panels stay on the dark tokens
     private void ApplyGridTheme(int index) {
-        GridTheme theme = GridTheme.Preset(index);
-        gridController.ApplyTheme(theme);
-        mainCamera.backgroundColor = theme.backdrop;
+        _gridTheme = GridTheme.Preset(index);
+        gridController.ApplyTheme(_gridTheme);
+        mainCamera.backgroundColor = _gridTheme.backdrop;
+    }
+
+    // a translucent preview of the start/end marker while it's being dragged - its own color where
+    // it can drop, danger where it can't (over a wall or the other marker).
+    private static readonly Color GhostInvalid = new Color(0.85f, 0.28f, 0.24f);
+
+    private void UpdateGhost() {
+        if (!_gridEditor.Ghosting) {
+            gridController.ClearGhost();
+            return;
+        }
+        Color marker = _gridEditor.GhostKind == ClickType.Start ? _gridTheme.start : _gridTheme.end;
+        gridController.SetGhost(_gridEditor.GhostCell, _gridEditor.GhostValid ? marker : GhostInvalid);
     }
 
     private void OnAlgorithm(Algorithm algorithm) {

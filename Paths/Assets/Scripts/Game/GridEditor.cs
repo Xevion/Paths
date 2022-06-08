@@ -20,6 +20,13 @@ public class GridEditor {
     // knows to recompute the path live mid-drag instead of waiting for the mouse to come up
     public bool Dirtied { get; private set; }
 
+    // while a start/end marker is being dragged: the cell under the cursor and whether the marker
+    // could actually drop there (walkable, not the other marker). UIController draws a ghost from it.
+    public bool Ghosting { get; private set; }
+    public Vector2Int GhostCell { get; private set; }
+    public bool GhostValid { get; private set; }
+    public ClickType GhostKind { get; private set; }
+
     public GridEditor(Camera camera, GridController gridController, PathSolver solver) {
         _camera = camera;
         _gridController = gridController;
@@ -32,6 +39,7 @@ public class GridEditor {
     /// </summary>
     public AnimationState Process(AnimationState state) {
         Dirtied = false;
+        Ghosting = false;
         if (!Input.GetMouseButton(0))
             return state;
         // don't draw walls through the UI - the toolbar/sidebar/scrubber eat the click, not the grid under it
@@ -100,6 +108,15 @@ public class GridEditor {
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        // marker drag in progress - hand UIController the candidate cell to ghost
+        if (_modify == ClickType.Start || _modify == ClickType.End) {
+            Ghosting = true;
+            GhostKind = _modify;
+            GhostCell = position;
+            Vector2Int other = _modify == ClickType.Start ? _solver.End : _solver.Start;
+            GhostValid = _solver.GetNode(position).Walkable && position != other;
         }
 
         return state;
