@@ -115,7 +115,9 @@ Shader "Paths/Grid"
                 // cells appearing out of empty scale in as they ease
                 float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
                 float2 b = (0.5 - _Gap * 0.5 * k) * pop;
-                float r = _Radius * k * pop;
+                // corners only round into a gap - with grid lines off (gap 0) tiles stay square so
+                // the rounding doesn't leave diamond holes where four cells meet
+                float r = _Radius * k * pop * smoothstep(0.0, 0.03, _Gap);
 
                 float dist = RoundedBox(p, b, r);
                 float aa = fwidth(dist);
