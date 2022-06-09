@@ -48,6 +48,7 @@ namespace Game.UI {
         private Slider _scrubber;
         private TextMeshProUGUI _statExpanded, _statFrontier, _statPath, _statTime;
         private RectTransform _statsRow; // toggled by the Show statistics checkbox
+        private RoundedRectGraphic[] _legend; // recoloured on theme change
         private ScrubPress _scrubPress;
 
         // the timeline slider is being dragged - UIController stops auto-advancing so it doesn't fight the drag
@@ -181,28 +182,35 @@ namespace Game.UI {
             return val;
         }
 
-        // a colour key matching the grid's cell states
+        // a colour key matching the grid's cell states, recoloured with the grid theme
         private void Legend(Transform bar) {
             RectTransform row = UIKit.Row(bar, Theme.Space3);
-            LegendSwatch(row, new Color(0.45f, 0.82f, 0.5f), "Start");
-            LegendSwatch(row, Theme.Danger, "End");
-            LegendSwatch(row, Theme.Accent, "Path");
-            LegendSwatch(row, Color.Lerp(Theme.Surface, Theme.Accent, 0.34f), "Frontier");
-            LegendSwatch(row, Color.Lerp(Theme.Surface, Theme.Accent, 0.16f), "Seen");
-            LegendSwatch(row, Color.Lerp(Theme.Window, Theme.Border, 0.7f), "Wall");
+            _legend = new[] {
+                LegendSwatch(row, "Start"), LegendSwatch(row, "End"), LegendSwatch(row, "Path"),
+                LegendSwatch(row, "Frontier"), LegendSwatch(row, "Seen"), LegendSwatch(row, "Wall"),
+            };
         }
 
-        private void LegendSwatch(Transform parent, Color color, string label) {
+        /// <summary>Recolour the legend swatches to the active grid palette.</summary>
+        public void SetLegend(GridTheme t) {
+            if (_legend == null) return;
+            // Frontier is the bright open edge (seen), Seen the dim swept area (expanded)
+            Color[] cols = { t.start, t.end, t.path, t.seen, t.expanded, t.wall };
+            for (int i = 0; i < _legend.Length; i++)
+                _legend[i].color = cols[i];
+        }
+
+        private RoundedRectGraphic LegendSwatch(Transform parent, string label) {
             RectTransform row = UIKit.Row(parent, Theme.Space1);
             RectTransform sw = New("Swatch", row);
             var g = sw.gameObject.AddComponent<RoundedRectGraphic>();
-            g.color = color;
             g.cornerRadius = 2f;
             g.raycastTarget = false;
             var le = sw.gameObject.AddComponent<LayoutElement>();
             le.minWidth = le.preferredWidth = 10f;
             le.minHeight = le.preferredHeight = 10f;
             UIKit.Label(row, _font, label, UIKit.Type.Caption, Theme.Muted).fontSize = 11f;
+            return g;
         }
 
         // a 1px vertical rule between toolbar groups

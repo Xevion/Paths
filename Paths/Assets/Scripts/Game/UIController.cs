@@ -146,6 +146,7 @@ public class UIController : MonoBehaviour {
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
+        _shell.SetLegend(_gridTheme);
         _shell.SetPlaying(false);
     }
 
@@ -302,6 +303,7 @@ public class UIController : MonoBehaviour {
         _gridTheme = GridTheme.Preset(index);
         gridController.ApplyTheme(_gridTheme);
         mainCamera.backgroundColor = _gridTheme.backdrop;
+        _shell?.SetLegend(_gridTheme);
     }
 
     // a token that follows the cursor while a marker is dragged - its own color as a filled disc
