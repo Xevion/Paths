@@ -304,9 +304,9 @@ public class UIController : MonoBehaviour {
         mainCamera.backgroundColor = _gridTheme.backdrop;
     }
 
-    // a translucent preview of the start/end marker while it's being dragged - its own color where
-    // it can drop, danger where it can't (over a wall or the other marker).
-    private static readonly Color GhostInvalid = new Color(0.85f, 0.28f, 0.24f);
+    // a token that follows the cursor while a marker is dragged - its own color as a filled disc
+    // where it can drop, an orange ring where it can't (over a wall or the other marker).
+    private static readonly Color GhostInvalid = new Color(0.98f, 0.45f, 0.12f);
 
     private void UpdateGhost() {
         if (!_gridEditor.Ghosting) {
@@ -314,7 +314,9 @@ public class UIController : MonoBehaviour {
             return;
         }
         Color marker = _gridEditor.GhostKind == ClickType.Start ? _gridTheme.start : _gridTheme.end;
-        gridController.SetGhost(_gridEditor.GhostCell, _gridEditor.GhostValid ? marker : GhostInvalid);
+        Vector3 world = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        bool valid = _gridEditor.GhostValid;
+        gridController.SetGhost(world, valid ? marker : GhostInvalid, !valid);
     }
 
     private void OnAlgorithm(Algorithm algorithm) {

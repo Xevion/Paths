@@ -46,9 +46,10 @@ public class GridController : MonoBehaviour {
     private static readonly int HoverCell = Shader.PropertyToID("_HoverCell");
     private static readonly int HoverStrength = Shader.PropertyToID("_HoverStrength");
     private static readonly int BrushPreview = Shader.PropertyToID("_BrushPreview");
-    private static readonly int GhostCell = Shader.PropertyToID("_GhostCell");
+    private static readonly int GhostPos = Shader.PropertyToID("_GhostPos");
     private static readonly int GhostColor = Shader.PropertyToID("_GhostColor");
     private static readonly int GhostStrength = Shader.PropertyToID("_GhostStrength");
+    private static readonly int GhostInvalid = Shader.PropertyToID("_GhostInvalid");
     public Vector2Int Size => new Vector2Int(width, height);
 
     // cursor highlight - the cell under the mouse and a strength eased in/out so it doesn't snap.
@@ -58,9 +59,10 @@ public class GridController : MonoBehaviour {
     private float _hoverStrength;
     private bool _brushPreview;
 
-    // marker drag ghost - the candidate cell + its marker color, eased like the hover
-    private Vector2 _ghostCell = new Vector2(-1, -1);
+    // marker drag token - the cursor position (cell units, unaligned) + its color, eased like the hover
+    private Vector2 _ghostPos = new Vector2(-1, -1);
     private Color _ghostColor = Color.white;
+    private bool _ghostInvalid;
     private float _ghostTarget;
     private float _ghostStrength;
 
@@ -88,9 +90,10 @@ public class GridController : MonoBehaviour {
         _material.SetFloat(BrushPreview, _brushPreview ? 1f : 0f);
 
         _ghostStrength = Mathf.MoveTowards(_ghostStrength, _ghostTarget, Time.deltaTime * 12f);
-        _material.SetVector(GhostCell, _ghostCell);
+        _material.SetVector(GhostPos, _ghostPos);
         _material.SetColor(GhostColor, _ghostColor);
         _material.SetFloat(GhostStrength, _ghostStrength);
+        _material.SetFloat(GhostInvalid, _ghostInvalid ? 1f : 0f);
     }
 
     /// <summary>
@@ -125,10 +128,18 @@ public class GridController : MonoBehaviour {
         _hoverTarget = 0f;
     }
 
-    /// <summary>Show a translucent marker ghost at a cell while it's being dragged.</summary>
-    public void SetGhost(Vector2Int cell, Color color) {
-        _ghostCell = cell;
+    /// <summary>
+    /// Show a drag token following the cursor. worldPosition is the raw (unaligned) cursor point;
+    /// invalid draws it as a ring instead of a disc.
+    /// </summary>
+    public void SetGhost(Vector3 worldPosition, Color color, bool invalid) {
+        Transform t = transform;
+        Vector3 local = worldPosition - t.position;
+        Vector3 scale = t.localScale;
+        // cell-space coordinate (uv * grid), matching the fragment's cellCoord - unaligned
+        _ghostPos = new Vector2((local.x / scale.x + 0.5f) * width, (local.y / scale.y + 0.5f) * height);
         _ghostColor = color;
+        _ghostInvalid = invalid;
         _ghostTarget = 1f;
     }
 

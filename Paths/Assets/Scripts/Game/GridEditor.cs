@@ -23,7 +23,6 @@ public class GridEditor {
     // while a start/end marker is being dragged: the cell under the cursor and whether the marker
     // could actually drop there (walkable, not the other marker). UIController draws a ghost from it.
     public bool Ghosting { get; private set; }
-    public Vector2Int GhostCell { get; private set; }
     public bool GhostValid { get; private set; }
     public ClickType GhostKind { get; private set; }
 
@@ -110,11 +109,10 @@ public class GridEditor {
             }
         }
 
-        // marker drag in progress - hand UIController the candidate cell to ghost
+        // marker drag in progress - flag it and whether the cell under the cursor can take the drop
         if (_modify == ClickType.Start || _modify == ClickType.End) {
             Ghosting = true;
             GhostKind = _modify;
-            GhostCell = position;
             Vector2Int other = _modify == ClickType.Start ? _solver.End : _solver.Start;
             GhostValid = _solver.GetNode(position).Walkable && position != other;
         }

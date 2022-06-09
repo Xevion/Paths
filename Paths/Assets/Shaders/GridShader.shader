@@ -59,8 +59,9 @@ Shader "Paths/Grid"
             float _HoverStrength; // eased 0..1, so the highlight doesn't snap on and off
             float _BrushPreview; // 1 when a left click would draw a wall on the hovered empty cell
             float4 _GhostColor;
-            float4 _GhostCell; // xy = cell a dragged marker would drop on; negative when not dragging
+            float4 _GhostPos; // xy = cursor position in cell units, unaligned; drives the drag token
             float _GhostStrength; // eased 0..1
+            float _GhostInvalid; // 1 when the marker can't drop here - draw a ring instead of a disc
 
             v2f vert(appdata v)
             {
@@ -144,14 +145,26 @@ Shader "Paths/Grid"
                     color += _HoverColor.rgb * (0.10 + 0.6 * rim) * _HoverStrength;
                 }
 
-                // drag ghost - a translucent marker preview on the candidate cell, brighter rim
-                if (_GhostStrength > 0.001 && all(abs(id - _GhostCell.xy) < 0.5)) {
-                    color = lerp(color, _GhostColor.rgb, 0.55 * _GhostStrength);
-                    float rim = (1.0 - smoothstep(0.0, 0.09, abs(dist))) * k;
-                    color += _GhostColor.rgb * 0.5 * rim * _GhostStrength;
+                float3 outCol = lerp(_LineColor.rgb, color, tile);
+
+                // drag token - follows the cursor (unaligned), composited over the gridlines so they
+                // don't chop it. a filled disc where the marker can drop, a hollow ring where it can't,
+                // so an invalid drop reads by shape and never looks like just another end cell.
+                if (_GhostStrength > 0.001) {
+                    float d = length(cellCoord - _GhostPos.xy);
+                    float aaG = max(fwidth(d), 1e-5);
+                    float mask;
+                    if (_GhostInvalid > 0.5) {
+                        float ring = 0.34, w = 0.06;
+                        mask = 1.0 - smoothstep(w, w + aaG, abs(d - ring));
+                    } else {
+                        float rad = 0.40;
+                        mask = 1.0 - smoothstep(rad - aaG, rad + aaG, d);
+                    }
+                    outCol = lerp(outCol, _GhostColor.rgb, saturate(mask) * _GhostStrength * 0.9);
                 }
 
-                return float4(lerp(_LineColor.rgb, color, tile), 1.0);
+                return float4(outCol, 1.0);
             }
             ENDCG
         }
