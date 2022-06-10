@@ -33,7 +33,13 @@ public class GridController : MonoBehaviour {
     private static readonly int Now = Shader.PropertyToID("_Now");
     private static readonly int TransitionTime = Shader.PropertyToID("_TransitionTime");
     private static readonly int Gap = Shader.PropertyToID("_Gap");
+    private static readonly int DistTex = Shader.PropertyToID("_DistTex");
+    private static readonly int ShowDistances = Shader.PropertyToID("_ShowDistances");
     private float _baseGap; // the shader's authored gap, so grid lines can toggle back to it
+
+    // the g-cost heatmap - a second texture beside the state one, red byte = normalized cost
+    private Texture2D _distTex;
+    private Color32[] _distPixels;
     private static readonly int LineColor = Shader.PropertyToID("_LineColor");
     private static readonly int EmptyColor = Shader.PropertyToID("_EmptyColor");
     private static readonly int WallColor = Shader.PropertyToID("_WallColor");
@@ -169,6 +175,16 @@ public class GridController : MonoBehaviour {
         };
         _material.SetTexture(GridTex, _texture);
 
+        // the heatmap's cost texture, sized alongside the state texture (linear, same as it)
+        _distPixels = new Color32[width * height];
+        if (_distTex != null)
+            Destroy(_distTex);
+        _distTex = new Texture2D(width, height, TextureFormat.RGBA32, false, true) {
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp
+        };
+        _material.SetTexture(DistTex, _distTex);
+
         // Update all Shader properties
         foreach (PropertyName property in Enum.GetValues(typeof(PropertyName)))
             UpdateShader(property);
@@ -208,6 +224,32 @@ public class GridController : MonoBehaviour {
         _material.SetFloat(Gap, on ? _baseGap : 0f);
     }
 
+    /// <summary>Toggle the distance heatmap on the search layer.</summary>
+    public void SetShowDistances(bool on) {
+        _material.SetFloat(ShowDistances, on ? 1f : 0f);
+    }
+
+    /// <summary>
+    /// Upload a per-cell cost field, normalized to its own max into the red byte of the heatmap
+    /// texture. The shader reads it only for search-layer cells, gated by SetShowDistances.
+    /// </summary>
+    public void LoadDistanceField(float[,] cost) {
+        int w = cost.GetLength(0), h = cost.GetLength(1);
+        float max = 0f;
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < h; y++)
+                if (cost[x, y] > max) max = cost[x, y];
+        if (max < 1e-4f) max = 1f;
+
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < h; y++) {
+                var r = (byte) Mathf.RoundToInt(Mathf.Clamp01(cost[x, y] / max) * 255f);
+                _distPixels[width * y + x] = new Color32(r, 0, 0, 255);
+            }
+        _distTex.SetPixels32(_distPixels);
+        _distTex.Apply(false);
+    }
+
     /// <summary>
     /// How long a cell takes to ease from its previous state to the current one. Scaled down at
     /// high playback speeds so fast sweeps don't smear into each other.
@@ -219,6 +261,8 @@ public class GridController : MonoBehaviour {
     private void OnDestroy() {
         if (_texture != null)
             Destroy(_texture);
+        if (_distTex != null)
+            Destroy(_distTex);
         if (_material != null)
             Destroy(_material);
     }

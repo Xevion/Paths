@@ -31,7 +31,7 @@ namespace Game.UI {
         public Action<float> onDensity;
         public Action<float> onStepDelay;
         public Action<bool> onLoop;
-        public Action<bool> onGridLines, onAnimate;
+        public Action<bool> onGridLines, onAnimate, onShowDistances;
         public Action<int> onTheme;
 
         // initial values UIController seeds so the controls open reflecting the real state
@@ -317,8 +317,7 @@ namespace Game.UI {
             UIKit.Checkbox(col, _font, "Animate search", true, b => onAnimate?.Invoke(b));
             UIKit.Checkbox(col, _font, "Show statistics", true,
                 b => { if (_statsRow != null) _statsRow.gameObject.SetActive(b); });
-            // TODO: the distance heatmap isn't built yet - parked, inert until the render side lands
-            UIKit.Checkbox(col, _font, "Show distances", false, _ => { });
+            UIKit.Checkbox(col, _font, "Show distances", false, b => onShowDistances?.Invoke(b));
             UIKit.Dropdown(Field(col, "Theme", tooltip: "Color theme for the grid"), _font,
                 new[] { "Dark", "Midnight", "Light" }, 0, i => onTheme?.Invoke(i), 150f);
         }

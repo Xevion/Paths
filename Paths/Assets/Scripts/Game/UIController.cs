@@ -98,6 +98,7 @@ public class UIController : MonoBehaviour {
     private float _stepDelay = 30f;
     private bool _loop;
     private bool _animateSearch = true; // Display toggle - off snaps each step instead of easing it in
+    private bool _showDistances; // Display toggle - paint the search layer with the g-cost heatmap
 
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
@@ -144,6 +145,7 @@ public class UIController : MonoBehaviour {
         _shell.onLoop = on => _loop = on;
         _shell.onGridLines = on => gridController.SetGridLines(on);
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
+        _shell.onShowDistances = OnShowDistances;
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetLegend(_gridTheme);
@@ -352,6 +354,16 @@ public class UIController : MonoBehaviour {
 
     private void GeneratePath() {
         _playback.Load(_solver.Solve());
+        if (_showDistances)
+            gridController.LoadDistanceField(_solver.CostField());
+    }
+
+    // toggle the heatmap; on, push the current solve's cost field so it shows without a re-solve
+    private void OnShowDistances(bool on) {
+        _showDistances = on;
+        gridController.SetShowDistances(on);
+        if (on && _playback.State != null)
+            gridController.LoadDistanceField(_solver.CostField());
     }
 
     private void LoadNextState(bool animate = true) {

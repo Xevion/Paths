@@ -15,6 +15,8 @@ Shader "Paths/Grid"
 
         // one texel per cell: state in R, previous state in G, change time in BA. set from GridController.
         [PerRendererData] _GridTex ("Grid State", 2D) = "black" {}
+        // per-cell normalized g-cost for the heatmap, red byte. set from GridController.
+        [PerRendererData] _DistTex ("Distance Field", 2D) = "black" {}
         _Gap ("Tile Gap", Range(0, 0.5)) = 0.12
         _Radius ("Corner Radius", Range(0, 0.5)) = 0.1
         _Fade ("Search Fade", Range(0, 1)) = 0.7
@@ -37,6 +39,8 @@ Shader "Paths/Grid"
 
             // point-sampled, so each cell reads exactly its texel - no bleed between states
             sampler2D _GridTex;
+            sampler2D _DistTex;
+            float _ShowDistances; // 1 = paint the search layer with the cost heatmap instead of state colors
 
             float4 _LineColor;
             float4 _EmptyColor;
@@ -76,6 +80,16 @@ Shader "Paths/Grid"
             {
                 float2 q = abs(p) - b + r;
                 return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+            }
+
+            // cost gradient for the heatmap: cool near the start, warm far away
+            float3 Heat(float t)
+            {
+                t = saturate(t);
+                float3 c = lerp(float3(0.12, 0.22, 0.65), float3(0.10, 0.78, 0.80), saturate(t * 3.0));
+                c = lerp(c, float3(0.95, 0.85, 0.20), saturate(t * 3.0 - 1.0));
+                c = lerp(c, float3(0.90, 0.22, 0.16), saturate(t * 3.0 - 2.0));
+                return c;
             }
 
             fixed4 frag(v2f i) : SV_Target
@@ -126,13 +140,19 @@ Shader "Paths/Grid"
 
                 // ease the fill from the state the cell left toward the one it's in. indices 4/5/6
                 // are Seen/Expanded/Path - dimming pulls the tint back toward the plain tile rather
-                // than toward black, so the board stays one readable surface
+                // than toward black, so the board stays one readable surface. with the heatmap on,
+                // those search-layer cells take the cost gradient instead of their state color.
+                float3 heat = Heat(tex2D(_DistTex, cellUv).r);
                 float3 from = colors[prev].rgb;
-                if (prev >= 4)
+                if (prev >= 4) {
+                    if (_ShowDistances > 0.5) from = heat;
                     from = lerp(_EmptyColor.rgb, from, _Fade);
+                }
                 float3 color = colors[index].rgb;
-                if (index >= 4)
+                if (index >= 4) {
+                    if (_ShowDistances > 0.5) color = heat;
                     color = lerp(_EmptyColor.rgb, color, _Fade);
+                }
                 color = lerp(from, color, ease);
 
                 // cursor overlay - additive, all driven from uniforms, so the touch path (which

@@ -84,4 +84,17 @@ public class PathSolver {
 
     // the plain editable grid (walls + start/end), for when nothing's being animated
     public GridNodeType[,] RenderEditable() => Grid.RenderNodeTypes(Start, End);
+
+    /// <summary>
+    /// Per-cell g-cost from the last Solve (distance from start), for the distance heatmap. Only the
+    /// search layer reads it, so the node default on untouched cells doesn't matter. Valid until the
+    /// next Solve cleans the nodes.
+    /// </summary>
+    public float[,] CostField() {
+        var field = new float[Grid.Width, Grid.Height];
+        for (int x = 0; x < Grid.Width; x++)
+            for (int y = 0; y < Grid.Height; y++)
+                field[x, y] = Grid.Grid[x, y].Cost ?? 0f;
+        return field;
+    }
 }
