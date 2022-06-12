@@ -85,6 +85,7 @@ public class UIController : MonoBehaviour {
     private Algorithm _algorithm = Algorithm.AStar;
     private Heuristic _heuristic = Heuristic.Manhattan;
     private bool _diagonal;
+    private bool _bidirectional; // two-ended Dijkstra, overrides the algorithm pick while on
 
     // grid generation - a seed + a generator + wall density; the sidebar's Grid section drives these,
     // and they're kept here so a resize/regen rebuilds the same layout from the same seed.
@@ -146,6 +147,7 @@ public class UIController : MonoBehaviour {
         _shell.onGridLines = on => gridController.SetGridLines(on);
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
         _shell.onShowDistances = OnShowDistances;
+        _shell.onBidirectional = on => { _bidirectional = on; _solver.UseBidirectional = on; Resolve(); };
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetLegend(_gridTheme);
@@ -162,6 +164,7 @@ public class UIController : MonoBehaviour {
         _solver.Heuristic = _heuristic;
         _solver.Diagonal = _diagonal;
         _solver.Weight = _weight;
+        _solver.UseBidirectional = _bidirectional;
         _gridEditor = new GridEditor(mainCamera, gridController, _solver);
         _playback = new Playback(speed, clampIncrement);
         ApplySpeed(_speedScale);

@@ -20,6 +20,7 @@ public class PathSolver {
     public Heuristic Heuristic { get; set; } = Heuristic.Manhattan;
     public bool Diagonal { get; set; }
     public float Weight { get; set; } = 1f; // A* heuristic weight (1 = optimal)
+    public bool UseBidirectional { get; set; } // overrides Algorithm with a two-ended Dijkstra
 
     private IPathfinding _algorithm;
 
@@ -63,6 +64,9 @@ public class PathSolver {
     }
 
     private IPathfinding Create() {
+        // bidirectional is a mode, not an entry in the picker - it overrides the chosen algorithm
+        if (UseBidirectional)
+            return new Bidirectional(Grid, Diagonal);
         switch (Algorithm) {
             case Algorithm.Dijkstra:
                 return new Dijkstra(Grid, Diagonal);

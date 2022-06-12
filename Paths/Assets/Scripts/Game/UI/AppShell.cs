@@ -31,7 +31,7 @@ namespace Game.UI {
         public Action<float> onDensity;
         public Action<float> onStepDelay;
         public Action<bool> onLoop;
-        public Action<bool> onGridLines, onAnimate, onShowDistances;
+        public Action<bool> onGridLines, onAnimate, onShowDistances, onBidirectional;
         public Action<int> onTheme;
 
         // initial values UIController seeds so the controls open reflecting the real state
@@ -288,9 +288,8 @@ namespace Game.UI {
                 1f, 3f, 1f, x => x.ToString("0.0") + "x", x => onWeight?.Invoke(x));
             UIKit.Switch(Field(col, "Diagonal", tooltip: "Let the search step diagonally between cells"),
                 initialDiagonal, b => onDiagonal?.Invoke(b));
-            // TODO: bidirectional search isn't built yet - parked, inert until the Core side lands
             UIKit.Switch(Field(col, "Bidirectional", tooltip: "Search from both ends and meet in the middle"),
-                false, _ => { });
+                false, b => onBidirectional?.Invoke(b));
 
             UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
             UIKit.ScrubField(Field(col, "Width", tooltip: "Grid width in cells"), initialWidth, 8, 200, "",
