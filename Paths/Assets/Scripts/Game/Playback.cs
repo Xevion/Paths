@@ -37,11 +37,15 @@ public class Playback {
     /// Attach a freshly generated run of changes. We deliberately KEEP the current playhead (the
     /// "pin") instead of rewinding - editing the grid recomputes the path but you stay parked at
     /// whatever step you were watching. SyncState clamps the render when the new run is shorter.
-    /// TODO: optional "stick to end" mode - if you were pinned at the very end, follow the new end
-    /// instead of the absolute index. Wants a config toggle, not building that out properly yet.
+    /// Stick-to-end: if the playhead was parked at the very end, it follows the new end instead of
+    /// freezing at the old absolute index, so watching a finished search keeps showing the finish
+    /// as edits reshape it.
     /// </summary>
     public void Load(ChangeController state) {
+        bool wasAtEnd = State != null && _runtime >= Count;
         State = state;
+        if (wasAtEnd)
+            _runtime = Count;
     }
 
     public void Rewind() => _runtime = 0f;
