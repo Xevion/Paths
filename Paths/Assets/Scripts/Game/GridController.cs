@@ -142,8 +142,10 @@ public class GridController : MonoBehaviour {
         Transform t = transform;
         Vector3 local = worldPosition - t.position;
         Vector3 scale = t.localScale;
-        // cell-space coordinate (uv * grid), matching the fragment's cellCoord - unaligned
-        _ghostPos = new Vector2((local.x / scale.x + 0.5f) * width, (local.y / scale.y + 0.5f) * height);
+        // unaligned cell-space coordinate in the shader's cellCoord (uv * grid) space, so it has to
+        // carry CellAt's axis flip - width - c, not c, or the token mirrors the cursor on both axes
+        _ghostPos = new Vector2(width - (local.x / scale.x + 0.5f) * width,
+            height - (local.y / scale.y + 0.5f) * height);
         _ghostColor = color;
         _ghostInvalid = invalid;
         _ghostTarget = 1f;
