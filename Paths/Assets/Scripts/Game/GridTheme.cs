@@ -36,7 +36,9 @@ public class GridTheme {
             backdrop = Theme.Window,
             line = Theme.Window,
             empty = empty,
-            wall = Color.Lerp(Theme.Window, Theme.Border, 0.7f),
+            // lifted toward Muted so the fused wall masses read as solid structure, well clear of
+            // the empty tile and the dimmed search underneath them
+            wall = Color.Lerp(Theme.Border, Theme.Muted, 0.35f),
             start = new Color(0.45f, 0.82f, 0.5f),
             end = Theme.Danger,
             seen = Color.Lerp(empty, Theme.Accent, 0.34f),
@@ -54,7 +56,7 @@ public class GridTheme {
             backdrop = C("#0B0E1A"),
             line = C("#0B0E1A"),
             empty = empty,
-            wall = C("#2A3352"),
+            wall = C("#3E4A78"),
             start = C("#4FD98A"),
             end = C("#E85D8A"),
             seen = Color.Lerp(empty, accent, 0.42f),
