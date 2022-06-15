@@ -19,6 +19,7 @@ Shader "Paths/Grid"
         [PerRendererData] _DistTex ("Distance Field", 2D) = "black" {}
         _Gap ("Tile Gap", Range(0, 0.5)) = 0.12
         _Radius ("Corner Radius", Range(0, 0.5)) = 0.1
+        _PathInset ("Path Ribbon Inset", Range(0.1, 0.45)) = 0.28
         _Fade ("Search Fade", Range(0, 1)) = 0.7
     }
     SubShader
@@ -55,6 +56,7 @@ Shader "Paths/Grid"
             float _GridHeight;
             float _Gap;
             float _Radius;
+            float _PathInset; // how far the path ribbon insets from the cell edge - a thinner route than a wall
             float _Fade; // search-layer dim, driven from GridController (milder idle, stronger while editing)
             float _Now; // Time.time wrapped to the stamp period, pushed per frame from GridController
             float _TransitionTime; // seconds a state change eases over; shortens at high playback speed
@@ -80,6 +82,80 @@ Shader "Paths/Grid"
             {
                 float2 q = abs(p) - b + r;
                 return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+            }
+
+            // rounded box with an independent radius per corner (r = TR, BR, TL, BL) - lets a fused
+            // tile round only the corners that face open space and stay square on a fused edge
+            float RoundedBoxCorners(float2 p, float2 b, float4 r)
+            {
+                r.xy = p.x > 0.0 ? r.xy : r.zw;
+                r.x = p.y > 0.0 ? r.x : r.y;
+                float2 q = abs(p) - b + r.x;
+                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r.x;
+            }
+
+            // state index of the cell at grid coord 'c', or -1 off the grid (so border cells don't
+            // fuse to a phantom neighbour). explicit-LOD sample - it's called inside branches.
+            float NeighbourState(float2 c, float2 grid)
+            {
+                if (c.x < 0.0 || c.y < 0.0 || c.x > grid.x - 1.0 || c.y > grid.y - 1.0)
+                    return -1.0;
+                float2 uv = (c + 0.5) / grid;
+                return floor(tex2Dlod(_GridTex, float4(uv, 0, 0)).r * 255.0 + 0.5);
+            }
+
+            // walls fuse to walls and path fuses to path; everything else renders per-cell
+            bool Connects(int self, float neighbour)
+            {
+                int n = (int) neighbour;
+                if (self == 1) return n == 1;
+                if (self == 6) return n == 6;
+                return false;
+            }
+
+            // a small square filling the (sx,sy) corner out to the cell edge, to bridge two cells that
+            // only touch diagonally - each cell fills the corner facing the other so the joint closes
+            float CornerFill(float2 p, float2 s, float bw)
+            {
+                return RoundedBox(p - s * (0.5 - bw), float2(bw, bw), 0.0);
+            }
+
+            // signed distance for a fused state (wall or path): an asymmetric box that reaches the cell
+            // edge on any side a like neighbour sits, rounds only its exposed outer corners (walls only -
+            // the path stays cubic), and bridges diagonal-only joints
+            float ConnectedDist(float2 p, float2 id, int index, float2 grid, float k)
+            {
+                bool cL = Connects(index, NeighbourState(id + float2(-1, 0), grid));
+                bool cR = Connects(index, NeighbourState(id + float2(1, 0), grid));
+                bool cB = Connects(index, NeighbourState(id + float2(0, -1), grid));
+                bool cT = Connects(index, NeighbourState(id + float2(0, 1), grid));
+                bool cBL = Connects(index, NeighbourState(id + float2(-1, -1), grid));
+                bool cBR = Connects(index, NeighbourState(id + float2(1, -1), grid));
+                bool cTL = Connects(index, NeighbourState(id + float2(-1, 1), grid));
+                bool cTR = Connects(index, NeighbourState(id + float2(1, 1), grid));
+
+                float m = (index == 6 ? _PathInset : _Gap * 0.5) * k;
+                float2 lo = float2(-(0.5 - m), -(0.5 - m));
+                float2 hi = float2(0.5 - m, 0.5 - m);
+                if (cL) lo.x = -0.5;
+                if (cR) hi.x = 0.5;
+                if (cB) lo.y = -0.5;
+                if (cT) hi.y = 0.5;
+
+                float rr = index == 1 ? _Radius * k : 0.0; // path stays sharp-cornered
+                float4 radii;
+                radii.x = !cR && !cT ? rr : 0.0; // TR
+                radii.y = !cR && !cB ? rr : 0.0; // BR
+                radii.z = !cL && !cT ? rr : 0.0; // TL
+                radii.w = !cL && !cB ? rr : 0.0; // BL
+                float d = RoundedBoxCorners(p - (lo + hi) * 0.5, (hi - lo) * 0.5, radii);
+
+                float bw = m;
+                if (cTR && !cR && !cT) d = min(d, CornerFill(p, float2(1, 1), bw));
+                if (cBR && !cR && !cB) d = min(d, CornerFill(p, float2(1, -1), bw));
+                if (cTL && !cL && !cT) d = min(d, CornerFill(p, float2(-1, 1), bw));
+                if (cBL && !cL && !cB) d = min(d, CornerFill(p, float2(-1, -1), bw));
+                return d;
             }
 
             // cost gradient for the heatmap: cool near the start, warm far away
@@ -127,31 +203,36 @@ Shader "Paths/Grid"
                 // view collapses to clean flat color instead of shimmering sub-pixel gaps
                 float k = saturate((1.0 / pixel - 3.0) / 4.0);
 
-                // cells appearing out of empty scale in as they ease
-                float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
-                float2 b = (0.5 - _Gap * 0.5 * k) * pop;
-                // corners only round into a gap - with grid lines off (gap 0) tiles stay square so
-                // the rounding doesn't leave diamond holes where four cells meet
-                float r = _Radius * k * pop * smoothstep(0.0, 0.03, _Gap);
+                // walls and the path fuse across cells; the rest stay per-cell tiles with a gap
+                float dist;
+                if (index == 1 || index == 6) {
+                    dist = ConnectedDist(p, id, index, grid, k);
+                } else {
+                    // cells appearing out of empty scale in as they ease
+                    float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
+                    float2 b = (0.5 - _Gap * 0.5 * k) * pop;
+                    // corners only round into a gap - with grid lines off (gap 0) tiles stay square
+                    float r = _Radius * k * pop * smoothstep(0.0, 0.03, _Gap);
+                    dist = RoundedBox(p, b, r);
+                }
 
-                float dist = RoundedBox(p, b, r);
                 float aa = fwidth(dist);
                 float tile = 1.0 - smoothstep(-aa * 0.5, aa * 0.5, dist);
 
-                // ease the fill from the state the cell left toward the one it's in. indices 4/5/6
-                // are Seen/Expanded/Path - dimming pulls the tint back toward the plain tile rather
-                // than toward black, so the board stays one readable surface. with the heatmap on,
-                // those search-layer cells take the cost gradient instead of their state color.
+                // ease the fill from the state the cell left toward the one it's in. indices 4/5 are
+                // Seen/Expanded - the search layer, dimmed toward the plain tile (or the cost heatmap)
+                // so the board stays one readable surface. the Path (6) stays solid so the final route
+                // reads over the dimmed sweep.
                 float3 heat = Heat(tex2D(_DistTex, cellUv).r);
-                float3 from = colors[prev].rgb;
-                if (prev >= 4) {
-                    if (_ShowDistances > 0.5) from = heat;
-                    from = lerp(_EmptyColor.rgb, from, _Fade);
-                }
                 float3 color = colors[index].rgb;
-                if (index >= 4) {
+                if (index == 4 || index == 5) {
                     if (_ShowDistances > 0.5) color = heat;
                     color = lerp(_EmptyColor.rgb, color, _Fade);
+                }
+                float3 from = colors[prev].rgb;
+                if (prev == 4 || prev == 5) {
+                    if (_ShowDistances > 0.5) from = heat;
+                    from = lerp(_EmptyColor.rgb, from, _Fade);
                 }
                 color = lerp(from, color, ease);
 
