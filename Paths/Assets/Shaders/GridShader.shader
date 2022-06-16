@@ -94,6 +94,14 @@ Shader "Paths/Grid"
                 return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r.x;
             }
 
+            // distance to the segment ab - the path ribbon is built from these
+            float Segment(float2 p, float2 a, float2 b)
+            {
+                float2 pa = p - a, ba = b - a;
+                float h = saturate(dot(pa, ba) / dot(ba, ba));
+                return length(pa - ba * h);
+            }
+
             // state index of the cell at grid coord 'c', or -1 off the grid (so border cells don't
             // fuse to a phantom neighbour). explicit-LOD sample - it's called inside branches.
             float NeighbourState(float2 c, float2 grid)
@@ -104,45 +112,34 @@ Shader "Paths/Grid"
                 return floor(tex2Dlod(_GridTex, float4(uv, 0, 0)).r * 255.0 + 0.5);
             }
 
-            // walls fuse to walls and path fuses to path; everything else renders per-cell
-            bool Connects(int self, float neighbour)
+            // how far a tile edge sits from the cell centre. a fused side (or a gap too thin for the AA
+            // to resolve) is pushed just past the cell boundary, so the coverage transition never lands
+            // on the shared edge - that overlap is what kills the hairline gap between abutting tiles.
+            float SideExtent(bool fused, float gap, float pixel)
             {
-                int n = (int) neighbour;
-                if (self == 1) return n == 1;
-                if (self == 6) return n == 6;
-                return false;
+                if (fused || gap <= pixel)
+                    return 0.5 + pixel;
+                return 0.5 - gap;
             }
 
-            // a small square filling the (sx,sy) corner out to the cell edge, to bridge two cells that
-            // only touch diagonally - each cell fills the corner facing the other so the joint closes
-            float CornerFill(float2 p, float2 s, float bw)
+            // walls are an area fill: an asymmetric box reaching the cell edge on any side a wall sits,
+            // rounding only exposed outer corners, with a smooth disc necking diagonal-only joints
+            float WallDist(float2 p, float2 id, float2 grid, float k, float pixel)
             {
-                return RoundedBox(p - s * (0.5 - bw), float2(bw, bw), 0.0);
-            }
+                bool cL = NeighbourState(id + float2(-1, 0), grid) == 1;
+                bool cR = NeighbourState(id + float2(1, 0), grid) == 1;
+                bool cB = NeighbourState(id + float2(0, -1), grid) == 1;
+                bool cT = NeighbourState(id + float2(0, 1), grid) == 1;
+                bool cBL = NeighbourState(id + float2(-1, -1), grid) == 1;
+                bool cBR = NeighbourState(id + float2(1, -1), grid) == 1;
+                bool cTL = NeighbourState(id + float2(-1, 1), grid) == 1;
+                bool cTR = NeighbourState(id + float2(1, 1), grid) == 1;
 
-            // signed distance for a fused state (wall or path): an asymmetric box that reaches the cell
-            // edge on any side a like neighbour sits, rounds only its exposed outer corners (walls only -
-            // the path stays cubic), and bridges diagonal-only joints
-            float ConnectedDist(float2 p, float2 id, int index, float2 grid, float k)
-            {
-                bool cL = Connects(index, NeighbourState(id + float2(-1, 0), grid));
-                bool cR = Connects(index, NeighbourState(id + float2(1, 0), grid));
-                bool cB = Connects(index, NeighbourState(id + float2(0, -1), grid));
-                bool cT = Connects(index, NeighbourState(id + float2(0, 1), grid));
-                bool cBL = Connects(index, NeighbourState(id + float2(-1, -1), grid));
-                bool cBR = Connects(index, NeighbourState(id + float2(1, -1), grid));
-                bool cTL = Connects(index, NeighbourState(id + float2(-1, 1), grid));
-                bool cTR = Connects(index, NeighbourState(id + float2(1, 1), grid));
+                float m = _Gap * 0.5 * k;
+                float2 lo = float2(-SideExtent(cL, m, pixel), -SideExtent(cB, m, pixel));
+                float2 hi = float2(SideExtent(cR, m, pixel), SideExtent(cT, m, pixel));
 
-                float m = (index == 6 ? _PathInset : _Gap * 0.5) * k;
-                float2 lo = float2(-(0.5 - m), -(0.5 - m));
-                float2 hi = float2(0.5 - m, 0.5 - m);
-                if (cL) lo.x = -0.5;
-                if (cR) hi.x = 0.5;
-                if (cB) lo.y = -0.5;
-                if (cT) hi.y = 0.5;
-
-                float rr = index == 1 ? _Radius * k : 0.0; // path stays sharp-cornered
+                float rr = _Radius * k;
                 float4 radii;
                 radii.x = !cR && !cT ? rr : 0.0; // TR
                 radii.y = !cR && !cB ? rr : 0.0; // BR
@@ -150,11 +147,38 @@ Shader "Paths/Grid"
                 radii.w = !cL && !cB ? rr : 0.0; // BL
                 float d = RoundedBoxCorners(p - (lo + hi) * 0.5, (hi - lo) * 0.5, radii);
 
-                float bw = m;
-                if (cTR && !cR && !cT) d = min(d, CornerFill(p, float2(1, 1), bw));
-                if (cBR && !cR && !cB) d = min(d, CornerFill(p, float2(1, -1), bw));
-                if (cTL && !cL && !cT) d = min(d, CornerFill(p, float2(-1, 1), bw));
-                if (cBL && !cL && !cB) d = min(d, CornerFill(p, float2(-1, -1), bw));
+                // bridge a diagonal-only touch with a disc at the shared corner - the neighbour drops the
+                // same disc from its side, so the two meet in a smooth neck instead of a square nub
+                float rad = m * 1.6;
+                if (cTR && !cR && !cT) d = min(d, length(p - float2(0.5, 0.5)) - rad);
+                if (cBR && !cR && !cB) d = min(d, length(p - float2(0.5, -0.5)) - rad);
+                if (cTL && !cL && !cT) d = min(d, length(p - float2(-0.5, 0.5)) - rad);
+                if (cBL && !cL && !cB) d = min(d, length(p - float2(-0.5, -0.5)) - rad);
+                return d;
+            }
+
+            // the path connects to path cells and docks into the start/end markers
+            bool PathLink(float2 c, float2 grid)
+            {
+                float s = NeighbourState(c, grid);
+                return s == 6.0 || s == 2.0 || s == 3.0;
+            }
+
+            // the path is a 1-wide route, so it renders as a constant-width ribbon: a capsule from the
+            // cell centre to every connected neighbour (edge midpoint orthogonally, corner diagonally).
+            // the neighbour draws the matching half, so the ribbon turns corners smoothly and stays one
+            // continuous band - a fused box can't do a thin diagonal without a gap or a jagged nub.
+            float PathDist(float2 p, float2 id, float2 grid, float hw)
+            {
+                float d = length(p) - hw; // centre cap, so a lone/endpoint cell still reads
+                if (PathLink(id + float2(-1, 0), grid)) d = min(d, Segment(p, 0.0, float2(-0.5, 0)) - hw);
+                if (PathLink(id + float2(1, 0), grid)) d = min(d, Segment(p, 0.0, float2(0.5, 0)) - hw);
+                if (PathLink(id + float2(0, -1), grid)) d = min(d, Segment(p, 0.0, float2(0, -0.5)) - hw);
+                if (PathLink(id + float2(0, 1), grid)) d = min(d, Segment(p, 0.0, float2(0, 0.5)) - hw);
+                if (PathLink(id + float2(-1, -1), grid)) d = min(d, Segment(p, 0.0, float2(-0.5, -0.5)) - hw);
+                if (PathLink(id + float2(1, -1), grid)) d = min(d, Segment(p, 0.0, float2(0.5, -0.5)) - hw);
+                if (PathLink(id + float2(-1, 1), grid)) d = min(d, Segment(p, 0.0, float2(-0.5, 0.5)) - hw);
+                if (PathLink(id + float2(1, 1), grid)) d = min(d, Segment(p, 0.0, float2(0.5, 0.5)) - hw);
                 return d;
             }
 
@@ -194,8 +218,8 @@ Shader "Paths/Grid"
                 float t = saturate(age / max(_TransitionTime, 1e-4));
                 float ease = 1.0 - (1.0 - t) * (1.0 - t); // ease-out, snappy start
 
-                // screen density in cell units - how big a pixel is across a cell. drives both the
-                // edge antialiasing and the zoom-out degrade below.
+                // screen density in cell units - how big a pixel is across a cell. drives the edge
+                // antialiasing, the seam overlap, and the zoom-out degrade below.
                 float2 dd = fwidth(cellCoord);
                 float pixel = max(max(dd.x, dd.y), 1e-5);
 
@@ -203,17 +227,21 @@ Shader "Paths/Grid"
                 // view collapses to clean flat color instead of shimmering sub-pixel gaps
                 float k = saturate((1.0 / pixel - 3.0) / 4.0);
 
-                // walls and the path fuse across cells; the rest stay per-cell tiles with a gap
+                // walls fuse as an area fill, the path draws as a ribbon, the rest are per-cell tiles
                 float dist;
-                if (index == 1 || index == 6) {
-                    dist = ConnectedDist(p, id, index, grid, k);
+                if (index == 1) {
+                    dist = WallDist(p, id, grid, k, pixel);
+                } else if (index == 6) {
+                    dist = PathDist(p, id, grid, 0.5 - _PathInset);
                 } else {
                     // cells appearing out of empty scale in as they ease
                     float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
-                    float2 b = (0.5 - _Gap * 0.5 * k) * pop;
+                    // a side is pushed past the boundary when its gap is unresolvable (grid lines off),
+                    // so tiles abut seamlessly there instead of leaving an AA hairline
+                    float b = SideExtent(false, _Gap * 0.5 * k, pixel) * pop;
                     // corners only round into a gap - with grid lines off (gap 0) tiles stay square
                     float r = _Radius * k * pop * smoothstep(0.0, 0.03, _Gap);
-                    dist = RoundedBox(p, b, r);
+                    dist = RoundedBox(p, b.xx, r);
                 }
 
                 float aa = fwidth(dist);
