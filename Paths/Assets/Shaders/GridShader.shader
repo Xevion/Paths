@@ -77,21 +77,17 @@ Shader "Paths/Grid"
                 return o;
             }
 
+            // Every shape below is drawn by EVERY cell it can reach into, not just the cell that
+            // owns it. The old per-state dispatch clipped each shape at its own cell border, which
+            // is exactly where the notch/seam artifacts came from - a disc or capsule spilling into
+            // a neighbouring cell just stopped dead at the boundary. The fields are unions over the
+            // 3x3 neighbourhood, so they're continuous across borders by construction.
+
             // signed distance to a rounded box of half-extent b, corner radius r, centered at 0
             float RoundedBox(float2 p, float2 b, float r)
             {
                 float2 q = abs(p) - b + r;
                 return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-            }
-
-            // rounded box with an independent radius per corner (r = TR, BR, TL, BL) - lets a fused
-            // tile round only the corners that face open space and stay square on a fused edge
-            float RoundedBoxCorners(float2 p, float2 b, float4 r)
-            {
-                r.xy = p.x > 0.0 ? r.xy : r.zw;
-                r.x = p.y > 0.0 ? r.x : r.y;
-                float2 q = abs(p) - b + r.x;
-                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r.x;
             }
 
             // distance to the segment ab - the path ribbon is built from these
@@ -112,73 +108,126 @@ Shader "Paths/Grid"
                 return floor(tex2Dlod(_GridTex, float4(uv, 0, 0)).r * 255.0 + 0.5);
             }
 
-            // how far a tile edge sits from the cell centre. a fused side (or a gap too thin for the AA
-            // to resolve) is pushed just past the cell boundary, so the coverage transition never lands
-            // on the shared edge - that overlap is what kills the hairline gap between abutting tiles.
-            float SideExtent(bool fused, float gap, float pixel)
+            // the 3x3 state block around the pixel's cell, fetched once per fragment
+            float StateAt(float s[9], int ox, int oy)
             {
-                if (fused || gap <= pixel)
+                return s[(oy + 1) * 3 + ox + 1];
+            }
+
+            bool WallAt(float s[9], int ox, int oy)
+            {
+                if (abs(ox) > 1 || abs(oy) > 1)
+                    return false; // outside the block; only a box's far faces land here, and those
+                                  // can't influence pixels on its near side anyway
+                return StateAt(s, ox, oy) == 1.0;
+            }
+
+            // how far a tile edge sits from the cell centre. a gap too thin for the AA to resolve
+            // (grid lines off, or zoomed way out) pushes the edge just past the boundary, so
+            // abutting tiles overlap instead of meeting in an AA hairline.
+            float SideExtent(float gap, float pixel)
+            {
+                if (gap <= pixel)
                     return 0.5 + pixel;
                 return 0.5 - gap;
             }
 
-            // walls are an area fill: an asymmetric box reaching the cell edge on any side a wall sits,
-            // rounding only exposed outer corners, with a smooth disc necking diagonal-only joints
-            float WallDist(float2 p, float2 id, float2 grid, float k, float pixel)
+            // one wall cell's slab of the ERODED wall mass: a sharp box running exactly to the
+            // boundary on fused sides and inset by ins on exposed ones. p in that cell's frame.
+            float ErodedBox(float2 p, bool fL, bool fR, bool fB, bool fT, float ins)
             {
-                bool cL = NeighbourState(id + float2(-1, 0), grid) == 1;
-                bool cR = NeighbourState(id + float2(1, 0), grid) == 1;
-                bool cB = NeighbourState(id + float2(0, -1), grid) == 1;
-                bool cT = NeighbourState(id + float2(0, 1), grid) == 1;
-                bool cBL = NeighbourState(id + float2(-1, -1), grid) == 1;
-                bool cBR = NeighbourState(id + float2(1, -1), grid) == 1;
-                bool cTL = NeighbourState(id + float2(-1, 1), grid) == 1;
-                bool cTR = NeighbourState(id + float2(1, 1), grid) == 1;
+                float2 lo = float2(-0.5 + (fL ? 0.0 : ins), -0.5 + (fB ? 0.0 : ins));
+                float2 hi = float2(0.5 - (fR ? 0.0 : ins), 0.5 - (fT ? 0.0 : ins));
+                float2 q = abs(p - (lo + hi) * 0.5) - (hi - lo) * 0.5;
+                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+            }
 
-                float m = _Gap * 0.5 * k;
-                float2 lo = float2(-SideExtent(cL, m, pixel), -SideExtent(cB, m, pixel));
-                float2 hi = float2(SideExtent(cR, m, pixel), SideExtent(cT, m, pixel));
+            // true when, of the four cells meeting at a corner, the walls are exactly one diagonal
+            // pair - the config that gets a bridging disc. (a,d) is one diagonal, (b,c) the other.
+            bool WallPair(bool a, bool d, bool b, bool c)
+            {
+                return (a && d && !b && !c) || (b && c && !a && !d);
+            }
 
-                float rr = _Radius * k;
-                float4 radii;
-                radii.x = !cR && !cT ? rr : 0.0; // TR
-                radii.y = !cR && !cB ? rr : 0.0; // BR
-                radii.z = !cL && !cT ? rr : 0.0; // TL
-                radii.w = !cL && !cB ? rr : 0.0; // BL
-                float d = RoundedBoxCorners(p - (lo + hi) * 0.5, (hi - lo) * 0.5, radii);
+            // the wall mass, erode-then-dilate: union the eroded boxes (min of SDFs is exact
+            // outside a union, and the rendered edge always sits rrEff outside it, so no seam can
+            // land on a cell border), then subtract rrEff to round the exposed corners back out.
+            // discs bridge diagonal-only joints, drawn by all four cells around the corner.
+            float WallField(float s[9], float2 p, float m, float rrEff, float ins, float pixel)
+            {
+                float d = 1e5;
+                for (int oy = -1; oy <= 1; oy++)
+                for (int ox = -1; ox <= 1; ox++) {
+                    if (StateAt(s, ox, oy) != 1.0)
+                        continue;
+                    d = min(d, ErodedBox(p - float2(ox, oy),
+                        WallAt(s, ox - 1, oy), WallAt(s, ox + 1, oy),
+                        WallAt(s, ox, oy - 1), WallAt(s, ox, oy + 1), ins));
+                }
+                d -= rrEff;
 
-                // bridge a diagonal-only touch with a disc at the shared corner - the neighbour drops the
-                // same disc from its side, so the two meet in a smooth neck instead of a square nub
                 float rad = m * 1.6;
-                if (cTR && !cR && !cT) d = min(d, length(p - float2(0.5, 0.5)) - rad);
-                if (cBR && !cR && !cB) d = min(d, length(p - float2(0.5, -0.5)) - rad);
-                if (cTL && !cL && !cT) d = min(d, length(p - float2(-0.5, 0.5)) - rad);
-                if (cBL && !cL && !cB) d = min(d, length(p - float2(-0.5, -0.5)) - rad);
+                if (rad > pixel * 0.5) {
+                    bool self = StateAt(s, 0, 0) == 1.0;
+                    bool L = WallAt(s, -1, 0), R = WallAt(s, 1, 0);
+                    bool B = WallAt(s, 0, -1), T = WallAt(s, 0, 1);
+                    if (WallPair(self, WallAt(s, 1, 1), R, T)) d = min(d, length(p - float2(0.5, 0.5)) - rad);
+                    if (WallPair(self, WallAt(s, 1, -1), R, B)) d = min(d, length(p - float2(0.5, -0.5)) - rad);
+                    if (WallPair(self, WallAt(s, -1, 1), L, T)) d = min(d, length(p - float2(-0.5, 0.5)) - rad);
+                    if (WallPair(self, WallAt(s, -1, -1), L, B)) d = min(d, length(p - float2(-0.5, -0.5)) - rad);
+                }
                 return d;
             }
 
-            // the path connects to path cells and docks into the start/end markers
-            bool PathLink(float2 c, float2 grid)
+            // the path connects path cells to each other and docks into the start/end markers
+            bool LinkEnd(float s)
             {
-                float s = NeighbourState(c, grid);
                 return s == 6.0 || s == 2.0 || s == 3.0;
             }
 
-            // the path is a 1-wide route, so it renders as a constant-width ribbon: a capsule from the
-            // cell centre to every connected neighbour (edge midpoint orthogonally, corner diagonally).
-            // the neighbour draws the matching half, so the ribbon turns corners smoothly and stays one
-            // continuous band - a fused box can't do a thin diagonal without a gap or a jagged nub.
-            float PathDist(float2 p, float2 id, float2 grid, float hw)
+            // both ends connectable and at least one is actual path - start touching end with no
+            // route between them draws nothing
+            bool Link(float a, float b)
             {
-                float d = length(p) - hw; // centre cap, so a lone/endpoint cell still reads
-                if (PathLink(id + float2(-1, 0), grid)) d = min(d, Segment(p, 0.0, float2(-0.5, 0)) - hw);
-                if (PathLink(id + float2(1, 0), grid)) d = min(d, Segment(p, 0.0, float2(0.5, 0)) - hw);
-                if (PathLink(id + float2(0, -1), grid)) d = min(d, Segment(p, 0.0, float2(0, -0.5)) - hw);
-                if (PathLink(id + float2(0, 1), grid)) d = min(d, Segment(p, 0.0, float2(0, 0.5)) - hw);
-                if (PathLink(id + float2(-1, -1), grid)) d = min(d, Segment(p, 0.0, float2(-0.5, -0.5)) - hw);
-                if (PathLink(id + float2(1, -1), grid)) d = min(d, Segment(p, 0.0, float2(0.5, -0.5)) - hw);
-                if (PathLink(id + float2(-1, 1), grid)) d = min(d, Segment(p, 0.0, float2(-0.5, 0.5)) - hw);
-                if (PathLink(id + float2(1, 1), grid)) d = min(d, Segment(p, 0.0, float2(0.5, 0.5)) - hw);
+                return LinkEnd(a) && LinkEnd(b) && (a == 6.0 || b == 6.0);
+            }
+
+            // a diagonal link only draws when the route can't turn through an orthogonal cell at
+            // that corner instead. the states carry no step order, so without this every
+            // right-angle turn also grows a spurious diagonal chord across its inside corner.
+            bool DiagLink(float s[9], int ax, int ay, int bx, int by)
+            {
+                if (!Link(StateAt(s, ax, ay), StateAt(s, bx, by)))
+                    return false;
+                return !LinkEnd(StateAt(s, ax, by)) && !LinkEnd(StateAt(s, bx, ay));
+            }
+
+            // the path ribbon: a constant-width capsule per link, centre to centre. every capsule
+            // is drawn by each of the (up to four) cells it can cross - the two endpoint cells, and
+            // for a diagonal link the two cells flanking the corner it cuts through.
+            float PathField(float s[9], float2 p, float hw)
+            {
+                float self = StateAt(s, 0, 0);
+                float d = 1e5;
+                if (self == 6.0)
+                    d = length(p) - hw; // a lone path cell still reads
+
+                if (LinkEnd(self)) {
+                    if (Link(self, StateAt(s, -1, 0))) d = min(d, Segment(p, 0.0, float2(-1, 0)) - hw);
+                    if (Link(self, StateAt(s, 1, 0))) d = min(d, Segment(p, 0.0, float2(1, 0)) - hw);
+                    if (Link(self, StateAt(s, 0, -1))) d = min(d, Segment(p, 0.0, float2(0, -1)) - hw);
+                    if (Link(self, StateAt(s, 0, 1))) d = min(d, Segment(p, 0.0, float2(0, 1)) - hw);
+                    if (DiagLink(s, 0, 0, -1, -1)) d = min(d, Segment(p, 0.0, float2(-1, -1)) - hw);
+                    if (DiagLink(s, 0, 0, 1, -1)) d = min(d, Segment(p, 0.0, float2(1, -1)) - hw);
+                    if (DiagLink(s, 0, 0, -1, 1)) d = min(d, Segment(p, 0.0, float2(-1, 1)) - hw);
+                    if (DiagLink(s, 0, 0, 1, 1)) d = min(d, Segment(p, 0.0, float2(1, 1)) - hw);
+                }
+
+                // chords between this cell's flanking neighbours cut through this cell's corners
+                if (DiagLink(s, 1, 0, 0, 1)) d = min(d, Segment(p, float2(1, 0), float2(0, 1)) - hw);
+                if (DiagLink(s, 1, 0, 0, -1)) d = min(d, Segment(p, float2(1, 0), float2(0, -1)) - hw);
+                if (DiagLink(s, -1, 0, 0, 1)) d = min(d, Segment(p, float2(-1, 0), float2(0, 1)) - hw);
+                if (DiagLink(s, -1, 0, 0, -1)) d = min(d, Segment(p, float2(-1, 0), float2(0, -1)) - hw);
                 return d;
             }
 
@@ -190,6 +239,22 @@ Shader "Paths/Grid"
                 c = lerp(c, float3(0.95, 0.85, 0.20), saturate(t * 3.0 - 1.0));
                 c = lerp(c, float3(0.90, 0.22, 0.16), saturate(t * 3.0 - 2.0));
                 return c;
+            }
+
+            // indices 4/5 are Seen/Expanded - the search layer, dimmed toward the plain tile (or
+            // painted with the cost heatmap) so the board stays one readable surface
+            float3 Shade(int s, float3 c, float3 heat)
+            {
+                if (s == 4 || s == 5) {
+                    if (_ShowDistances > 0.5) c = heat;
+                    c = lerp(_EmptyColor.rgb, c, _Fade);
+                }
+                return c;
+            }
+
+            float Mask(float d, float aa)
+            {
+                return 1.0 - smoothstep(-aa * 0.5, aa * 0.5, d);
             }
 
             fixed4 frag(v2f i) : SV_Target
@@ -219,62 +284,70 @@ Shader "Paths/Grid"
                 float ease = 1.0 - (1.0 - t) * (1.0 - t); // ease-out, snappy start
 
                 // screen density in cell units - how big a pixel is across a cell. drives the edge
-                // antialiasing, the seam overlap, and the zoom-out degrade below.
+                // antialiasing, the seam overlap, and the zoom-out degrade below. the fields all
+                // have unit gradient, so this doubles as the AA width (fwidth of a min() union
+                // glitches at the creases, a fixed width doesn't).
                 float2 dd = fwidth(cellCoord);
                 float pixel = max(max(dd.x, dd.y), 1e-5);
+                float aa = pixel;
 
                 // fade the gap and rounding out as cells shrink toward a few pixels, so the far
                 // view collapses to clean flat color instead of shimmering sub-pixel gaps
                 float k = saturate((1.0 / pixel - 3.0) / 4.0);
 
-                // walls fuse as an area fill, the path draws as a ribbon, the rest are per-cell tiles
-                float dist;
-                if (index == 1) {
-                    dist = WallDist(p, id, grid, k, pixel);
-                } else if (index == 6) {
-                    dist = PathDist(p, id, grid, 0.5 - _PathInset);
-                } else {
+                float m = _Gap * 0.5 * k;
+                // corners only round into a gap - with grid lines off tiles stay square
+                float gapGate = smoothstep(0.0, 0.03, _Gap);
+                // the wall dilation radius doubles as the seam guard, so it never drops below a pixel
+                float rrEff = max(_Radius * k * gapGate, pixel);
+                // with an unresolvable gap the eroded boxes overreach a pixel and fuse into
+                // whatever abuts them (grid lines off closes walls and tiles into one field)
+                float ins = (m > pixel ? m : -pixel) + rrEff;
+
+                float st[9];
+                for (int oy = -1; oy <= 1; oy++)
+                for (int ox = -1; ox <= 1; ox++)
+                    st[(oy + 1) * 3 + ox + 1] = NeighbourState(id + float2(ox, oy), grid);
+
+                // layers, back to front: plain tiles, walls, the path ribbon, start/end markers.
+                // start/end sit above the ribbon so the route visibly docks INTO them.
+                float baseD = 1e5, termD = 1e5;
+                if (index == 0 || index == 4 || index == 5 || index == 2 || index == 3) {
                     // cells appearing out of empty scale in as they ease
                     float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
-                    // a side is pushed past the boundary when its gap is unresolvable (grid lines off),
-                    // so tiles abut seamlessly there instead of leaving an AA hairline
-                    float b = SideExtent(false, _Gap * 0.5 * k, pixel) * pop;
-                    // corners only round into a gap - with grid lines off (gap 0) tiles stay square
-                    float r = _Radius * k * pop * smoothstep(0.0, 0.03, _Gap);
-                    dist = RoundedBox(p, b.xx, r);
+                    float b = SideExtent(m, pixel) * pop;
+                    float tile = RoundedBox(p, b.xx, _Radius * k * gapGate * pop);
+                    if (index == 2 || index == 3) termD = tile;
+                    else baseD = tile;
                 }
+                float wallD = WallField(st, p, m, rrEff, ins, pixel);
+                float pathD = PathField(st, p, 0.5 - _PathInset);
 
-                float aa = fwidth(dist);
-                float tile = 1.0 - smoothstep(-aa * 0.5, aa * 0.5, dist);
-
-                // ease the fill from the state the cell left toward the one it's in. indices 4/5 are
-                // Seen/Expanded - the search layer, dimmed toward the plain tile (or the cost heatmap)
-                // so the board stays one readable surface. the Path (6) stays solid so the final route
-                // reads over the dimmed sweep.
+                // ease the fill from the state the cell left toward the one it's in
                 float3 heat = Heat(tex2D(_DistTex, cellUv).r);
-                float3 color = colors[index].rgb;
-                if (index == 4 || index == 5) {
-                    if (_ShowDistances > 0.5) color = heat;
-                    color = lerp(_EmptyColor.rgb, color, _Fade);
-                }
-                float3 from = colors[prev].rgb;
-                if (prev == 4 || prev == 5) {
-                    if (_ShowDistances > 0.5) from = heat;
-                    from = lerp(_EmptyColor.rgb, from, _Fade);
-                }
-                color = lerp(from, color, ease);
+                float3 fade = lerp(Shade(prev, colors[prev].rgb, heat),
+                    Shade(index, colors[index].rgb, heat), ease);
 
-                // cursor overlay - additive, all driven from uniforms, so the touch path (which
-                // never sets them) just skips it. the hovered cell gets a gentle lift plus a
-                // brighter inner rim, and an empty cell previews the wall the brush would draw.
-                if (_HoverStrength > 0.001 && all(abs(id - _HoverCell.xy) < 0.5)) {
-                    if (_BrushPreview > 0.5 && index == 0)
-                        color = lerp(color, _WallColor.rgb, 0.4 * _HoverStrength);
+                bool hovered = _HoverStrength > 0.001 && all(abs(id - _HoverCell.xy) < 0.5);
+
+                float3 baseCol = fade;
+                // an empty cell under the cursor previews the wall the brush would draw
+                if (hovered && _BrushPreview > 0.5 && index == 0)
+                    baseCol = lerp(baseCol, _WallColor.rgb, 0.4 * _HoverStrength);
+
+                float3 outCol = lerp(_LineColor.rgb, baseCol, Mask(baseD, aa));
+                // own wall/path cells crossfade; spill from a neighbour draws settled
+                outCol = lerp(outCol, index == 1 ? fade : _WallColor.rgb, Mask(wallD, aa));
+                outCol = lerp(outCol, index == 6 ? fade : _PathColor.rgb, Mask(pathD, aa));
+                outCol = lerp(outCol, fade, Mask(termD, aa));
+
+                // cursor overlay - a gentle lift plus a brighter rim on whatever shape the hovered
+                // cell renders. all uniform-driven, so the touch path (which never sets them) skips it.
+                if (hovered) {
+                    float dist = min(min(baseD, wallD), min(pathD, termD));
                     float rim = (1.0 - smoothstep(0.0, 0.07, abs(dist))) * k;
-                    color += _HoverColor.rgb * (0.10 + 0.6 * rim) * _HoverStrength;
+                    outCol += _HoverColor.rgb * (0.10 + 0.6 * rim) * _HoverStrength * Mask(dist, aa);
                 }
-
-                float3 outCol = lerp(_LineColor.rgb, color, tile);
 
                 // drag token - follows the cursor (unaligned), composited over the gridlines so they
                 // don't chop it. a filled disc where the marker can drop, a hollow ring where it can't,
