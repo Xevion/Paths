@@ -122,59 +122,54 @@ Shader "Paths/Grid"
                 return StateAt(s, ox, oy) == 1.0;
             }
 
-            // how far a tile edge sits from the cell centre. a gap too thin for the AA to resolve
-            // (grid lines off, or zoomed way out) pushes the edge just past the boundary, so
-            // abutting tiles overlap instead of meeting in an AA hairline.
-            float SideExtent(float gap, float pixel)
+            // how far a tile edge sits from the cell centre. a fused side (or a gap too thin for
+            // the AA to resolve - grid lines off, or zoomed way out) pushes the edge just past the
+            // boundary, so abutting coverage overlaps instead of meeting in an AA hairline.
+            float SideExtent(bool fused, float gap, float pixel)
             {
-                if (gap <= pixel)
+                if (fused || gap <= pixel)
                     return 0.5 + pixel;
                 return 0.5 - gap;
             }
 
-            // one wall cell's slab of the ERODED wall mass: a sharp box running exactly to the
-            // boundary on fused sides and inset by ins on exposed ones. p in that cell's frame.
-            float ErodedBox(float2 p, bool fL, bool fR, bool fB, bool fT, float ins)
+            // rounded box with an independent radius per corner (r = TR, BR, TL, BL) - a wall
+            // rounds only the corners that face open space and stays square on a fused edge
+            float RoundedBoxCorners(float2 p, float2 b, float4 r)
             {
-                float2 lo = float2(-0.5 + (fL ? 0.0 : ins), -0.5 + (fB ? 0.0 : ins));
-                float2 hi = float2(0.5 - (fR ? 0.0 : ins), 0.5 - (fT ? 0.0 : ins));
-                float2 q = abs(p - (lo + hi) * 0.5) - (hi - lo) * 0.5;
-                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+                r.xy = p.x > 0.0 ? r.xy : r.zw;
+                r.x = p.y > 0.0 ? r.x : r.y;
+                float2 q = abs(p) - b + r.x;
+                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r.x;
             }
 
-            // true when, of the four cells meeting at a corner, the walls are exactly one diagonal
-            // pair - the config that gets a bridging disc. (a,d) is one diagonal, (b,c) the other.
-            bool WallPair(bool a, bool d, bool b, bool c)
+            // one wall cell's box: overreaching fused sides, gap-inset exposed ones, corners
+            // rounded only where both adjacent sides are exposed. p in that cell's local frame.
+            float WallBox(float2 p, bool fL, bool fR, bool fB, bool fT, float m, float rr, float pixel)
             {
-                return (a && d && !b && !c) || (b && c && !a && !d);
+                float2 lo = -float2(SideExtent(fL, m, pixel), SideExtent(fB, m, pixel));
+                float2 hi = float2(SideExtent(fR, m, pixel), SideExtent(fT, m, pixel));
+                float4 radii;
+                radii.x = !fR && !fT ? rr : 0.0; // TR
+                radii.y = !fR && !fB ? rr : 0.0; // BR
+                radii.z = !fL && !fT ? rr : 0.0; // TL
+                radii.w = !fL && !fB ? rr : 0.0; // BL
+                return RoundedBoxCorners(p - (lo + hi) * 0.5, (hi - lo) * 0.5, radii);
             }
 
-            // the wall mass, erode-then-dilate: union the eroded boxes (min of SDFs is exact
-            // outside a union, and the rendered edge always sits rrEff outside it, so no seam can
-            // land on a cell border), then subtract rrEff to round the exposed corners back out.
-            // discs bridge diagonal-only joints, drawn by all four cells around the corner.
-            float WallField(float s[9], float2 p, float m, float rrEff, float ins, float pixel)
+            // the wall mass: the union of every wall box in the 3x3, so a box spilling over its
+            // own cell border (the fused-edge overlap and its sub-pixel corner poke) is drawn by
+            // every cell it reaches instead of clipping there. walls fuse orthogonally only;
+            // diagonal touches keep their gap.
+            float WallField(float s[9], float2 p, float m, float rr, float pixel)
             {
                 float d = 1e5;
                 for (int oy = -1; oy <= 1; oy++)
                 for (int ox = -1; ox <= 1; ox++) {
                     if (StateAt(s, ox, oy) != 1.0)
                         continue;
-                    d = min(d, ErodedBox(p - float2(ox, oy),
+                    d = min(d, WallBox(p - float2(ox, oy),
                         WallAt(s, ox - 1, oy), WallAt(s, ox + 1, oy),
-                        WallAt(s, ox, oy - 1), WallAt(s, ox, oy + 1), ins));
-                }
-                d -= rrEff;
-
-                float rad = m * 1.6;
-                if (rad > pixel * 0.5) {
-                    bool self = StateAt(s, 0, 0) == 1.0;
-                    bool L = WallAt(s, -1, 0), R = WallAt(s, 1, 0);
-                    bool B = WallAt(s, 0, -1), T = WallAt(s, 0, 1);
-                    if (WallPair(self, WallAt(s, 1, 1), R, T)) d = min(d, length(p - float2(0.5, 0.5)) - rad);
-                    if (WallPair(self, WallAt(s, 1, -1), R, B)) d = min(d, length(p - float2(0.5, -0.5)) - rad);
-                    if (WallPair(self, WallAt(s, -1, 1), L, T)) d = min(d, length(p - float2(-0.5, 0.5)) - rad);
-                    if (WallPair(self, WallAt(s, -1, -1), L, B)) d = min(d, length(p - float2(-0.5, -0.5)) - rad);
+                        WallAt(s, ox, oy - 1), WallAt(s, ox, oy + 1), m, rr, pixel));
                 }
                 return d;
             }
@@ -296,13 +291,8 @@ Shader "Paths/Grid"
                 float k = saturate((1.0 / pixel - 3.0) / 4.0);
 
                 float m = _Gap * 0.5 * k;
-                // corners only round into a gap - with grid lines off tiles stay square
-                float gapGate = smoothstep(0.0, 0.03, _Gap);
-                // the wall dilation radius doubles as the seam guard, so it never drops below a pixel
-                float rrEff = max(_Radius * k * gapGate, pixel);
-                // with an unresolvable gap the eroded boxes overreach a pixel and fuse into
-                // whatever abuts them (grid lines off closes walls and tiles into one field)
-                float ins = (m > pixel ? m : -pixel) + rrEff;
+                // corners only round into a gap - with grid lines off everything stays square
+                float rr = _Radius * k * smoothstep(0.0, 0.03, _Gap);
 
                 float st[9];
                 for (int oy = -1; oy <= 1; oy++)
@@ -315,12 +305,12 @@ Shader "Paths/Grid"
                 if (index == 0 || index == 4 || index == 5 || index == 2 || index == 3) {
                     // cells appearing out of empty scale in as they ease
                     float pop = prev == 0 && index != 0 ? lerp(0.55, 1.0, ease) : 1.0;
-                    float b = SideExtent(m, pixel) * pop;
-                    float tile = RoundedBox(p, b.xx, _Radius * k * gapGate * pop);
+                    float b = SideExtent(false, m, pixel) * pop;
+                    float tile = RoundedBox(p, b.xx, rr * pop);
                     if (index == 2 || index == 3) termD = tile;
                     else baseD = tile;
                 }
-                float wallD = WallField(st, p, m, rrEff, ins, pixel);
+                float wallD = WallField(st, p, m, rr, pixel);
                 float pathD = PathField(st, p, 0.5 - _PathInset);
 
                 // ease the fill from the state the cell left toward the one it's in
