@@ -156,10 +156,48 @@ Shader "Paths/Grid"
                 return RoundedBoxCorners(p - (lo + hi) * 0.5, (hi - lo) * 0.5, radii);
             }
 
+            // concave carve at a re-entrant corner. V = the cell-corner vertex (cell-local frame),
+            // s = (+/-1,+/-1) toward the one non-wall cell of the 2x2 (the notch). the box union
+            // fills an inner corner with a protruding convex nub - the diagonal cell fuses to the
+            // vertex while the two arms inset by the gap. carving a disc tucked into the notch,
+            // tangent to both inset arm faces, eats the nub and rounds the reflex concavely.
+            float CornerCarve(float2 p, float2 V, float2 s, float m, float rf)
+            {
+                float2 Kc = V - s * m;      // the inset arms meet here (the sharp reflex corner)
+                float2 C = Kc + s * rf;     // disc centre: tangent to both arm faces, into the notch
+                return rf - length(p - C);  // >0 inside the disc = carve this pixel out of the wall
+            }
+
+            // the inner-corner carves: at each of the cell's four corners, a re-entrant corner
+            // (exactly 3 of the 4 cells wall) carves a concave notch toward the odd cell out. every
+            // cell around the vertex carves the same disc, so it stays continuous across the border.
+            // returns the max carve (union of discs to remove); big-negative when nothing qualifies.
+            float WallCarve(float s[9], float2 p, float m, float rf)
+            {
+                float c = -1e5;
+                if (rf <= 0.0)
+                    return c;
+                for (int b = -1; b <= 1; b += 2)
+                for (int a = -1; a <= 1; a += 2) {
+                    bool c0 = WallAt(s, 0, 0);
+                    bool cA = WallAt(s, a, 0);
+                    bool cB = WallAt(s, 0, b);
+                    bool cD = WallAt(s, a, b);
+                    int walls = (c0 ? 1 : 0) + (cA ? 1 : 0) + (cB ? 1 : 0) + (cD ? 1 : 0);
+                    if (walls != 3)
+                        continue;
+                    // s points from the vertex toward the single non-wall cell
+                    float2 sd = !c0 ? float2(-a, -b) : !cA ? float2(a, -b)
+                        : !cB ? float2(-a, b) : float2(a, b);
+                    c = max(c, CornerCarve(p, float2(a, b) * 0.5, sd, m, rf));
+                }
+                return c;
+            }
+
             // the wall mass: the union of every wall box in the 3x3, so a box spilling over its
             // own cell border (the fused-edge overlap and its sub-pixel corner poke) is drawn by
             // every cell it reaches instead of clipping there. walls fuse orthogonally only;
-            // diagonal touches keep their gap.
+            // diagonal touches keep their gap. inner corners are then carved concave (WallCarve).
             float WallField(float s[9], float2 p, float m, float rr, float pixel)
             {
                 float d = 1e5;
@@ -171,7 +209,7 @@ Shader "Paths/Grid"
                         WallAt(s, ox - 1, oy), WallAt(s, ox + 1, oy),
                         WallAt(s, ox, oy - 1), WallAt(s, ox, oy + 1), m, rr, pixel));
                 }
-                return d;
+                return max(d, WallCarve(s, p, m, rr));
             }
 
             // the path connects path cells to each other and docks into the start/end markers
