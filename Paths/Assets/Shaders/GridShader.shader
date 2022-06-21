@@ -156,20 +156,27 @@ Shader "Paths/Grid"
                 return RoundedBoxCorners(p - (lo + hi) * 0.5, (hi - lo) * 0.5, radii);
             }
 
-            // concave carve at a re-entrant corner: a disc tucked into the notch, tangent to the
-            // two inset arm faces, that eats the convex nub the box union leaves.
-            float CornerCarve(float2 p, float2 V, float2 s, float m, float rf)
+            // concave fill for one re-entrant corner. the box union underfills the corner (arms
+            // inset by the gap, the diagonal cell fills to the vertex = a sharp nub), so we ADD the
+            // cup between the two flat arm faces, bounded by the arc concentric with the notch
+            // tile's rounded corner (centre O, radius rr+2m -> uniform gap), clipped to the [Kc,O]
+            // box so it never reaches across the notch. <0 inside the fill.
+            float CornerFill(float2 p, float2 V, float2 s, float m, float rr)
             {
-                float2 C = (V - s * m) + s * rf;
-                return rf - length(p - C);
+                float2 q = (p - V) * s;
+                float2 O = V + s * (m + rr);
+                float d = max(-(q.x + m), -(q.y + m));
+                d = max(d, rr + 2.0 * m - length(p - O));
+                d = max(d, max(q.x - (m + rr), q.y - (m + rr)));
+                return d;
             }
 
-            // carve every re-entrant corner (a vertex with 3 of its 4 cells wall) toward the odd
-            // cell out; shared across the four cells at the vertex so it stays continuous.
-            float WallCarve(float s[9], float2 p, float m, float rf)
+            // fill every re-entrant corner (a vertex with 3 of its 4 cells wall); shared across the
+            // four cells at the vertex so it stays continuous.
+            float WallFill(float s[9], float2 p, float m, float rr)
             {
-                float c = -1e5;
-                if (rf <= 0.0)
+                float c = 1e5;
+                if (rr <= 0.0)
                     return c;
                 for (int b = -1; b <= 1; b += 2)
                 for (int a = -1; a <= 1; a += 2) {
@@ -179,13 +186,13 @@ Shader "Paths/Grid"
                         continue;
                     float2 sd = !c0 ? float2(-a, -b) : !cA ? float2(a, -b)
                         : !cB ? float2(-a, b) : float2(a, b);
-                    c = max(c, CornerCarve(p, float2(a, b) * 0.5, sd, m, rf));
+                    c = min(c, CornerFill(p, float2(a, b) * 0.5, sd, m, rr));
                 }
                 return c;
             }
 
-            // union of the 3x3 wall boxes (orthogonal fuse only) with inner corners carved concave.
-            // the carve fades once its disc goes sub-pixel, so far zoom collapses to solid blocks.
+            // union of the 3x3 wall boxes (orthogonal fuse only) with inner corners filled concave.
+            // the fill fades once it goes sub-pixel, so far zoom collapses to solid blocks.
             float WallField(float s[9], float2 p, float m, float rr, float pixel)
             {
                 float d = 1e5;
@@ -197,8 +204,8 @@ Shader "Paths/Grid"
                         WallAt(s, ox - 1, oy), WallAt(s, ox + 1, oy),
                         WallAt(s, ox, oy - 1), WallAt(s, ox, oy + 1), m, rr, pixel));
                 }
-                float rfCarve = rr * smoothstep(1.5, 3.0, rr / max(pixel, 1e-5));
-                return max(d, WallCarve(s, p, m, rfCarve));
+                float filled = min(d, WallFill(s, p, m, rr));
+                return lerp(d, filled, smoothstep(1.5, 3.0, rr / max(pixel, 1e-5)));
             }
 
             // the path connects path cells to each other and docks into the start/end markers
