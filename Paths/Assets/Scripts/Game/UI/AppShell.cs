@@ -41,6 +41,7 @@ namespace Game.UI {
         private TMP_FontAsset _font;
         private PanelSlide _sidebar;
         private GameObject _modal;
+        private CanvasScaler _scaler; // the settings dialog's interface-scale slider drives this
 
         // toolbar bits pushed from UIController each frame
         private Button _play;
@@ -146,7 +147,7 @@ namespace Game.UI {
                 x => onSpeed?.Invoke(x), height: 22f);
 
             UIKit.IconButton(bar, Icon.Sliders, () => _sidebar.Toggle());
-            UIKit.IconButton(bar, Icon.Cog, OpenModal);
+            UIKit.IconButton(bar, Icon.Cog, OpenSettings);
         }
 
         // the live readout - a row of stacked stat chips fed by SetStats off the real solver
@@ -303,9 +304,8 @@ namespace Game.UI {
             UIKit.ValueSlider(Field(col, "Density", fill: true, tooltip: "Fraction of cells that become walls"),
                 0f, 1f, 0.25f, x => Mathf.RoundToInt(x * 100f) + "%", x => onDensity?.Invoke(x));
 
+            // speed lives on the toolbar next to the transport - a second slider here just desynced from it
             UIKit.SectionHeader(col, _font, "Playback", Icon.Play);
-            UIKit.ValueSlider(Field(col, "Speed", fill: true, tooltip: "How fast the search animates"),
-                0f, 1f, 0.5f, x => Mathf.RoundToInt(x * 100f) + "%", x => onSpeed?.Invoke(x));
             UIKit.ValueSlider(Field(col, "Step delay", fill: true, tooltip: "Pause between expanded cells"),
                 0f, 200f, 30f, x => Mathf.RoundToInt(x) + "ms", x => onStepDelay?.Invoke(x));
             UIKit.Switch(Field(col, "Loop", tooltip: "Restart the search when it finishes"), false,
@@ -353,10 +353,11 @@ namespace Game.UI {
             line.anchoredPosition = Vector2.zero;
         }
 
-        private void OpenModal() {
+        private void OpenSettings() {
             if (_modal != null) return;
-            _modal = new GameObject("UI Showcase");
-            _modal.AddComponent<UIShowcase>();
+            _modal = new GameObject("Settings");
+            var dialog = _modal.AddComponent<SettingsDialog>();
+            dialog.onUiScale = scale => _scaler.scaleFactor = scale;
         }
 
         private void BuildCanvas() {
@@ -366,10 +367,10 @@ namespace Game.UI {
             canvas.pixelPerfect = true;
             canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
 
-            var scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280, 800);
-            scaler.matchWidthOrHeight = 0.5f;
+            _scaler = gameObject.AddComponent<CanvasScaler>();
+            _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            _scaler.referenceResolution = new Vector2(1280, 800);
+            _scaler.matchWidthOrHeight = 0.5f;
             gameObject.AddComponent<GraphicRaycaster>();
 
             if (EventSystem.current == null) {

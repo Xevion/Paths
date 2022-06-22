@@ -39,7 +39,8 @@ namespace Game.UI {
 
         private void Update() {
             if (_dir > 0 && _t >= 1f) return;
-            _t = Mathf.Clamp01(_t + _dir * Time.unscaledDeltaTime / duration);
+            float step = Motion.Reduced ? 1f : Time.unscaledDeltaTime / duration;
+            _t = Mathf.Clamp01(_t + _dir * step);
             Apply();
             if (_dir < 0 && _t <= 0f && _onClosed != null) {
                 System.Action done = _onClosed;

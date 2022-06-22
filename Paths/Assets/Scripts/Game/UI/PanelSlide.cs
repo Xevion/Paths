@@ -19,7 +19,7 @@ namespace Game.UI {
         private void Update() {
             float to = _open ? 1f : 0f;
             if (Mathf.Approximately(_t, to)) return;
-            _t = Mathf.MoveTowards(_t, to, Time.unscaledDeltaTime * speed);
+            _t = Motion.Reduced ? to : Mathf.MoveTowards(_t, to, Time.unscaledDeltaTime * speed);
             float e = _t * _t * (3f - 2f * _t); // smoothstep
             Vector2 p = panel.anchoredPosition;
             p.x = closedOffset * (1f - e);

@@ -41,7 +41,9 @@ namespace Game.UI {
             _img.raycastTarget = false;
         }
 
-        public void OnPointerEnter(PointerEventData e) => _t = 0f;
+        public void OnPointerEnter(PointerEventData e) {
+            if (!Motion.Reduced) _t = 0f;
+        }
 
         private void Update() {
             if (_t > 1f) return;

@@ -20,7 +20,8 @@ namespace Game.UI {
                 float to = i == target ? 1f : 0f;
                 float cur = elements[i].flexibleWidth;
                 if (Mathf.Approximately(cur, to)) continue;
-                elements[i].flexibleWidth = Mathf.MoveTowards(cur, to, Time.unscaledDeltaTime * speed);
+                elements[i].flexibleWidth =
+                    Motion.Reduced ? to : Mathf.MoveTowards(cur, to, Time.unscaledDeltaTime * speed);
                 changed = true;
             }
             if (changed) LayoutRebuilder.MarkLayoutForRebuild((RectTransform) transform);

@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -5,11 +6,14 @@ using UnityEngine.UI;
 
 namespace Game.UI {
     /// <summary>
-    /// A standalone, throwaway showcase screen: a dense tabbed settings window built entirely from the
-    /// UI kit, used to evaluate how far the kit can be pushed. Not part of the app - spawned by
-    /// ShowcaseLauncher (F2, or the -showcase launch arg).
+    /// The settings dialog behind the toolbar's cog: app-level preferences, a shortcut reference and an
+    /// about page. Per-run controls (algorithm, grid, playback) belong to the sidebar, not here.
     /// </summary>
-    public class UIShowcase : MonoBehaviour {
+    public class SettingsDialog : MonoBehaviour {
+        private const string Repo = "https://github.com/Xevion/Paths";
+
+        public Action<float> onUiScale;
+
         private TMP_FontAsset _font;
         private RectTransform _content;
         private PopIn _pop;
@@ -25,21 +29,20 @@ namespace Game.UI {
 
             Header(window);
             UIKit.Divider(window);
-            // diminished: the sidebar owns algorithm + grid now, so the modal is just the occasional settings
-            UIKit.TabBar(window, _font, new[] { "Appearance", "About" }, Select);
+            UIKit.TabBar(window, _font, new[] { "General", "Shortcuts", "About" }, Select);
 
             _content = UIKit.Column(window, Theme.Space3);
             _content.gameObject.AddComponent<LayoutElement>().minHeight = 260f;
 
-            _tabs.Add(AppearanceTab());
+            _tabs.Add(GeneralTab());
+            _tabs.Add(ShortcutsTab());
             _tabs.Add(AboutTab());
             Select(0);
 
             UIKit.Divider(window);
             Footer(window);
 
-            // reuse the desktop's ring if one's already up (it follows the global selection across canvases);
-            // only spawn our own when this modal is the standalone showcase
+            // reuse the app's ring if one's already up - it follows the global selection across canvases
             if (FindObjectOfType<FocusRing>() == null)
                 new GameObject("Focus Ring").AddComponent<FocusRing>();
 
@@ -147,21 +150,50 @@ namespace Game.UI {
             UIKit.IconButton(row, Icon.Close, Close);
         }
 
-        private GameObject AppearanceTab() {
+        // app-wide preferences only - anything you'd touch per run lives in the sidebar
+        private GameObject GeneralTab() {
             RectTransform col = TabColumn();
-            UIKit.SectionHeader(col, _font, "Theme", Icon.Brush);
-            UIKit.Dropdown(UIKit.Field(col, _font, "Mode", tooltip: "Color theme for the grid and UI"), _font,
-                new[] { "Dark", "Midnight", "Light" }, 0, _ => { });
-            Swatches(UIKit.Field(col, _font, "Accent", tooltip: "Highlight color for the path and controls"));
+            UIKit.SectionHeader(col, _font, "Interface", Icon.Brush);
             UIKit.Switch(UIKit.Field(col, _font, "Reduce motion",
-                tooltip: "Disable the cell-reveal and panel animations"), false, _ => { });
+                tooltip: "Snap the panel and dialog animations instead of easing them"),
+                Motion.Reduced, on => Motion.Reduced = on);
+            UIKit.ValueSlider(UIKit.Field(col, _font, "Interface scale", fill: true,
+                tooltip: "Size of the toolbar and sidebar"), 0.8f, 1.4f, 1f,
+                v => Mathf.RoundToInt(v * 100f) + "%", v => onUiScale?.Invoke(v));
+            return col.gameObject;
+        }
+
+        private GameObject ShortcutsTab() {
+            RectTransform col = TabColumn();
+            UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
+            Shortcut(col, "Click + drag", "Draw or erase walls");
+            Shortcut(col, "Drag start / end", "Move an endpoint");
+            Shortcut(col, "Scroll", "Zoom the view");
+            Shortcut(col, "Right-drag", "Pan the view");
+            Shortcut(col, "- / =", "Shrink or grow the grid");
 
             UIKit.SectionHeader(col, _font, "Playback", Icon.Play);
-            UIKit.ValueSlider(UIKit.Field(col, _font, "Speed", fill: true,
-                tooltip: "How fast the search animates"), 0f, 1f, 0.5f,
-                v => Mathf.RoundToInt(v * 100f) + "%", _ => { });
-            UIKit.Checkbox(col, _font, "Show statistics", true, _ => { });
+            Shortcut(col, "Space", "Play or pause the search");
+
+            UIKit.SectionHeader(col, _font, "Interface", Icon.Sliders);
+            Shortcut(col, "Tab", "Move focus between controls");
+            Shortcut(col, "Esc", "Close this dialog");
             return col.gameObject;
+        }
+
+        // a mono key chip on the left, what it does on the right
+        private void Shortcut(Transform parent, string keys, string description) {
+            RectTransform row = UIKit.Row(parent, Theme.Space3);
+            row.gameObject.AddComponent<LayoutElement>().minHeight = 26f;
+
+            RectTransform chip = UIKit.Panel(row, Theme.Track, Theme.RadiusSm, Theme.Space2, 0f,
+                shadow: false, fit: false);
+            var chipLe = chip.gameObject.AddComponent<LayoutElement>();
+            chipLe.minWidth = chipLe.preferredWidth = 132f;
+            chipLe.minHeight = 22f;
+            UIKit.Label(chip, Fonts.Mono, keys, UIKit.Type.Caption);
+
+            UIKit.Label(row, _font, description, UIKit.Type.Body, Theme.Muted);
         }
 
         private GameObject AboutTab() {
@@ -173,38 +205,23 @@ namespace Game.UI {
             body.enableWordWrapping = true;
 
             RectTransform actions = UIKit.Row(col, Theme.Space2);
-            UIKit.Button(actions, _font, "Open demo", () => { }, UIKit.ButtonStyle.Primary, 96f, Icon.Play);
-            UIKit.Button(actions, _font, "GitHub", () => { }, UIKit.ButtonStyle.Secondary, 96f, Icon.Github);
+            UIKit.Button(actions, _font, "GitHub", () => Application.OpenURL(Repo),
+                UIKit.ButtonStyle.Secondary, 96f, Icon.Github);
             return col.gameObject;
         }
 
+        // everything here applies live, so there's nothing to confirm or revert - just a way out
         private void Footer(Transform parent) {
             RectTransform row = UIKit.Row(parent, Theme.Space2);
             row.gameObject.AddComponent<LayoutElement>().minHeight = 40f;
             Spacer(row);
-            UIKit.Button(row, _font, "Cancel", Close, UIKit.ButtonStyle.Secondary);
-            UIKit.Button(row, _font, "Apply", Close, UIKit.ButtonStyle.Primary, 96f, Icon.Check);
+            UIKit.Button(row, _font, "Done", Close, UIKit.ButtonStyle.Primary, 96f, Icon.Check);
         }
 
         private RectTransform TabColumn() {
             RectTransform col = UIKit.Column(_content, Theme.Space2);
             col.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
             return col;
-        }
-
-        private void Swatches(Transform parent) {
-            Color[] swatches = { Theme.Accent, new Color(0.55f, 0.78f, 0.35f), new Color(0.9f, 0.5f, 0.3f),
-                new Color(0.78f, 0.45f, 0.85f) };
-            RectTransform row = UIKit.Row(parent, Theme.Space2);
-            foreach (Color color in swatches) {
-                var go = new GameObject("Swatch", typeof(RectTransform));
-                go.transform.SetParent(row, false);
-                var g = go.AddComponent<RoundedRectGraphic>();
-                g.color = color;
-                g.cornerRadius = Theme.RadiusSm;
-                var element = go.AddComponent<LayoutElement>();
-                element.minWidth = element.minHeight = 26f;
-            }
         }
 
         private static void Spacer(Transform parent) {

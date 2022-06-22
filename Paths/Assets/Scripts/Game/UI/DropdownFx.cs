@@ -16,7 +16,7 @@ namespace Game.UI {
         private void Update() {
             float target = dropdown.IsExpanded ? 1f : 0f;
             if (Mathf.Approximately(_t, target)) return;
-            _t = Mathf.MoveTowards(_t, target, Time.unscaledDeltaTime * speed);
+            _t = Motion.Reduced ? target : Mathf.MoveTowards(_t, target, Time.unscaledDeltaTime * speed);
             chevron.localEulerAngles = new Vector3(0f, 0f, _t * 180f);
         }
     }
