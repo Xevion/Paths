@@ -37,12 +37,41 @@ public class PathSolver {
     /// </summary>
     public PathSolver(int width, int height, int seed, Generator generator, float density) {
         Grid = new NodeGrid(width, height, new System.Random(seed));
-        if (generator == Generator.Random)
-            Grid.ApplyGenerator(new RandomPlacement(density, true, true));
-        // Empty: every cell stays walkable
+        Generate(generator, density);
 
         Start = RandomWalkable();
         End = RandomWalkable(Start);
+    }
+
+    /// <summary>
+    /// Paint the starting layout. Rooms and Walk carve out of a solid grid rather than adding to an
+    /// open one, so density reads as how much wall to leave behind. Both keep their open space in one
+    /// connected region - a single walk, and corridors between rooms - so start and end can always meet.
+    /// </summary>
+    private void Generate(Generator generator, float density) {
+        float open = 1f - density;
+        switch (generator) {
+            case Generator.Random:
+                Grid.ApplyGenerator(new RandomPlacement(density, true, true));
+                break;
+            case Generator.Rooms:
+                Fill();
+                int rooms = Mathf.Clamp(Mathf.RoundToInt(Grid.CellCount * open / 90f), 3, 14);
+                Grid.ApplyGenerator(new RoomCarve(new Vector2Int(rooms, rooms + 3), new Vector2Int(3, 8), 80));
+                break;
+            case Generator.Walk:
+                Fill();
+                // one walk, not several - separate walks would carve caves that never meet
+                int steps = Mathf.Max(32, Mathf.RoundToInt(Grid.CellCount * open * 3f));
+                Grid.ApplyGenerator(new DrunkardWalk(1, steps, false));
+                break;
+            // Empty: every cell stays walkable
+        }
+    }
+
+    private void Fill() {
+        foreach (Node node in Grid.Iterator())
+            node.Walkable = false;
     }
 
     // a random walkable cell, so start/end never land on a wall; optionally distinct from another

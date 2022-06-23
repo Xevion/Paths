@@ -1,4 +1,6 @@
-﻿using Algorithms;
+﻿using System;
+using Algorithms;
+using UnityEngine;
 
 namespace LevelGeneration {
     public class DrunkardWalk : ILevelGenerator {
@@ -27,13 +29,52 @@ namespace LevelGeneration {
             _continueBias = continueBias;
         }
 
+        private static readonly Vector2Int[] Directions =
+            { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
         public NodeGrid Generate(NodeGrid nodeGrid) {
-            for (int unused = 0; unused < _walks; unused++) {
-                Node node = nodeGrid.GetRandomNode();
-                Node[] nodes = nodeGrid.GetAdjacentNodesArray(node);
+            var center = new Vector2Int(nodeGrid.Width / 2, nodeGrid.Height / 2);
+
+            for (int walk = 0; walk < _walks; walk++) {
+                Vector2Int position = nodeGrid.RandomPosition();
+                Vector2Int direction = RandomDirection(nodeGrid);
+
+                for (int step = 0; step < _walkLength; step++) {
+                    nodeGrid.GetNode(position).Walkable = !_add;
+
+                    // mostly turn, but hold the line often enough to carve corridors rather than blobs
+                    if (!Roll(nodeGrid, _continueBias))
+                        direction = Roll(nodeGrid, _centerBias)
+                            ? Toward(position, center, nodeGrid)
+                            : RandomDirection(nodeGrid);
+
+                    Vector2Int next = position + direction;
+                    // walked into the edge - turn rather than stall out against it
+                    if (!nodeGrid.IsValid(next)) {
+                        direction = RandomDirection(nodeGrid);
+                        continue;
+                    }
+
+                    position = next;
+                }
             }
 
             return nodeGrid;
+        }
+
+        private static bool Roll(NodeGrid nodeGrid, double bias) => nodeGrid.Next(0, 10000) < bias * 10000;
+
+        private static Vector2Int RandomDirection(NodeGrid nodeGrid) =>
+            Directions[nodeGrid.Next(0, Directions.Length)];
+
+        // one step along whichever axis is furthest from the target
+        private static Vector2Int Toward(Vector2Int from, Vector2Int to, NodeGrid nodeGrid) {
+            Vector2Int delta = to - from;
+            if (delta == Vector2Int.zero)
+                return RandomDirection(nodeGrid);
+            if (Math.Abs(delta.x) >= Math.Abs(delta.y))
+                return delta.x > 0 ? Vector2Int.right : Vector2Int.left;
+            return delta.y > 0 ? Vector2Int.up : Vector2Int.down;
         }
     }
 }

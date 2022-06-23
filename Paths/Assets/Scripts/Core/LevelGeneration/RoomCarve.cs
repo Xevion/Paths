@@ -51,8 +51,24 @@ namespace LevelGeneration {
             // Set all nodes within rooms
             foreach (RectInt rect in rooms)
                 nodeGrid.ClearRoom(rect);
-            
+
+            // rooms are carved not to overlap, so on their own they're sealed islands - link each one
+            // to the previous with an L corridor so every room is reachable from every other
+            for (int i = 1; i < rooms.Count; i++)
+                Corridor(nodeGrid, Center(rooms[i - 1]), Center(rooms[i]));
+
             return nodeGrid;
+        }
+
+        private static Vector2Int Center(RectInt room) =>
+            new Vector2Int(room.xMin + room.width / 2, room.yMin + room.height / 2);
+
+        // an axis-aligned dogleg: all the way across in x, then all the way in y
+        private static void Corridor(NodeGrid nodeGrid, Vector2Int from, Vector2Int to) {
+            for (int x = Math.Min(from.x, to.x); x <= Math.Max(from.x, to.x); x++)
+                nodeGrid.GetNode(new Vector2Int(x, from.y)).Walkable = true;
+            for (int y = Math.Min(from.y, to.y); y <= Math.Max(from.y, to.y); y++)
+                nodeGrid.GetNode(new Vector2Int(to.x, y)).Walkable = true;
         }
     }
 }
