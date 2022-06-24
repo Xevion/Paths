@@ -13,6 +13,7 @@ namespace Game.UI {
         private const string Repo = "https://github.com/Xevion/Paths";
 
         public Action<float> onUiScale;
+        public float initialUiScale = 1f; // so reopening shows the scale in use, not a fresh 100%
 
         private TMP_FontAsset _font;
         private RectTransform _content;
@@ -158,7 +159,7 @@ namespace Game.UI {
                 tooltip: "Snap the panel and dialog animations instead of easing them"),
                 Motion.Reduced, on => Motion.Reduced = on);
             UIKit.ValueSlider(UIKit.Field(col, _font, "Interface scale", fill: true,
-                tooltip: "Size of the toolbar and sidebar"), 0.8f, 1.4f, 1f,
+                tooltip: "Size of the toolbar and sidebar"), 0.8f, 1.4f, initialUiScale,
                 v => Mathf.RoundToInt(v * 100f) + "%", v => onUiScale?.Invoke(v));
             return col.gameObject;
         }

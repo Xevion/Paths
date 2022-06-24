@@ -15,6 +15,7 @@ namespace Game.UI {
     /// </summary>
     public class AppShell : MonoBehaviour {
         private const float SidebarWidth = 268f;
+        private static readonly Vector2 BaseReference = new Vector2(1280f, 800f);
         private const float Scale = 0.84f; // the whole sidebar reads one notch smaller than the toolbar
 
         // wired by UIController before Build(). null-safe so a half-bound shell still runs.
@@ -42,6 +43,7 @@ namespace Game.UI {
         private PanelSlide _sidebar;
         private GameObject _modal;
         private CanvasScaler _scaler; // the settings dialog's interface-scale slider drives this
+        private float _uiScale = 1f; // kept here so reopening the dialog shows the scale actually in use
 
         // toolbar bits pushed from UIController each frame
         private Button _play;
@@ -357,7 +359,15 @@ namespace Game.UI {
             if (_modal != null) return;
             _modal = new GameObject("Settings");
             var dialog = _modal.AddComponent<SettingsDialog>();
-            dialog.onUiScale = scale => _scaler.scaleFactor = scale;
+            dialog.initialUiScale = _uiScale;
+            dialog.onUiScale = SetUiScale;
+        }
+
+        // scaleFactor is ignored in ScaleWithScreenSize mode - shrinking the reference resolution is what
+        // makes the interface bigger there
+        private void SetUiScale(float scale) {
+            _uiScale = scale;
+            _scaler.referenceResolution = BaseReference / scale;
         }
 
         private void BuildCanvas() {
@@ -369,7 +379,7 @@ namespace Game.UI {
 
             _scaler = gameObject.AddComponent<CanvasScaler>();
             _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            _scaler.referenceResolution = new Vector2(1280, 800);
+            _scaler.referenceResolution = BaseReference / _uiScale;
             _scaler.matchWidthOrHeight = 0.5f;
             gameObject.AddComponent<GraphicRaycaster>();
 
