@@ -1,68 +1,86 @@
-<div align="center">
-    <a href=""><img src="./.media/banner.png" alt="Paths"></a>
-    <br>
-    <sub>
-        Built with ❤︎ by <a href="https://github.com/Xevion/">Xevion</a>
-    </sub>
-</div>
+<p align="center">
+  <img src="./.media/banner.png" alt="Paths" width="820">
+</p>
 
-Paths is a Unity application for watching pathfinding algorithms work. You draw walls, drag the
-start and end around, pick an algorithm, and it animates the search cell by cell — what it's seen,
-what it's expanded, and the path it settles on — with a scrubber so you can step through it.
+Watch pathfinding algorithms work, cell by cell.
 
-It started as an A\* visualizer and grew into a handful of algorithms behind a shared interface,
-a few heuristics, and an editable grid you can resize and reframe on the fly.
+Paths animates the search over a grid that stays editable while it runs. It draws every cell the
+algorithm has seen, every cell it has expanded, and the path it settles on. Draw walls, drag the
+endpoints, swap the algorithm mid-search, and scrub back and forth along the timeline.
+
+Editing while it plays recomputes the search and keeps your place in the timeline, so you can watch
+a single wall reshape the path without losing where you were.
 
 ## Algorithms
 
-- **A\*** — informed, the original
-- **Dijkstra** — uniform cost, no heuristic
-- **Greedy best-first** — heuristic only, not optimal
-- **Breadth-first / Depth-first** — the uninformed baselines
-- **Jump Point Search** — A\* with symmetry-breaking jumps on a uniform grid
+| Algorithm | Notes |
+|---|---|
+| **A\*** | Informed, optimal. A weight above 1x trades optimality for speed |
+| **Dijkstra** | Uniform cost, no heuristic |
+| **Greedy best-first** | Heuristic only, not optimal |
+| **Breadth-first** | The uninformed baseline |
+| **Depth-first** | Rarely sensible, always instructive |
+| **Jump Point Search** | A\* with symmetry-breaking jumps on a uniform grid |
+| **Bidirectional** | Dijkstra from both ends, meeting in the middle. Overrides the picker |
 
-A\*, Dijkstra and Greedy share an expand loop with a sorted frontier; the heuristic (Manhattan,
-Euclidean or Chebyshev) and 8-direction movement are toggled in the UI. JPS does its own thing —
-it's 8-connected by design, so the diagonal toggle doesn't apply to it.
+A\*, Dijkstra and Greedy share an expand loop with a sorted frontier. The heuristic (Manhattan,
+Euclidean or Chebyshev) and 8-direction movement are toggled in the sidebar. JPS is the exception.
+It is 8-connected by design, so the diagonal toggle does not apply to it.
+
+## Generators
+
+| Generator | Layout |
+|---|---|
+| **Empty** | Open grid, walls are yours to draw |
+| **Random** | Scattered walls to a target density |
+| **Rooms** | Rectangular rooms, linked by corridors |
+| **Walk** | A drunkard walk carving one winding cave |
+
+Rooms and Walk carve out of a solid grid, so density reads as how much wall to leave behind. Both
+keep their open space in one connected region, so a path always exists. The seed is the whole input.
+Reuse it and the same layout comes back.
 
 ## Controls
 
 | | |
 |---|---|
-| **Space** | play / pause |
-| **Click + drag** | draw / erase walls |
-| **Drag green / red** | move the start / end |
-| **Drag the bar** | scrub the search |
-| **- / =** | shrink / grow the grid |
-| **Scroll / right-drag** | zoom / pan |
-| **H** | hide the help overlay |
+| **Space** | Play / pause |
+| **Click + drag** | Draw / erase walls |
+| **Drag green / red** | Move the start / end |
+| **Drag the timeline** | Scrub the search |
+| **Scroll** | Zoom |
+| **Right / middle drag** | Pan |
+| **- / =** | Shrink / grow the grid |
+| **Tab** | Move focus between controls |
+| **Esc** | Close the settings dialog |
 
-Editing while it's playing recomputes the search and keeps your place in the timeline, so you can
-watch a wall reshape the path without losing where you were.
+The sidebar holds the search, grid and playback settings; the cog opens app-level preferences, a
+shortcut reference and an about page. Display toggles cover grid lines, cell animation, the
+statistics readout, a g-cost distance heatmap, and three grid themes.
 
-## Running it
+## Running
 
-Built and developed on **Unity 2020.3.18f1**. There's a `Makefile` for building without opening
-the editor (point `UNITY` at your editor binary in a `local.mk`):
+Built on **Unity 2020.3.18f1**. The `Makefile` builds and runs without opening the editor. Point
+`UNITY` at your editor binary in a `local.mk` first:
 
 ```sh
-make demo   # build + run the desktop player
-make web    # build the WebGL demo and serve it at http://localhost:8000
-make test   # EditMode tests
+make demo    # build the desktop player if stale, then run it
+make web     # build the WebGL demo and serve it at localhost:8000
+make test    # EditMode tests
+make compile # compile and import only, no build
 ```
 
-`make web` produces a self-contained WebGL build under `Build/WebGL` — it loads off any static
-host, so dropping that folder somewhere is the whole deploy.
+`make web` produces a self-contained build under `Build/WebGL`. It loads off any static host, so
+dropping that folder somewhere is the whole deploy.
 
 ## Roadmap
-
-What's done and what's still on the list:
 
 - Algorithms
     - [x] Dijkstra
     - [x] Depth-First Search
     - [x] Breadth-First Search
     - [x] Jump Point Search
+    - [x] Bidirectional search
     - [ ] IDA\*
     - [ ] Orthogonal Jump Point Search
     - [ ] Trace
@@ -72,13 +90,25 @@ What's done and what's still on the list:
     - Search Options
         - [x] Uninformed (BFS / DFS / Dijkstra)
         - [x] Informed (A\* / Greedy / JPS)
+        - [x] Heuristic weighting
         - Heuristics
             - [x] Manhattan
             - [x] Euclidean
             - [x] Chebyshev
+- Level Generation
+    - [x] Random placement
+    - [x] Room carving
+    - [x] Drunkard walk
+    - [ ] Maze generation with guaranteed solutions
 - Application Elements
     - [x] UI Toolbar / Tool Selection
     - [x] Algorithm Configuration Area
     - [x] Statistics Report
+    - [x] Distance heatmap
+    - [x] WebGL build
 - Miscellaneous
     - [x] Repository graphics
+
+## License
+
+[GPL-3.0](LICENSE)
