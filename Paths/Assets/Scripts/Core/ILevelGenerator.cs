@@ -2,10 +2,10 @@
 
 public interface ILevelGenerator {
     /// <summary>
-    /// Applies the LevelGenerator's algorithm.
-    /// A empty NodeGrid is recommended, as the algorithm may perform in unexpected ways, possibly even fail.
+    /// Applies the generator's algorithm to a grid, in place. Additive generators expect an open grid
+    /// to place walls on; subtractive ones (rooms, walks) expect a solid one to carve out of.
     /// </summary>
-    /// <param name="nodeGrid">A NodeGrid object.</param>
-    /// <returns>A modified NodeGrid object.</returns>
+    /// <param name="nodeGrid">The grid to lay out.</param>
+    /// <returns>The same grid, modified.</returns>
     NodeGrid Generate(NodeGrid nodeGrid);
 }

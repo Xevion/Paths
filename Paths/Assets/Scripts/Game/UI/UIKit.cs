@@ -12,13 +12,7 @@ namespace Game.UI {
     /// </summary>
     public static class UIKit {
         public enum Type { Caption, Body, Title }
-        public enum ButtonStyle { Primary, Secondary, Danger, Ghost }
-
-        /// <summary>A title + one-line description, for the option-card list.</summary>
-        public struct Choice {
-            public string title, desc;
-            public Choice(string title, string desc) { this.title = title; this.desc = desc; }
-        }
+        public enum ButtonStyle { Primary, Secondary, Ghost }
 
         /// <summary>A rounded surface card with a vertical layout group. Returns its RectTransform.</summary>
         public static RectTransform Panel(Transform parent, Color fill, float radius = Theme.RadiusMd,
@@ -88,7 +82,7 @@ namespace Game.UI {
         }
 
         /// <summary>Make a control hoverable for a tooltip. Adds a transparent raycast surface if needed.</summary>
-        public static void AddTooltip(GameObject go, string text) {
+        private static void AddTooltip(GameObject go, string text) {
             // Unity fires pointer enter/exit on the whole ancestor chain, so a transparent surface on the
             // row lets a hover anywhere on it (including over the control) raise the tooltip.
             if (go.GetComponent<Graphic>() == null) {
@@ -174,7 +168,6 @@ namespace Game.UI {
             bool ghost = style == ButtonStyle.Ghost;
             switch (style) {
                 case ButtonStyle.Secondary: fill = Theme.SurfaceRaised; textColor = Theme.Text; break;
-                case ButtonStyle.Danger: fill = Theme.Danger; textColor = Theme.Text; break;
                 // ghost starts invisible; its hover is carried by alpha, so the base stays full-alpha white
                 case ButtonStyle.Ghost: fill = Color.white; textColor = Theme.Text; break;
                 default: fill = Theme.Accent; textColor = Theme.AccentText; break;
@@ -219,7 +212,7 @@ namespace Game.UI {
             if (!ghost) {
                 var shine = rt.gameObject.AddComponent<ShineSweep>();
                 shine.duration = 0.4f;
-                shine.peakAlpha = style == ButtonStyle.Primary || style == ButtonStyle.Danger ? 0.13f : 0.06f;
+                shine.peakAlpha = style == ButtonStyle.Primary ? 0.13f : 0.06f;
                 shine.Build();
             }
             return button;
@@ -449,29 +442,6 @@ namespace Game.UI {
             fx.chevron = crt;
             go.AddComponent<DropdownPopupAnim>();
             return dropdown;
-        }
-
-        /// <summary>A dark-themed text field. Returns the TMP_InputField.</summary>
-        public static TMP_InputField InputField(Transform parent, TMP_FontAsset font, string text,
-            string placeholder, Action<string> onChange) {
-            ControlShell(parent, out RectTransform inner, out RoundedRectGraphic shell);
-
-            GameObject go = TMP_DefaultControls.CreateInputField(new TMP_DefaultControls.Resources());
-            go.transform.SetParent(inner, false);
-            Stretch((RectTransform) go.transform);
-
-            var input = go.GetComponent<TMP_InputField>();
-            Transparent(go.GetComponent<Image>());
-            input.targetGraphic = shell; // hover/focus tints the shell
-            input.transition = Selectable.Transition.ColorTint;
-            input.colors = ControlTint();
-            input.caretColor = Theme.Accent;
-            input.selectionColor = new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.3f);
-            input.customCaretColor = true;
-            AddCursor(go, CursorKind.Text);
-            StyleInput(input, font, text, placeholder);
-            input.onValueChanged.AddListener(v => onChange(v));
-            return input;
         }
 
         /// <summary>
@@ -743,76 +713,6 @@ namespace Game.UI {
             for (int i = 0; i < underlines.Count; i++) underlines[i].gameObject.SetActive(i == 0);
         }
 
-        /// <summary>
-        /// A vertical radio list of selectable cards, each a title + one-line description. Unlike a dropdown
-        /// it keeps every option (and its blurb) on screen, so it suits a primary choice where the options
-        /// carry real differences. Returns nothing; index 0..n-1 reports through onChange.
-        /// </summary>
-        public static void OptionCards(Transform parent, IList<Choice> choices, int index, Action<int> onChange) {
-            RectTransform col = Column(parent, Theme.Space1);
-            var backs = new List<RoundedRectGraphic>();
-            var dots = new List<RoundedRectGraphic>();
-            var titles = new List<TextMeshProUGUI>();
-            int current = Mathf.Clamp(index, 0, choices.Count - 1);
-
-            void Apply(int sel) {
-                for (int i = 0; i < backs.Count; i++) {
-                    bool on = i == sel;
-                    backs[i].color = on ? Color.Lerp(Theme.SurfaceRaised, Theme.Accent, 0.16f) : Theme.SurfaceRaised;
-                    dots[i].color = on ? Theme.Accent : Theme.Track;
-                    titles[i].color = on ? Theme.Text : Theme.Muted;
-                }
-            }
-
-            for (int i = 0; i < choices.Count; i++) {
-                int idx = i;
-                RectTransform card = New("Option", col);
-                var bg = card.gameObject.AddComponent<RoundedRectGraphic>();
-                bg.cornerRadius = Theme.RadiusSm;
-                bg.raycastTarget = true;
-                backs.Add(bg);
-
-                var h = card.gameObject.AddComponent<HorizontalLayoutGroup>();
-                h.padding = new RectOffset(12, 12, 9, 9);
-                h.spacing = Theme.Space3;
-                h.childAlignment = TextAnchor.MiddleLeft;
-                h.childControlWidth = h.childControlHeight = true;
-                h.childForceExpandWidth = h.childForceExpandHeight = false;
-
-                RectTransform dot = New("Dot", card);
-                Size(dot.gameObject, 12f, 12f);
-                var ring = dot.gameObject.AddComponent<RoundedRectGraphic>();
-                ring.color = Theme.Track;
-                ring.cornerRadius = 6f;
-                ring.raycastTarget = false;
-                dots.Add(ring);
-
-                RectTransform textCol = New("Text", card);
-                var v = textCol.gameObject.AddComponent<VerticalLayoutGroup>();
-                v.spacing = 1f;
-                v.childControlWidth = v.childControlHeight = true;
-                v.childForceExpandWidth = v.childForceExpandHeight = false;
-                textCol.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
-                titles.Add(Label(textCol, Fonts.SemiBold, choices[i].title, Type.Body));
-                TextMeshProUGUI desc = Label(textCol, Fonts.Regular, choices[i].desc, Type.Caption, Theme.Muted);
-                desc.enableWordWrapping = true;
-
-                var button = card.gameObject.AddComponent<Button>();
-                button.targetGraphic = bg;
-                button.transition = Selectable.Transition.ColorTint;
-                button.colors = Tint();
-                AddCursor(card.gameObject, CursorKind.Hand);
-                // idempotent: re-picking the current option changes nothing and never fires onChange
-                button.onClick.AddListener(() => {
-                    if (idx == current) return;
-                    current = idx;
-                    Apply(idx);
-                    onChange(idx);
-                });
-            }
-            Apply(current);
-        }
-
         private static void ControlShell(Transform parent, out RectTransform inner, out RoundedRectGraphic bg,
             float width = 220f) {
             var rt = New("Control", parent);
@@ -837,10 +737,6 @@ namespace Game.UI {
             colors.fadeDuration = 0.1f;
             return colors;
         }
-
-        // tints the SurfaceRaised control shell up a notch on hover/press
-        private static ColorBlock ControlTint() =>
-            MakeTint(Color.white, new Color(1.18f, 1.18f, 1.18f, 1f), new Color(1.28f, 1.28f, 1.28f, 1f));
 
         private static void StyleDropdown(TMP_Dropdown dropdown, TMP_FontAsset font) {
             if (dropdown.captionText != null) {
@@ -923,21 +819,6 @@ namespace Game.UI {
                     mrt.anchoredPosition = Vector2.zero;
                 }
             }
-        }
-
-        private static void StyleInput(TMP_InputField input, TMP_FontAsset font, string text, string placeholder) {
-            if (input.textComponent != null) {
-                input.textComponent.font = font;
-                input.textComponent.color = Theme.Text;
-                input.textComponent.fontSize = Theme.Body;
-            }
-            if (input.placeholder is TextMeshProUGUI ph) {
-                ph.font = font;
-                ph.color = Theme.Muted;
-                ph.fontSize = Theme.Body;
-                ph.text = placeholder;
-            }
-            input.text = text;
         }
 
         // ColorTint multiplies targetGraphic.color, so keep white-ish multipliers and lift on hover
