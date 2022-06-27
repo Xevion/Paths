@@ -2,7 +2,6 @@ using System;
 using Algorithms;
 using Game.UI;
 using LevelGeneration;
-using TMPro;
 #if UNITY_EDITOR
 using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds otherwise
 #endif
@@ -42,11 +41,8 @@ public enum AnimationState {
 public class UIController : MonoBehaviour {
     // UI & important App references - serialized but private now, nothing outside this class reaches
     // into them. still wired in the scene exactly as before (the field names didn't change).
-    // progressSlider is the legacy bottom slider - retired (hidden) now the toolbar owns the timeline.
-    [SerializeField] private CustomSlider progressSlider;
     [SerializeField] private GridController gridController;
     [SerializeField] private Camera mainCamera;
-    [SerializeField] private TextMeshPro debugText;
     [SerializeField] private GameObject gridObject;
 
     // Animation State
@@ -113,10 +109,6 @@ public class UIController : MonoBehaviour {
         ApplyGridTheme(0); // Dark; the scene's clear color is an off-theme gray we override here
         _gridFade = idleFade;
         gridController.SetFade(_gridFade);
-
-        // the old bottom slider is retired - the toolbar owns the timeline now. hide the scene object.
-        if (progressSlider != null) progressSlider.gameObject.SetActive(false);
-        if (debugText != null) debugText.enabled = false;
 
         BuildShell();
     }
