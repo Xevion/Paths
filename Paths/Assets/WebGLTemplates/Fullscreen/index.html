@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #12151b;
+      }
+      /* the canvas is the whole viewport; Unity syncs its drawing buffer to this size */
+      #unity-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        background: #12151b;
+      }
+      #loader {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 220px;
+        margin: -1px 0 0 -110px;
+        height: 2px;
+        background: #2c3340;
+      }
+      #bar {
+        width: 0;
+        height: 100%;
+        background: #29d3e6;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="loader"><div id="bar"></div></div>
+    <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+    <script>
+      var loader = document.querySelector("#loader");
+      var bar = document.querySelector("#bar");
+
+      createUnityInstance(document.querySelector("#unity-canvas"), {
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+#if MEMORY_FILENAME
+        memoryUrl: "Build/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: "Build/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "{{{ COMPANY_NAME }}}",
+        productName: "{{{ PRODUCT_NAME }}}",
+        productVersion: "{{{ PRODUCT_VERSION }}}",
+      }, function (progress) {
+        bar.style.width = (progress * 100) + "%";
+      }).then(function (instance) {
+        loader.style.display = "none";
+        // keystrokes go to the canvas, not the page
+        instance.Module.canvas.focus();
+      });
+    </script>
+  </body>
+</html>

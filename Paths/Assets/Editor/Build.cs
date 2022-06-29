@@ -46,6 +46,9 @@ namespace Editor {
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.runInBackground = true;
+            // the stock template hardcodes the canvas to defaultScreenWidth/Height, which renders the
+            // demo as a small box in the corner of the page - ours fills the viewport instead
+            PlayerSettings.WebGL.template = "PROJECT:Fullscreen";
 
             Run(new BuildPlayerOptions {
                 scenes = Scenes,
