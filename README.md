@@ -2,7 +2,7 @@
   <img src="./.media/banner.png" alt="Paths" width="820">
 </p>
 
-Watch pathfinding algorithms work, cell by cell.
+Watch pathfinding algorithms work, cell by cell. **[Try it](https://paths.xevion.dev)** in the browser.
 
 Paths animates the search over a grid that stays editable while it runs. It draws every cell the
 algorithm has seen, every cell it has expanded, and the path it settles on. Draw walls, drag the
@@ -70,8 +70,10 @@ make test    # EditMode tests
 make compile # compile and import only, no build
 ```
 
-`make web` produces a self-contained build under `Build/WebGL`. It loads off any static host, so
-dropping that folder somewhere is the whole deploy.
+`make web` produces the deployable build under `Build/WebGL`, which is what runs at
+[paths.xevion.dev](https://paths.xevion.dev). It ships gzipped and expects the host to say so, with
+the rules in `_headers` alongside it. Dropping that folder on a host that reads them is the whole
+deploy.
 
 ## Roadmap
 
