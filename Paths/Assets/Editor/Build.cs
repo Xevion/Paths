@@ -41,9 +41,9 @@ namespace Editor {
             // GLES2, and every browser worth targeting in 2021 does WebGL2 anyway.
             PlayerSettings.SetGraphicsAPIs(BuildTarget.WebGL, new[] { GraphicsDeviceType.OpenGLES3 });
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
-            // ships a JS decompressor so it loads off a plain static server (python http.server,
-            // GitHub Pages) without the host having to set Content-Encoding headers.
-            PlayerSettings.WebGL.decompressionFallback = true;
+            // no JS decompressor - the host advertises Content-Encoding (see the template's _headers)
+            // and the browser inflates natively, which is both faster and a smaller download.
+            PlayerSettings.WebGL.decompressionFallback = false;
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.runInBackground = true;
             // the stock template hardcodes the canvas to defaultScreenWidth/Height, which renders the

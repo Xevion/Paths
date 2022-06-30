@@ -33,10 +33,11 @@ SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.sh
 demo: $(STAMP)
 	./$(PLAYER)
 
-# build the WebGL demo if stale, then serve it (WebGL can't run off file://)
+# build the WebGL demo if stale, then serve it (WebGL can't run off file://).
+# serve.py sends the gzip headers the build needs; plain http.server won't.
 web: $(WEBSTAMP)
 	@echo "serving $(WEB) at http://localhost:$(PORT) - ctrl-c to stop"
-	cd $(WEB) && python3 -m http.server $(PORT)
+	cd $(WEB) && python3 ../../tools/serve.py $(PORT)
 
 build: $(STAMP)
 

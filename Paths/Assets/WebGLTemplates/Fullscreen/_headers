@@ -1,0 +1,16 @@
+# The build ships gzip-compressed with no JS fallback, so the host has to advertise the
+# encoding or the browser hands the loader compressed bytes and it never starts. The real
+# type has to be restated too, since it would otherwise be guessed from the .gz suffix,
+# and the wasm needs application/wasm to compile as it streams.
+
+/Build/WebGL.wasm.gz
+  Content-Type: application/wasm
+  Content-Encoding: gzip
+
+/Build/WebGL.framework.js.gz
+  Content-Type: application/javascript
+  Content-Encoding: gzip
+
+/Build/WebGL.data.gz
+  Content-Type: application/octet-stream
+  Content-Encoding: gzip
