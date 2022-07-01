@@ -40,9 +40,10 @@ namespace Editor {
             // WebGL2 only - the grid shader's dynamic colour-array index doesn't compile under
             // GLES2, and every browser worth targeting in 2021 does WebGL2 anyway.
             PlayerSettings.SetGraphicsAPIs(BuildTarget.WebGL, new[] { GraphicsDeviceType.OpenGLES3 });
-            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
-            // no JS decompressor - the host advertises Content-Encoding (see the template's _headers)
-            // and the browser inflates natively, which is both faster and a smaller download.
+            // ship uncompressed and let the host compress on the fly. pre-compressing instead means
+            // either a JS decompressor in the loader or the host re-compressing what's already
+            // compressed, which serves double-gzipped bytes the browser can't unwrap.
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
             PlayerSettings.WebGL.decompressionFallback = false;
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.runInBackground = true;
