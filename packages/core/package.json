@@ -1,0 +1,10 @@
+{
+  "name": "com.xevion.paths.core",
+  "displayName": "Paths Core",
+  "version": "0.1.0",
+  "unity": "2020.3",
+  "description": "Grid pathfinding and level generation, with no dependency on Unity's runtime. Consumed by the Paths app as a local package, and compiled standalone by Paths.Core.csproj so it can be tested outside the editor.",
+  "author": {
+    "name": "Xevion"
+  }
+}
