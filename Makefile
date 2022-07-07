@@ -2,7 +2,7 @@
 # UNITY has to point at the 2020.3 editor binary; that path is machine specific so
 # set it in local.mk (not committed) rather than here.
 UNITY ?= unity
-PROJECT := Paths
+PROJECT := app
 PLAYER := Build/Linux/Paths
 WEB := Build/WebGL
 PORT ?= 8000
