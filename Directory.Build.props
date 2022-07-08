@@ -1,0 +1,10 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Keep bin/ and obj/ out of packages/core. Unity imports everything inside a local package,
+         so it found two copies of Paths.Core.dll and refused to compile. Build/ is already ignored. -->
+    <BaseOutputPath>$(MSBuildThisFileDirectory)Build/dotnet/$(MSBuildProjectName)/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)Build/dotnet/$(MSBuildProjectName)/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>
