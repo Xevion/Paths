@@ -48,6 +48,10 @@ ExportedObj/
 *.opendb
 *.VC.db
 
+# ...except the ones we actually maintain. Unity regenerates its own csproj files, these are ours.
+!Paths.sln
+!packages/core/Paths.Core.csproj
+
 # Unity3D generated meta files
 *.pidb.meta
 *.pdb.meta

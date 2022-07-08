@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Paths.Core</AssemblyName>
+    <!-- Unity 2020.3 is on C# 8, so don't let this build accept syntax the editor would reject. -->
+    <LangVersion>8.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!-- Runtime/ is what Unity compiles through the asmdef. Shim/ is dotnet-only. -->
+  <ItemGroup>
+    <Compile Include="Runtime/**/*.cs" />
+    <Compile Include="Shim/**/*.cs" />
+  </ItemGroup>
+
+</Project>
