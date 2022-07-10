@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using Algorithms;
 using UnityEngine;
 
@@ -28,6 +29,27 @@ namespace Paths.Tests {
         public static float Cost(IPathfinding algo, Vector2Int start, Vector2Int end, NodeGrid grid) {
             Stack<Node> path = algo.FindPath(start, end);
             return path == null ? -1f : grid.GetNode(end).Cost.Value;
+        }
+
+        /// <summary>
+        /// Draws the grid into a failure message. A seed and a pair of floats say nothing about why
+        /// a search went wrong; the map it was walking usually says it immediately.
+        /// </summary>
+        public static string Render(NodeGrid grid, Vector2Int start, Vector2Int end) {
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            // top row first so the output reads the way the grid is drawn on screen
+            for (int y = grid.Height - 1; y >= 0; y--) {
+                sb.Append("    ");
+                for (int x = 0; x < grid.Width; x++) {
+                    var at = new Vector2Int(x, y);
+                    if (at == start) sb.Append('S');
+                    else if (at == end) sb.Append('E');
+                    else sb.Append(grid.Grid[x, y].Walkable ? '.' : '#');
+                }
+                sb.AppendLine();
+            }
+            return sb.ToString();
         }
 
         /// <summary>

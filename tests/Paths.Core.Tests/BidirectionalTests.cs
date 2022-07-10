@@ -36,7 +36,7 @@ namespace Paths.Tests {
                             float cost = Cost(bd, start, end, grid);
                             bd.Cleanup();
 
-                            string where = $"diagonal {diagonal}, size {size}, density {density}, seed {seed}";
+                            string where = $"diagonal {diagonal}, size {size}, density {density}, seed {seed}{Render(grid, start, end)}";
                             Assert.AreEqual(reference < 0, cost < 0, $"reachability mismatch on {where}");
                             if (reference >= 0)
                                 Assert.AreEqual(reference, cost, Eps, $"cost mismatch on {where}");
