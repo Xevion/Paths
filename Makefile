@@ -2,6 +2,7 @@
 # UNITY has to point at the 2020.3 editor binary; that path is machine specific so
 # set it in local.mk (not committed) rather than here.
 UNITY ?= unity
+DOTNET ?= dotnet
 PROJECT := app
 PLAYER := Build/Linux/Paths
 WEB := Build/WebGL
@@ -67,9 +68,10 @@ compile:
 		&& echo "compile OK" \
 		|| (echo "compile FAILED (see $(LOG)):"; grep -snE 'error CS|: error |Compilation failed' $(LOG) | head -40; false)
 
+# the core tests build against packages/core directly, so they run here in a couple of seconds
+# instead of waiting on an editor domain reload.
 test:
-	@mkdir -p Build
-	$(UNITY) -batchmode -nographics -quit -projectPath $(PROJECT) -runTests -testPlatform EditMode -testResults Build/results.xml $(LOGARG)
+	$(DOTNET) test Paths.sln --nologo
 
 open:
 	$(UNITY) -projectPath $(PROJECT)
