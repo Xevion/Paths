@@ -6,7 +6,7 @@ namespace Algorithms {
         None, Open, Closed
     }
     
-    public class Node : IComparable<Node> {
+    public class Node {
         // Change this depending on what the desired size is for each element in the grid
         public Node Parent;
         public readonly Vector2Int Position;
@@ -53,12 +53,6 @@ namespace Algorithms {
 
         public override int GetHashCode() {
             return Position.GetHashCode();
-        }
-
-        public int CompareTo(Node other) {
-            int diff = (int) (this.F - other.F);
-            return diff;
-            // return diff != 0 ? diff : NodeGrid.SignedManhattan(Position, other.Position);
         }
 
         public override string ToString() {

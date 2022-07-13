@@ -68,16 +68,27 @@ namespace Algorithms {
                     break;
 
                 foreach (Node node in NodeGrid.Neighbors(current, Diagonal)) {
-                    if (!node.Walkable || node.State != NodeState.None)
+                    if (!node.Walkable || node.State == NodeState.Closed)
                         continue;
 
+                    // an open node can still be sitting on a worse route than the one we just found.
+                    // ordering by f means g doesn't arrive sorted, so scoring once at discovery leaves
+                    // the wrong cost in place - take the cheaper one and requeue.
+                    float cost = current.Cost.Value + StepCost(current, node);
+                    if (node.State == NodeState.Open && cost >= node.Cost.Value)
+                        continue;
+
+                    if (node.State == NodeState.None) {
+                        ChangeController.AddChange(new Change(node.Position.x, node.Position.y,
+                            GridNodeType.Seen, GridNodeType.Empty));
+                        Touch(node);
+                    }
+
                     node.Parent = current;
-                    node.Cost = current.Cost + StepCost(current, node);
+                    node.Cost = cost;
                     node.DistanceToTarget = Estimate(node, endNode);
                     node.State = NodeState.Open;
-                    ChangeController.AddChange(new Change(node.Position.x, node.Position.y,
-                        GridNodeType.Seen, GridNodeType.Empty));
-                    Touch(node);
+                    // the stale frontier entry stays put; it gets skipped as Closed when it surfaces
                     Add(node);
                 }
             }
