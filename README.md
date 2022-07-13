@@ -15,7 +15,7 @@ a single wall reshape the path without losing where you were.
 
 | Algorithm | Notes |
 |---|---|
-| **A\*** | Informed, optimal. A weight above 1x trades optimality for speed |
+| **A\*** | Informed. Shortest path when the heuristic fits the movement and the weight is 1x |
 | **Dijkstra** | Uniform cost, no heuristic |
 | **Greedy best-first** | Heuristic only, not optimal |
 | **Breadth-first** | The uninformed baseline |
@@ -26,6 +26,11 @@ a single wall reshape the path without losing where you were.
 A\*, Dijkstra and Greedy share an expand loop with a sorted frontier. The heuristic (Manhattan,
 Euclidean or Chebyshev) and 8-direction movement are toggled in the sidebar. JPS is the exception.
 It is 8-connected by design, so the diagonal toggle does not apply to it.
+
+Pick the heuristic to match the movement. Manhattan counts a diagonal step as two when it really
+costs about 1.41, so with 8-direction movement on it overestimates and A\* stops finding the
+shortest path. Euclidean and Chebyshev both stay honest there, and Dijkstra uses no heuristic at
+all, so it is never affected.
 
 ## Generators
 
