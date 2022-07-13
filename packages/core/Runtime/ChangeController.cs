@@ -16,7 +16,9 @@ public class ChangeController {
     public double CurrentRuntime => _changes[CurrentChangeIndex].Time - _changes[0].Time;
 
     public ChangeController(GridNodeType[,] initial) {
-        _initial = initial;
+        // keep a pristine copy - Current gets mutated in place as changes are applied, so holding
+        // the same array in both meant Reset had nothing left to restore from
+        _initial = (GridNodeType[,]) initial.Clone();
         Current = initial;
         CurrentChangeIndex = -1;
         _changes = new List<Change>();
@@ -50,7 +52,8 @@ public class ChangeController {
     /// Resets the ChangeController back to the initial state.
     /// </summary>
     public void Reset() {
-        Current = _initial;
+        Current = (GridNodeType[,]) _initial.Clone();
+        CurrentChangeIndex = -1;
         SetDirty();
     }
 
@@ -88,14 +91,10 @@ public class ChangeController {
         if (n < 0)
             throw new ArgumentOutOfRangeException(nameof(n));
 
-        if (n > 5 && CurrentChangeIndex - n == 0)
-            Reset(); // resetting by copying values instead of mutating might be easier.
-        else {
-            for (int i = 0; i < n; i++) {
-                Change cur = _changes[CurrentChangeIndex--]; // post decrement as we apply the current Change's old, not the previous
-                Current[cur.X, cur.Y] = cur.Old;
-                SetDirty(new Vector2Int(cur.X, cur.Y));
-            }
+        for (int i = 0; i < n; i++) {
+            Change cur = _changes[CurrentChangeIndex--]; // post decrement as we apply the current Change's old, not the previous
+            Current[cur.X, cur.Y] = cur.Old;
+            SetDirty(new Vector2Int(cur.X, cur.Y));
         }
     }
 
@@ -123,14 +122,7 @@ public class ChangeController {
             throw new ArgumentOutOfRangeException(nameof(index),
                 $"Cannot move to change index {index}. Only indexes from 0 to {_changes.Count - 1} are valid.");
 
-        // diff & move to
-        int diff = index - CurrentChangeIndex;
-        if (diff != 0)
-            // prefer resetting if index is 0 and it needs to move at least some.
-            if (index == 0 && diff > 5)
-                Reset();
-            else
-                Move(diff);
+        Move(index - CurrentChangeIndex);
     }
 
     /// <summary>
