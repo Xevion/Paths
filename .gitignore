@@ -53,6 +53,7 @@ ExportedObj/
 !Paths.sln
 !packages/core/Paths.Core.csproj
 !tests/Paths.Core.Tests/Paths.Core.Tests.csproj
+!bench/Paths.Benchmarks/Paths.Benchmarks.csproj
 
 # Unity3D generated meta files
 *.pidb.meta

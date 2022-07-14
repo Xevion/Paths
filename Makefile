@@ -28,7 +28,7 @@ endif
 # vendored, never changes, and the space in the path trips up make's prereq parsing.
 SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \) -not -path '*/TextMesh Pro/*')
 
-.PHONY: demo build run play web compile test open clean
+.PHONY: demo build run play web compile test bench open clean
 
 # build if stale, then run the demo
 demo: $(STAMP)
@@ -72,6 +72,10 @@ compile:
 # instead of waiting on an editor domain reload.
 test:
 	$(DOTNET) test Paths.sln --nologo
+
+# release only - a debug build's numbers are meaningless. BENCH=<filter> to run just one.
+bench:
+	$(DOTNET) run -c Release --project bench/Paths.Benchmarks -- --filter $(or $(BENCH),*)
 
 open:
 	$(UNITY) -projectPath $(PROJECT)
