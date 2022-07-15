@@ -7,6 +7,7 @@ namespace Paths.Benchmarks {
     /// Worth its own number to tell "the frontier is slow" apart from "walking the grid is slow".
     /// </summary>
     [MemoryDiagnoser]
+    [SimpleJob(warmupCount: 2, targetCount: 5)]
     public class NeighborsBenchmark {
         [Params(128)]
         public int Size;

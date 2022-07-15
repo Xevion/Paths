@@ -10,6 +10,7 @@ namespace Paths.Benchmarks {
     /// measure is how that insert holds up as the grid grows.
     /// </summary>
     [MemoryDiagnoser]
+    [SimpleJob(warmupCount: 2, targetCount: 5)]
     public class SearchBenchmarks {
         [Params(32, 128, 256)]
         public int Size;
