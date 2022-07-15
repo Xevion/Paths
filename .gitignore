@@ -8,6 +8,7 @@
 [Oo]bj/
 [Bb]in/
 [Bb]uild/
+BenchmarkDotNet.Artifacts/
 [Bb]uilds/
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
