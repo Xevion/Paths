@@ -75,7 +75,7 @@ test:
 
 # release only - a debug build's numbers are meaningless. BENCH=<filter> to run just one.
 bench:
-	$(DOTNET) run -c Release --project bench/Paths.Benchmarks -- --filter $(or $(BENCH),*)
+	$(DOTNET) run -c Release --project bench/Paths.Benchmarks -- --filter '$(or $(BENCH),*)'
 
 open:
 	$(UNITY) -projectPath $(PROJECT)
