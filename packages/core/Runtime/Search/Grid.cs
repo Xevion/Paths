@@ -55,5 +55,42 @@ namespace Paths.Core.Search {
                 throw new ArgumentOutOfRangeException(nameof(weight), weight, "cell weight must be positive");
             _weight[index] = weight;
         }
+
+        /// <summary>Most neighbours any cell can have, so callers can size a buffer once.</summary>
+        public const int MaxNeighbors = 8;
+
+        /// <summary>
+        /// Writes the walkable neighbours of a cell into the buffer and returns how many there were.
+        /// Takes a buffer rather than returning a collection because this runs once per expanded
+        /// node, and an allocation there shows up in every search.
+        ///
+        /// Diagonals never cut corners: both orthogonals a diagonal squeezes between have to be open.
+        /// </summary>
+        public int Neighbors(int index, bool diagonal, int[] buffer) {
+            int x = index % Width;
+            int y = index / Width;
+            int count = 0;
+
+            // these double as the bounds check and as the corner-cutting test below
+            bool west = x > 0 && _walkable[index - 1];
+            bool east = x < Width - 1 && _walkable[index + 1];
+            bool south = y > 0 && _walkable[index - Width];
+            bool north = y < Height - 1 && _walkable[index + Width];
+
+            if (west) buffer[count++] = index - 1;
+            if (east) buffer[count++] = index + 1;
+            if (south) buffer[count++] = index - Width;
+            if (north) buffer[count++] = index + Width;
+
+            if (!diagonal)
+                return count;
+
+            if (west && south && _walkable[index - Width - 1]) buffer[count++] = index - Width - 1;
+            if (east && south && _walkable[index - Width + 1]) buffer[count++] = index - Width + 1;
+            if (west && north && _walkable[index + Width - 1]) buffer[count++] = index + Width - 1;
+            if (east && north && _walkable[index + Width + 1]) buffer[count++] = index + Width + 1;
+
+            return count;
+        }
     }
 }
