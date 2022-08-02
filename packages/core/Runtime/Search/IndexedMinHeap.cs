@@ -77,6 +77,23 @@ namespace Paths.Core.Search {
             return top;
         }
 
+        /// <summary>
+        /// Lowers a queued cell's key and floats it up to where it now belongs. This is what the
+        /// slot table is for: relaxing a cell that is already queued costs one sift, instead of a
+        /// second entry that later has to be recognised as stale and thrown away.
+        /// </summary>
+        public void DecreaseKey(int cell, float key) {
+            int at = _slot[cell];
+            if (at == Absent)
+                throw new InvalidOperationException($"cell {cell} is not queued");
+            if (key > _key[cell])
+                throw new ArgumentOutOfRangeException(nameof(key), key,
+                    $"decrease-key cannot raise a key, {cell} is already at {_key[cell]}");
+
+            _key[cell] = key;
+            SiftUp(at);
+        }
+
         // both sifts carry the moving cell along rather than swapping pairwise, so each step is one
         // write instead of three
         private void SiftUp(int at) {
