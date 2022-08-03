@@ -39,6 +39,21 @@ Walking every cell's neighbours once, on a 128x128 grid.
 | Orthogonal | 531 us | 1 MB |
 | Diagonal | 856 us | 2 MB |
 
+## The frontier on its own
+
+Filling a frontier and draining it again, sorted list against the new heap. Counts are the cell
+counts of a 32x32 and a 128x128 grid.
+
+| Count | Sorted list | Heap | Ratio |
+|---|---:|---:|---:|
+| 1,024 | 202 us | 24 us | 0.12 |
+| 16,384 | 46,310 us | 1,553 us | 0.03 |
+
+Sixteen times the elements costs the sorted list 230x the time, and the heap 65x. That is the
+difference between quadratic and n log n, and it is the whole reason the searches fall over as the
+grid grows. The sorted-list side of this measurement even reads its keys out of an array, where the
+real frontier calls a virtual method per comparison, so the gap in the app is wider than this.
+
 ## What stands out
 
 A* costs 4x more going from 128 to 256 in cells but 6x in time, and Dijkstra does the same. That
