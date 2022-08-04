@@ -59,6 +59,19 @@ namespace Paths.Core.Search {
         /// <summary>Most neighbours any cell can have, so callers can size a buffer once.</summary>
         public const int MaxNeighbors = 8;
 
+        /// <summary>What a diagonal step costs, against 1 for an orthogonal one.</summary>
+        public const float DiagonalCost = 1.41421356f;
+
+        /// <summary>
+        /// What it costs to step between two adjacent cells: the distance covered, scaled by what
+        /// the destination charges to enter. Only meaningful for cells that are actually adjacent,
+        /// which is all the searches ever ask about.
+        /// </summary>
+        public float StepCost(int from, int to) {
+            bool diagonal = from % Width != to % Width && from / Width != to / Width;
+            return (diagonal ? DiagonalCost : 1f) * _weight[to];
+        }
+
         /// <summary>
         /// Writes the walkable neighbours of a cell into the buffer and returns how many there were.
         /// Takes a buffer rather than returning a collection because this runs once per expanded

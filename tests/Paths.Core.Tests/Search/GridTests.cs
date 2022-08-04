@@ -67,6 +67,29 @@ namespace Paths.Tests.Search {
         }
 
         [Test]
+        public void StepCostChargesMoreForADiagonal() {
+            var grid = new Grid(5, 5);
+            int from = grid.Index(new Coord(2, 2));
+
+            Assert.AreEqual(1f, grid.StepCost(from, grid.Index(new Coord(3, 2))), 1e-5f);
+            Assert.AreEqual(1f, grid.StepCost(from, grid.Index(new Coord(2, 3))), 1e-5f);
+            Assert.AreEqual(Grid.DiagonalCost, grid.StepCost(from, grid.Index(new Coord(3, 3))), 1e-5f);
+            Assert.AreEqual(Grid.DiagonalCost, grid.StepCost(from, grid.Index(new Coord(1, 3))), 1e-5f);
+        }
+
+        [Test]
+        public void StepCostScalesByWhatTheDestinationCharges() {
+            var grid = new Grid(5, 5);
+            int from = grid.Index(new Coord(2, 2));
+            int to = grid.Index(new Coord(3, 2));
+            grid.SetWeight(to, 3f);
+
+            Assert.AreEqual(3f, grid.StepCost(from, to), 1e-5f);
+            Assert.AreEqual(1f, grid.StepCost(to, from), 1e-5f,
+                "the weight belongs to the cell being entered, not the one being left");
+        }
+
+        [Test]
         public void RejectsAnEmptyGrid() {
             Assert.Throws<ArgumentOutOfRangeException>(() => new Grid(0, 4));
             Assert.Throws<ArgumentOutOfRangeException>(() => new Grid(4, -1));
