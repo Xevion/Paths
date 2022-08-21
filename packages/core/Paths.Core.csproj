@@ -8,10 +8,9 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
-  <!-- Runtime/ is what Unity compiles through the asmdef. Shim/ is dotnet-only. -->
+  <!-- exactly what Unity compiles through the asmdef, and nothing else -->
   <ItemGroup>
     <Compile Include="Runtime/**/*.cs" />
-    <Compile Include="Shim/**/*.cs" />
   </ItemGroup>
 
 </Project>

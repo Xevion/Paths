@@ -98,8 +98,12 @@ public class PathSolver {
     public ChangeController Solve() {
         int start = Grid.Index(Start);
         int goal = Grid.Index(End);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         _result = Create().Search(Grid, start, goal, new SearchOptions(Diagonal, Heuristic, Weight));
-        return SearchTrace.Build(Grid, _result, start, goal);
+        clock.Stop();
+
+        return SearchTrace.Build(Grid, _result, start, goal, clock.Elapsed.TotalSeconds);
     }
 
     private ISearch Create() {

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 /// <summary>
-/// Helps manage Change value types by rendering forward/backward movements to a Enum array.
+/// The recorded timeline of a search, as a picture of the grid plus every change made to it.
+/// Playback walks the index back and forth; the picture is kept up to date as it moves.
 /// </summary>
 public class ChangeController {
     private readonly GridNodeType[,] _initial;
@@ -13,9 +13,19 @@ public class ChangeController {
     private readonly List<Change> _changes;
     public int Count => _changes.Count;
     public Change CurrentChange => _changes[CurrentChangeIndex];
-    public double CurrentRuntime => _changes[CurrentChangeIndex].Time - _changes[0].Time;
 
-    public ChangeController(GridNodeType[,] initial) {
+    /// <summary>How long the search took, in seconds.</summary>
+    public double Duration { get; }
+
+    /// <summary>
+    /// How far into that duration the playhead sits. Changes are recorded after the search has
+    /// finished rather than as it runs, so there is no per-change timestamp to read; the elapsed
+    /// total is real and this spreads it evenly across the steps.
+    /// </summary>
+    public double CurrentRuntime => Count == 0 ? 0d : Duration * (CurrentChangeIndex + 1) / Count;
+
+    public ChangeController(GridNodeType[,] initial, double duration = 0d) {
+        Duration = duration;
         // keep a pristine copy - Current gets mutated in place as changes are applied, so holding
         // the same array in both meant Reset had nothing left to restore from
         _initial = (GridNodeType[,]) initial.Clone();
@@ -44,8 +54,8 @@ public class ChangeController {
     /// Sets only a specific position as dirty.
     /// </summary>
     /// <param name="position"></param>
-    public void SetDirty(Vector2Int position) {
-        DirtyFlags[position.x, position.y] = true;
+    public void SetDirty(int x, int y) {
+        DirtyFlags[x, y] = true;
     }
 
     /// <summary>
@@ -78,7 +88,7 @@ public class ChangeController {
         for (int i = 0; i < n; i++) {
             Change cur = _changes[++CurrentChangeIndex];
             Current[cur.X, cur.Y] = cur.New;
-            SetDirty(new Vector2Int(cur.X, cur.Y));
+            SetDirty(cur.X, cur.Y);
         }
     }
 
@@ -94,7 +104,7 @@ public class ChangeController {
         for (int i = 0; i < n; i++) {
             Change cur = _changes[CurrentChangeIndex--]; // post decrement as we apply the current Change's old, not the previous
             Current[cur.X, cur.Y] = cur.Old;
-            SetDirty(new Vector2Int(cur.X, cur.Y));
+            SetDirty(cur.X, cur.Y);
         }
     }
 
@@ -125,24 +135,4 @@ public class ChangeController {
         Move(index - CurrentChangeIndex);
     }
 
-    /// <summary>
-    /// Removes all Change values referencing a specific position.
-    /// Intended for fixing start and end positions.
-    /// Works in reverse, i.e. count = 1 removes the last position if any.
-    /// </summary>
-    /// <param name="position">The Vector2Int position to look for.</param>
-    /// <param name="count">Maximum number of Change values to remove. -1 for all.</param>
-    public void RemovePositions(Vector2Int position, int count = -1) {
-        if (count == 0)
-            return;
-
-        for (int i = _changes.Count - 1; i >= 0; i--)
-            if (_changes[i].X == position.x && _changes[i].Y == position.y) {
-                _changes.RemoveAt(i);
-
-                // Return if the count is now zero.
-                if (--count == 0)
-                    return;
-            }
-    }
 }

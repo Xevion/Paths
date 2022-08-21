@@ -8,12 +8,12 @@ using Paths.Core.Search;
 /// about rendering; the timeline needs an initial picture plus a before-and-after for every step.
 /// </summary>
 public static class SearchTrace {
-    public static ChangeController Build(Grid grid, SearchResult result, int start, int goal) {
+    public static ChangeController Build(Grid grid, SearchResult result, int start, int goal, double duration = 0d) {
         GridNodeType[,] initial = Render(grid, start, goal);
 
         // walk a copy alongside so each change carries the value it actually replaced
         var current = (GridNodeType[,]) initial.Clone();
-        var controller = new ChangeController(initial);
+        var controller = new ChangeController(initial, duration);
 
         foreach (Visit visit in result.Visits) {
             // start and end are painted once, up front, and never scribbled over
