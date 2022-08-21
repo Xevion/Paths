@@ -1,13 +1,9 @@
-using System.Collections.Generic;
-using Algorithms;
 using BenchmarkDotNet.Attributes;
-using UnityEngine;
+using Paths.Core.Search;
 
 namespace Paths.Benchmarks {
     /// <summary>
-    /// One full solve per operation: build the search, find the path, clean the grid back up.
-    /// A*, Dijkstra and Greedy all share BestFirst's sorted-list frontier, so most of what these
-    /// measure is how that insert holds up as the grid grows.
+    /// One full solve per operation, corner to corner over a seeded 22% wall scatter.
     /// </summary>
     [MemoryDiagnoser]
     [SimpleJob(warmupCount: 2, targetCount: 5)]
@@ -15,36 +11,34 @@ namespace Paths.Benchmarks {
         [Params(32, 128, 256)]
         public int Size;
 
-        private NodeGrid _grid;
-        private Vector2Int _start;
-        private Vector2Int _end;
+        private Grid _grid;
+        private int _start;
+        private int _goal;
+        private SearchOptions _options;
 
         [GlobalSetup]
         public void Setup() {
             _grid = Grids.Seeded(Size, 0.22);
-            _start = new Vector2Int(0, 0);
-            _end = new Vector2Int(Size - 1, Size - 1);
+            _start = _grid.Index(new Coord(0, 0));
+            _goal = _grid.Index(new Coord(Size - 1, Size - 1));
+            _options = new SearchOptions(true, Heuristic.Octile);
         }
+
+        private int Solve(ISearch search) => search.Search(_grid, _start, _goal, _options).Path.Count;
 
         [Benchmark(Baseline = true)]
-        public int AStar() => Solve(new AStar(_grid, Heuristic.Euclidean, true));
+        public int AStar() => Solve(new AStarSearch());
 
         [Benchmark]
-        public int Dijkstra() => Solve(new Dijkstra(_grid, true));
+        public int Dijkstra() => Solve(new DijkstraSearch());
 
         [Benchmark]
-        public int Greedy() => Solve(new Greedy(_grid, Heuristic.Euclidean, true));
+        public int Greedy() => Solve(new GreedySearch());
 
         [Benchmark]
-        public int JumpPoint() => Solve(new JumpPoint(_grid));
+        public int JumpPoint() => Solve(new JumpPointSearch());
 
         [Benchmark]
-        public int Bidirectional() => Solve(new Bidirectional(_grid, true));
-
-        private int Solve(IPathfinding search) {
-            Stack<Node> path = search.FindPath(_start, _end);
-            search.Cleanup();
-            return path?.Count ?? 0;
-        }
+        public int Bidirectional() => Solve(new BidirectionalSearch());
     }
 }
