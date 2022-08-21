@@ -1,5 +1,6 @@
 using System;
-using Algorithms;
+using Game;
+using Paths.Core.Search;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -49,17 +50,18 @@ public class GridEditor {
         // the camera can be zoomed/panned so the cursor is easily off the grid - ignore those clicks
         if (!_gridController.CellAt(worldMouse, out Vector2Int position))
             return state;
+        Coord cell = position.ToCoord();
 
         // Initial click, remember what they grabbed
         if (Input.GetMouseButtonDown(0)) {
-            if (position == _solver.Start)
+            if (cell == _solver.Start)
                 _modify = ClickType.Start;
-            else if (position == _solver.End)
+            else if (cell == _solver.End)
                 _modify = ClickType.End;
             else {
-                Node node = _solver.GetNode(position);
-                _modify = node.Walkable ? ClickType.Add : ClickType.Remove;
-                node.Walkable = !node.Walkable;
+                bool walkable = _solver.IsWalkable(cell);
+                _modify = walkable ? ClickType.Add : ClickType.Remove;
+                _solver.SetWalkable(cell, !walkable);
                 Dirtied = true;
                 // either way we recompute; staying parked at the same step is handled by UIController
                 if (state == AnimationState.Paused || state == AnimationState.Started)
@@ -71,24 +73,23 @@ public class GridEditor {
         // still holding the button & dragged onto a new cell
         else if (_lastClickLocation != position) {
             _lastClickLocation = position;
-            Node node = _solver.GetNode(position);
             switch (_modify) {
                 // wall toggling reloads instantly, but only a real start/end move reloads
                 case ClickType.Add:
-                    node.Walkable = false;
+                    _solver.SetWalkable(cell, false);
                     Dirtied = true;
                     if (ShouldReload(state))
                         state = AnimationState.Reloading;
                     break;
                 case ClickType.Remove:
-                    node.Walkable = true;
+                    _solver.SetWalkable(cell, true);
                     Dirtied = true;
                     if (ShouldReload(state))
                         state = AnimationState.Reloading;
                     break;
                 case ClickType.Start:
-                    if (node.Walkable) {
-                        _solver.Start = position;
+                    if (_solver.IsWalkable(cell)) {
+                        _solver.Start = cell;
                         Dirtied = true;
                         if (ShouldReload(state))
                             state = AnimationState.Reloading;
@@ -96,8 +97,8 @@ public class GridEditor {
 
                     break;
                 case ClickType.End:
-                    if (node.Walkable) {
-                        _solver.End = position;
+                    if (_solver.IsWalkable(cell)) {
+                        _solver.End = cell;
                         Dirtied = true;
                         if (ShouldReload(state))
                             state = AnimationState.Reloading;
@@ -113,8 +114,8 @@ public class GridEditor {
         if (_modify == ClickType.Start || _modify == ClickType.End) {
             Ghosting = true;
             GhostKind = _modify;
-            Vector2Int other = _modify == ClickType.Start ? _solver.End : _solver.Start;
-            GhostValid = _solver.GetNode(position).Walkable && position != other;
+            Coord other = _modify == ClickType.Start ? _solver.End : _solver.Start;
+            GhostValid = _solver.IsWalkable(cell) && cell != other;
         }
 
         return state;

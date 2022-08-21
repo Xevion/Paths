@@ -1,6 +1,6 @@
 using System;
-using Algorithms;
-using LevelGeneration;
+using Paths.Core.Search;
+using Paths.Core.Generation;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;

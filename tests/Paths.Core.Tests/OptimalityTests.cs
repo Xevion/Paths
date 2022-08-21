@@ -2,6 +2,8 @@ using Algorithms;
 using NUnit.Framework;
 using UnityEngine;
 using static Paths.Tests.GridCorpus;
+// the picker enum has moved on ahead of the old searches it still names here
+using Algorithm = Paths.Core.Search.Algorithm;
 
 namespace Paths.Tests {
     public class OptimalityTests {

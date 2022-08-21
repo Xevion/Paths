@@ -1,7 +1,8 @@
 using System;
-using Algorithms;
+using Game;
 using Game.UI;
-using LevelGeneration;
+using Paths.Core.Generation;
+using Paths.Core.Search;
 #if UNITY_EDITOR
 using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds otherwise
 #endif
@@ -288,7 +289,8 @@ public class UIController : MonoBehaviour {
         Vector3 world = mainCamera.ScreenToWorldPoint(Input.mousePosition);
         bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
         if (!overUi && gridController.CellAt(world, out Vector2Int cell)) {
-            bool empty = _solver.GetNode(cell).Walkable && cell != _solver.Start && cell != _solver.End;
+            bool empty = _solver.IsWalkable(cell.ToCoord()) && cell.ToCoord() != _solver.Start &&
+                         cell.ToCoord() != _solver.End;
             gridController.SetHover(cell, empty);
         } else {
             gridController.ClearHover();
@@ -387,7 +389,7 @@ public class UIController : MonoBehaviour {
                         break;
                 }
 
-        int pathLength = _solver.Path?.Count ?? 0;
+        int pathLength = _solver.Path.Count;
         _shell.SetStats(expanded, frontier, pathLength, state.CurrentRuntime);
     }
 

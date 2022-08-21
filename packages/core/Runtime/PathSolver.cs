@@ -1,42 +1,49 @@
+#nullable enable
+using System;
 using System.Collections.Generic;
-using Algorithms;
-using LevelGeneration;
-using UnityEngine;
+using Paths.Core.Generation;
+using Paths.Core.Search;
 
 /// <summary>
-/// Holds the grid being edited plus the start/end nodes, and runs the pathfinding over it.
-/// This part doesn't actually need to be a MonoBehaviour, so it's plain C# - keeps the algorithm
-/// side from being welded to UIController and the scene. Input pokes at it, UIController plays
-/// back whatever Solve() hands over.
+/// Holds the grid being edited plus the start and end cells, and runs the search over it. Plain C#
+/// on purpose: this is the whole of what the app needs from the pathfinding side, so keeping it off
+/// MonoBehaviour keeps the algorithms from being welded to the scene. Input pokes at it, and
+/// UIController plays back whatever Solve hands over.
 /// </summary>
 public class PathSolver {
-    public NodeGrid Grid { get; }
-    public Vector2Int Start { get; set; }
-    public Vector2Int End { get; set; }
-    public Stack<Node> Path { get; private set; }
+    public Grid Grid { get; }
+    public Coord Start { get; set; }
+    public Coord End { get; set; }
 
-    // what the next Solve() uses - set these from the UI, then re-solve
+    /// <summary>Cells on the last path found, start first. Empty when there wasn't one.</summary>
+    public IReadOnlyList<int> Path => _result?.Path ?? EmptyPath;
+
+    // what the next Solve uses. set these from the UI, then re-solve
     public Algorithm Algorithm { get; set; } = Algorithm.AStar;
     public Heuristic Heuristic { get; set; } = Heuristic.Manhattan;
     public bool Diagonal { get; set; }
-    public float Weight { get; set; } = 1f; // A* heuristic weight (1 = optimal)
+    public float Weight { get; set; } = 1f; // A* heuristic weight, 1 keeps it shortest
     public bool UseBidirectional { get; set; } // overrides Algorithm with a two-ended Dijkstra
 
-    private IPathfinding _algorithm;
+    private static readonly int[] EmptyPath = new int[0];
 
-    public PathSolver(int width, int height, System.Random random = null) {
-        Grid = new NodeGrid(width, height, random);
-        Start = Grid.RandomPosition();
-        End = Grid.RandomPosition();
+    private readonly Random _random;
+    private SearchResult? _result;
+
+    public PathSolver(int width, int height, Random? random = null) {
+        _random = random ?? new Random();
+        Grid = new Grid(width, height);
+        Start = RandomWalkable();
+        End = RandomWalkable(Start);
     }
 
     /// <summary>
-    /// Build a grid from a seed + generator: the same seed always lays out the same walls and start/end.
-    /// The generator paints the walls, then start/end are dropped on walkable cells so they never open
-    /// buried in a wall.
+    /// Build a grid from a seed and a generator: the same seed always lays out the same walls and
+    /// the same start and end.
     /// </summary>
     public PathSolver(int width, int height, int seed, Generator generator, float density) {
-        Grid = new NodeGrid(width, height, new System.Random(seed));
+        _random = new Random(seed);
+        Grid = new Grid(width, height);
         Generate(generator, density);
 
         Start = RandomWalkable();
@@ -45,89 +52,96 @@ public class PathSolver {
 
     /// <summary>
     /// Paint the starting layout. Rooms and Walk carve out of a solid grid rather than adding to an
-    /// open one, so density reads as how much wall to leave behind. Both keep their open space in one
-    /// connected region - a single walk, and corridors between rooms - so start and end can always meet.
+    /// open one, so density reads as how much wall to leave behind. Both keep their open space in a
+    /// single connected region, so start and end can always meet.
     /// </summary>
     private void Generate(Generator generator, float density) {
         float open = 1f - density;
         switch (generator) {
             case Generator.Random:
-                Grid.ApplyGenerator(new RandomPlacement(density, true, true));
+                new RandomPlacement(density, true, true).Generate(Grid, _random);
                 break;
             case Generator.Rooms:
                 Fill();
-                int rooms = Mathf.Clamp(Mathf.RoundToInt(Grid.CellCount * open / 90f), 3, 14);
-                Grid.ApplyGenerator(new RoomCarve(new Vector2Int(rooms, rooms + 3), new Vector2Int(3, 8), 80));
+                int rooms = Clamp((int) Math.Round(Grid.CellCount * open / 90f), 3, 14);
+                new RoomCarve(rooms, rooms + 3, 3, 8).Generate(Grid, _random);
                 break;
             case Generator.Walk:
                 Fill();
-                // one walk, not several - separate walks would carve caves that never meet
-                int steps = Mathf.Max(32, Mathf.RoundToInt(Grid.CellCount * open * 3f));
-                Grid.ApplyGenerator(new DrunkardWalk(1, steps, false));
+                // one walk, not several: separate walks would carve caves that never meet
+                int steps = Math.Max(32, (int) Math.Round(Grid.CellCount * open * 3f));
+                new DrunkardWalk(1, steps, false).Generate(Grid, _random);
                 break;
             // Empty: every cell stays walkable
         }
     }
 
     private void Fill() {
-        foreach (Node node in Grid.Iterator())
-            node.Walkable = false;
+        for (int i = 0; i < Grid.CellCount; i++)
+            Grid.SetWalkable(i, false);
     }
 
-    // a random walkable cell, so start/end never land on a wall; optionally distinct from another
-    private Vector2Int RandomWalkable(Vector2Int? avoid = null) {
+    private static int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;
+
+    // a random walkable cell, so start and end never land in a wall
+    private Coord RandomWalkable(Coord? avoid = null) {
         for (int i = 0; i < 500; i++) {
-            Vector2Int p = Grid.RandomPosition();
-            if (Grid.GetNode(p).Walkable && (!avoid.HasValue || p != avoid.Value))
-                return p;
+            int cell = _random.Next(Grid.CellCount);
+            Coord at = Grid.At(cell);
+            if (Grid.IsWalkable(cell) && (!avoid.HasValue || at != avoid.Value))
+                return at;
         }
-        return Grid.RandomPosition(); // grid packed solid - give up and take anything
+        return Grid.At(_random.Next(Grid.CellCount)); // packed solid, take anything
     }
 
-    /// <summary>Run the selected algorithm start -> end and hand back the recorded changes to play.</summary>
+    /// <summary>Run the selected search and hand back the timeline to play through.</summary>
     public ChangeController Solve() {
-        _algorithm?.Cleanup(); // undo the previous run's edits to the node grid
-        _algorithm = Create();
-        Path = _algorithm.FindPath(Start, End);
-        return _algorithm.ChangeController;
+        int start = Grid.Index(Start);
+        int goal = Grid.Index(End);
+        _result = Create().Search(Grid, start, goal, new SearchOptions(Diagonal, Heuristic, Weight));
+        return SearchTrace.Build(Grid, _result, start, goal);
     }
 
-    private IPathfinding Create() {
-        // bidirectional is a mode, not an entry in the picker - it overrides the chosen algorithm
+    private ISearch Create() {
+        // bidirectional is a mode rather than an entry in the picker, so it overrides the choice
         if (UseBidirectional)
-            return new Bidirectional(Grid, Diagonal);
+            return new BidirectionalSearch();
+
         switch (Algorithm) {
-            case Algorithm.Dijkstra:
-                return new Dijkstra(Grid, Diagonal);
-            case Algorithm.Greedy:
-                return new Greedy(Grid, Heuristic, Diagonal);
-            case Algorithm.BreadthFirst:
-                return new BreadthFirst(Grid, Diagonal);
-            case Algorithm.DepthFirst:
-                return new DepthFirst(Grid, Diagonal);
-            case Algorithm.JumpPoint:
-                return new JumpPoint(Grid); // always 8-connected, the Diagonal toggle doesn't apply
-            default:
-                return new AStar(Grid, Heuristic, Diagonal, Weight);
+            case Algorithm.Dijkstra: return new DijkstraSearch();
+            case Algorithm.Greedy: return new GreedySearch();
+            case Algorithm.BreadthFirst: return new BreadthFirstSearch();
+            case Algorithm.DepthFirst: return new DepthFirstSearch();
+            case Algorithm.JumpPoint: return new JumpPointSearch();
+            default: return new AStarSearch();
         }
     }
 
-    public bool IsValid(Vector2Int position) => Grid.IsValid(position);
-    public Node GetNode(Vector2Int position) => Grid.GetNode(position);
+    public bool IsValid(Coord position) => Grid.InBounds(position);
 
-    // the plain editable grid (walls + start/end), for when nothing's being animated
-    public GridNodeType[,] RenderEditable() => Grid.RenderNodeTypes(Start, End);
+    public bool IsWalkable(Coord position) => Grid.IsWalkable(Grid.Index(position));
+
+    public void SetWalkable(Coord position, bool walkable) => Grid.SetWalkable(Grid.Index(position), walkable);
+
+    /// <summary>The plain editable grid, walls plus start and end, for when nothing is animating.</summary>
+    public GridNodeType[,] RenderEditable() => SearchTrace.Render(Grid, Grid.Index(Start), Grid.Index(End));
 
     /// <summary>
-    /// Per-cell g-cost from the last Solve (distance from start), for the distance heatmap. Only the
-    /// search layer reads it, so the node default on untouched cells doesn't matter. Valid until the
-    /// next Solve cleans the nodes.
+    /// Per-cell distance from the start as of the last Solve, for the heatmap. Cells the search
+    /// never reached come back at zero, which is what the shader treats as no reading.
     /// </summary>
     public float[,] CostField() {
         var field = new float[Grid.Width, Grid.Height];
-        for (int x = 0; x < Grid.Width; x++)
-            for (int y = 0; y < Grid.Height; y++)
-                field[x, y] = Grid.Grid[x, y].Cost ?? 0f;
+        if (_result == null)
+            return field;
+
+        for (int i = 0; i < Grid.CellCount; i++) {
+            float cost = _result.State.Cost(i);
+            if (float.IsPositiveInfinity(cost))
+                continue;
+            Coord at = Grid.At(i);
+            field[at.X, at.Y] = cost;
+        }
         return field;
     }
 }
