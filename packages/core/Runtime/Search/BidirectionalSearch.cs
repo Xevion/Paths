@@ -14,7 +14,7 @@ namespace Paths.Core.Search {
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) {
             var forward = new SearchState(grid.CellCount);
             var backward = new SearchState(grid.CellCount);
-            var visits = new List<Visit>();
+            var visits = new List<Visit>(grid.CellCount / 4);
             var neighbors = new int[Grid.MaxNeighbors];
             int expanded = 0;
 

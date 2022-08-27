@@ -19,7 +19,8 @@ namespace Paths.Core.Search {
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) {
             var state = new SearchState(grid.CellCount);
             var frontier = new IndexedMinHeap(grid.CellCount);
-            var visits = new List<Visit>();
+            // most searches see and expand a good share of the grid, so start the trace near that
+            var visits = new List<Visit>(grid.CellCount / 4);
             var neighbors = new int[Grid.MaxNeighbors];
             Coord goalAt = grid.At(goal);
             int expanded = 0;

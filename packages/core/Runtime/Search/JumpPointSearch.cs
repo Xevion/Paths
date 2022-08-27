@@ -24,13 +24,19 @@ namespace Paths.Core.Search {
             private readonly Coord _goal;
             private readonly SearchState _state;
             private readonly IndexedMinHeap _frontier;
-            private readonly List<Visit> _visits = new List<Visit>();
+            private readonly List<Visit> _visits;
+
+            // reused across every expansion. these were allocated fresh per expanded cell, which on a
+            // big grid cost more than the jumping they were feeding
+            private readonly List<Coord> _successors = new List<Coord>(Grid.MaxNeighbors);
+            private readonly List<Coord> _pruned = new List<Coord>(Grid.MaxNeighbors);
 
             public Run(Grid grid, int goal) {
                 _grid = grid;
                 _goal = grid.At(goal);
                 _state = new SearchState(grid.CellCount);
                 _frontier = new IndexedMinHeap(grid.CellCount);
+                _visits = new List<Visit>(grid.CellCount / 4);
             }
 
             public SearchResult Execute(int start) {
@@ -83,13 +89,14 @@ namespace Paths.Core.Search {
 
             /// <summary>Where each pruned direction lands, for the directions that land anywhere.</summary>
             private List<Coord> Successors(int cell, Coord at) {
-                var found = new List<Coord>();
-                foreach (Coord neighbour in Pruned(cell, at)) {
-                    Coord? jump = Jump(neighbour.X, neighbour.Y, at.X, at.Y);
+                Prune(cell, at);
+                _successors.Clear();
+                for (int i = 0; i < _pruned.Count; i++) {
+                    Coord? jump = Jump(_pruned[i].X, _pruned[i].Y, at.X, at.Y);
                     if (jump.HasValue)
-                        found.Add(jump.Value);
+                        _successors.Add(jump.Value);
                 }
-                return found;
+                return _successors;
             }
 
             /// <summary>
@@ -128,8 +135,9 @@ namespace Paths.Core.Search {
             }
 
             /// <summary>The directions worth jumping, given how this cell was arrived at.</summary>
-            private List<Coord> Pruned(int cell, Coord at) {
-                var found = new List<Coord>();
+            private void Prune(int cell, Coord at) {
+                List<Coord> found = _pruned;
+                found.Clear();
                 int x = at.X, y = at.Y;
                 int parent = _state.Parent(cell);
 
@@ -140,7 +148,7 @@ namespace Paths.Core.Search {
                             if (Movable(x, y, dx, dy))
                                 found.Add(new Coord(x + dx, y + dy));
                         }
-                    return found;
+                    return;
                 }
 
                 Coord from = _grid.At(parent);
@@ -170,7 +178,6 @@ namespace Paths.Core.Search {
                     if (right) found.Add(new Coord(x + 1, y));
                     if (left) found.Add(new Coord(x - 1, y));
                 }
-                return found;
             }
 
             /// <summary>

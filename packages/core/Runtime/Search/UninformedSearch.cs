@@ -16,7 +16,7 @@ namespace Paths.Core.Search {
 
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) {
             var state = new SearchState(grid.CellCount);
-            var visits = new List<Visit>();
+            var visits = new List<Visit>(grid.CellCount / 4);
             var neighbors = new int[Grid.MaxNeighbors];
 
             // one list serving as both stack and queue: depth-first pops the tail, breadth-first
