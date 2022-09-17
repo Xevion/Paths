@@ -21,6 +21,19 @@ namespace Paths.Tests.Search {
         }
 
         /// <summary>
+        /// A seeded grid with terrain scattered over it. Tiers below 1 are the interesting ones: they
+        /// make a stretch of grid cost less than its length, which is what an unscaled estimate misses.
+        /// </summary>
+        public static Grid Weighted(int seed, int width, int height, double wallChance, float[] tiers) {
+            Grid grid = Seeded(seed, width, height, wallChance);
+            var rng = new System.Random(seed + 9000);
+            for (int i = 0; i < grid.CellCount; i++)
+                if (grid.IsWalkable(i) && rng.NextDouble() < 0.35)
+                    grid.SetWeight(i, tiers[rng.Next(tiers.Length)]);
+            return grid;
+        }
+
+        /// <summary>
         /// Dijkstra written the slow obvious way: scan the open set for the cheapest cell, relax its
         /// neighbours, repeat. Deliberately shares nothing with the real implementation, so a bug in
         /// the heap or the expand loop cannot hide inside the answer being compared against.

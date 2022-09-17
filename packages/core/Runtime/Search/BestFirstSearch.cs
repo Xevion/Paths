@@ -25,9 +25,13 @@ namespace Paths.Core.Search {
             Coord goalAt = grid.At(goal);
             int expanded = 0;
 
+            // an estimate counts cells, so the cheapest a cell can be to enter is the most of it that
+            // is safe to claim. read once: it is a scan when a weight has changed since the last one
+            float scale = options.HeuristicWeight * grid.MinWeight;
+
             state.SetCost(start, 0f);
             state.SetState(start, CellState.Open);
-            frontier.Push(start, Priority(0f, Estimate(grid, start, goalAt, options)));
+            frontier.Push(start, Priority(0f, Estimate(grid, start, goalAt, options, scale)));
 
             while (frontier.Count > 0) {
                 int current = frontier.Pop();
@@ -51,7 +55,7 @@ namespace Paths.Core.Search {
 
                     state.SetCost(next, cost);
                     state.SetParent(next, current);
-                    float priority = Priority(cost, Estimate(grid, next, goalAt, options));
+                    float priority = Priority(cost, Estimate(grid, next, goalAt, options, scale));
 
                     // Open means queued, so the two cases are push it or move it up
                     if (state.State(next) == CellState.Unseen) {
@@ -71,10 +75,10 @@ namespace Paths.Core.Search {
             return new SearchResult(path, visits, state, expanded);
         }
 
-        private float Estimate(Grid grid, int cell, Coord goal, SearchOptions options) {
+        private float Estimate(Grid grid, int cell, Coord goal, SearchOptions options, float scale) {
             if (!UsesHeuristic)
                 return 0f;
-            return Heuristics.Estimate(options.Heuristic, grid.At(cell), goal) * options.HeuristicWeight;
+            return Heuristics.Estimate(options.Heuristic, grid.At(cell), goal) * scale;
         }
     }
 }

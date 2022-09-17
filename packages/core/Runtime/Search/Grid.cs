@@ -16,6 +16,9 @@ namespace Paths.Core.Search {
         private readonly bool[] _walkable;
         private readonly float[] _weight;
 
+        private float _minWeight = 1f;
+        private bool _minStale;
+
         public Grid(int width, int height) {
             if (width <= 0)
                 throw new ArgumentOutOfRangeException(nameof(width), width, "grid needs a positive width");
@@ -54,6 +57,31 @@ namespace Paths.Core.Search {
             if (weight <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(weight), weight, "cell weight must be positive");
             _weight[index] = weight;
+            if (weight < _minWeight)
+                _minWeight = weight;
+            else
+                _minStale = true; // might have been the only cell holding the old minimum
+        }
+
+        /// <summary>
+        /// The cheapest any cell is to enter. A heuristic measures distance, so the least a stretch
+        /// of it can possibly cost is that distance times this, which is what keeps an estimate from
+        /// overshooting once a cell is allowed to cost less than one.
+        /// </summary>
+        public float MinWeight {
+            get {
+                if (!_minStale)
+                    return _minWeight;
+
+                float least = float.PositiveInfinity;
+                for (int i = 0; i < _weight.Length; i++) {
+                    if (_weight[i] < least)
+                        least = _weight[i];
+                }
+                _minWeight = least;
+                _minStale = false;
+                return _minWeight;
+            }
         }
 
         /// <summary>Most neighbours any cell can have, so callers can size a buffer once.</summary>
