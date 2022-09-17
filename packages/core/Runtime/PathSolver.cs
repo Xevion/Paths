@@ -132,6 +132,21 @@ public class PathSolver {
 
     public void SetWalkable(Coord position, bool walkable) => Grid.SetWalkable(Grid.Index(position), walkable);
 
+    public Terrain TerrainAt(Coord position) => Terrains.Of(Grid.Weight(Grid.Index(position)));
+
+    public void SetTerrain(Coord position, Terrain terrain) =>
+        Grid.SetWeight(Grid.Index(position), Terrains.Weight(terrain));
+
+    /// <summary>Per-cell terrain as of now, for the renderer to tint the plain tiles with.</summary>
+    public Terrain[,] TerrainField() {
+        var field = new Terrain[Grid.Width, Grid.Height];
+        for (int i = 0; i < Grid.CellCount; i++) {
+            Coord at = Grid.At(i);
+            field[at.X, at.Y] = Terrains.Of(Grid.Weight(i));
+        }
+        return field;
+    }
+
     /// <summary>The plain editable grid, walls plus start and end, for when nothing is animating.</summary>
     public GridNodeType[,] RenderEditable() => SearchTrace.Render(Grid, Grid.Index(Start), Grid.Index(End));
 
