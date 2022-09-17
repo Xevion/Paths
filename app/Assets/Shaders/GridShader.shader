@@ -12,10 +12,13 @@ Shader "Paths/Grid"
         _PathColor ("Path Cell Color", Color) = (0.16, 0.83, 0.9, 1)
         _HoverColor ("Hover Color", Color) = (0.16, 0.83, 0.9, 1)
         _GhostColor ("Ghost Color", Color) = (1, 1, 1, 1)
+        _RoadColor ("Road Terrain Color", Color) = (0.32, 0.34, 0.38, 1)
+        _MudColor ("Mud Terrain Color", Color) = (0.36, 0.28, 0.16, 1)
+        _WaterColor ("Water Terrain Color", Color) = (0.13, 0.25, 0.42, 1)
 
         // one texel per cell: state in R, previous state in G, change time in BA. set from GridController.
         [PerRendererData] _GridTex ("Grid State", 2D) = "black" {}
-        // per-cell normalized g-cost for the heatmap, red byte. set from GridController.
+        // per-cell heatmap cost in the red byte, terrain tier in the green. set from GridController.
         [PerRendererData] _DistTex ("Distance Field", 2D) = "black" {}
         _Gap ("Tile Gap", Range(0, 0.5)) = 0.12
         _Radius ("Corner Radius", Range(0, 0.5)) = 0.1
@@ -65,6 +68,9 @@ Shader "Paths/Grid"
             float _HoverStrength; // eased 0..1, so the highlight doesn't snap on and off
             float _BrushPreview; // 1 when a left click would draw a wall on the hovered empty cell
             float4 _GhostColor;
+            float4 _RoadColor;
+            float4 _MudColor;
+            float4 _WaterColor;
             float4 _GhostPos; // xy = cursor position in cell units, unaligned; drives the drag token
             float _GhostStrength; // eased 0..1
             float _GhostInvalid; // 1 when the marker can't drop here - draw a ring instead of a disc
@@ -271,14 +277,25 @@ Shader "Paths/Grid"
             }
 
             // indices 4/5 are Seen/Expanded - the search layer, dimmed toward the plain tile (or
-            // painted with the cost heatmap) so the board stays one readable surface
-            float3 Shade(int s, float3 c, float3 heat)
+            // painted with the cost heatmap) so the board stays one readable surface. it dims toward
+            // the tile as terrain painted it, which is what keeps terrain legible under the sweep.
+            float3 Shade(int s, float3 c, float3 heat, float3 tile)
             {
                 if (s == 4 || s == 5) {
                     if (_ShowDistances > 0.5) c = heat;
-                    c = lerp(_EmptyColor.rgb, c, _Fade);
+                    c = lerp(tile, c, _Fade);
                 }
                 return c;
+            }
+
+            // terrain rides in the green byte of the heatmap texture rather than the state index, so
+            // it sits under the search layer instead of being overwritten by it
+            float3 Terrain(int tier, float3 empty)
+            {
+                if (tier == 1) return _RoadColor.rgb;
+                if (tier == 2) return _MudColor.rgb;
+                if (tier == 3) return _WaterColor.rgb;
+                return empty;
             }
 
             float Mask(float d, float aa)
@@ -348,9 +365,13 @@ Shader "Paths/Grid"
                 float pathD = PathField(st, p, 0.5 - _PathInset);
 
                 // ease the fill from the state the cell left toward the one it's in
-                float3 heat = Heat(tex2D(_DistTex, cellUv).r);
-                float3 fade = lerp(Shade(prev, colors[prev].rgb, heat),
-                    Shade(index, colors[index].rgb, heat), ease);
+                float4 dist = tex2D(_DistTex, cellUv);
+                float3 heat = Heat(dist.r);
+                int tier = (int) floor(dist.g * 255.0 + 0.5);
+                colors[0].rgb = Terrain(tier, colors[0].rgb);
+
+                float3 fade = lerp(Shade(prev, colors[prev].rgb, heat, colors[0].rgb),
+                    Shade(index, colors[index].rgb, heat, colors[0].rgb), ease);
 
                 bool hovered = _HoverStrength > 0.001 && all(abs(id - _HoverCell.xy) < 0.5);
 

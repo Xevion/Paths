@@ -18,6 +18,9 @@ public class GridTheme {
     public Color expanded; // closed cells - the big swept area, kept subtle
     public Color path;
     public Color hover;    // the cursor highlight - lifts the cell under the mouse
+    public Color road;     // terrain tints on the plain tile, cheap to cross through to expensive
+    public Color mud;
+    public Color water;
 
     /// <summary>The grid palettes, by dropdown index (Dark / Midnight / Light).</summary>
     public static GridTheme Preset(int index) {
@@ -45,6 +48,11 @@ public class GridTheme {
             expanded = Color.Lerp(empty, Theme.Accent, 0.14f),
             path = Theme.Accent,
             hover = Theme.Accent,
+            // tints of the empty tile rather than colours of their own, so terrain reads as ground
+            // the search sweeps over instead of a second layer competing with it
+            road = Color.Lerp(empty, C("#9AA4B8"), 0.30f),
+            mud = Color.Lerp(empty, C("#8A6A3A"), 0.45f),
+            water = Color.Lerp(empty, C("#2E6FA8"), 0.45f),
         };
     }
 
@@ -63,6 +71,9 @@ public class GridTheme {
             expanded = Color.Lerp(empty, accent, 0.16f),
             path = accent,
             hover = accent,
+            road = Color.Lerp(empty, C("#8E97C4"), 0.30f),
+            mud = Color.Lerp(empty, C("#7A5E44"), 0.45f),
+            water = Color.Lerp(empty, C("#2A5C9E"), 0.45f),
         };
     }
 
@@ -81,6 +92,9 @@ public class GridTheme {
             expanded = Color.Lerp(empty, accent, 0.2f),
             path = accent,
             hover = accent,
+            road = Color.Lerp(empty, C("#6E7891"), 0.30f),
+            mud = Color.Lerp(empty, C("#A98455"), 0.55f),
+            water = Color.Lerp(empty, C("#5C9BD6"), 0.55f),
         };
     }
 

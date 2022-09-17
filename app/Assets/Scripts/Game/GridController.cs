@@ -1,5 +1,7 @@
 ﻿using System;
 using UnityEngine;
+// UnityEngine has a Terrain of its own, and it is not this one
+using Terrain = Paths.Core.Search.Terrain;
 
 public enum PropertyName {
     GridWidth,
@@ -49,6 +51,9 @@ public class GridController : MonoBehaviour {
     private static readonly int ExpandedColor = Shader.PropertyToID("_ExpandedColor");
     private static readonly int PathColor = Shader.PropertyToID("_PathColor");
     private static readonly int HoverColor = Shader.PropertyToID("_HoverColor");
+    private static readonly int RoadColor = Shader.PropertyToID("_RoadColor");
+    private static readonly int MudColor = Shader.PropertyToID("_MudColor");
+    private static readonly int WaterColor = Shader.PropertyToID("_WaterColor");
     private static readonly int HoverCell = Shader.PropertyToID("_HoverCell");
     private static readonly int HoverStrength = Shader.PropertyToID("_HoverStrength");
     private static readonly int BrushPreview = Shader.PropertyToID("_BrushPreview");
@@ -117,6 +122,9 @@ public class GridController : MonoBehaviour {
         _material.SetColor(ExpandedColor, theme.expanded);
         _material.SetColor(PathColor, theme.path);
         _material.SetColor(HoverColor, theme.hover);
+        _material.SetColor(RoadColor, theme.road);
+        _material.SetColor(MudColor, theme.mud);
+        _material.SetColor(WaterColor, theme.water);
     }
 
     /// <summary>
@@ -246,7 +254,27 @@ public class GridController : MonoBehaviour {
         for (int x = 0; x < w; x++)
             for (int y = 0; y < h; y++) {
                 var r = (byte) Mathf.RoundToInt(Mathf.Clamp01(cost[x, y] / max) * 255f);
-                _distPixels[width * y + x] = new Color32(r, 0, 0, 255);
+                // green is the terrain tier, written separately - keep whatever is already there
+                _distPixels[width * y + x].r = r;
+            }
+        _distTex.SetPixels32(_distPixels);
+        _distTex.Apply(false);
+    }
+
+    /// <summary>
+    /// Upload the per-cell terrain tier into the green byte of the same texture. Kept out of the
+    /// state texture on purpose: terrain has to stay visible underneath the search sweeping over it,
+    /// and a cell only holds one state index.
+    /// </summary>
+    public void LoadTerrain(Terrain[,] terrain) {
+        if (_distPixels == null)
+            return; // Rebuild hasn't run yet, and it pushes everything when it does
+
+        int w = terrain.GetLength(0), h = terrain.GetLength(1);
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < h; y++) {
+                _distPixels[width * y + x].g = (byte) terrain[x, y];
+                _distPixels[width * y + x].a = 255;
             }
         _distTex.SetPixels32(_distPixels);
         _distTex.Apply(false);

@@ -165,7 +165,12 @@ public class UIController : MonoBehaviour {
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
         _shell?.SetPlayhead(0f);
+        PushTerrain();
         Resize();
+    }
+
+    private void PushTerrain() {
+        gridController.LoadTerrain(_solver.TerrainField());
     }
 
     /// <summary>Rebuild the grid at a (clamped) size and regenerate it from the current seed/generator.</summary>
