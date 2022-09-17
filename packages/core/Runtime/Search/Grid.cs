@@ -17,7 +17,8 @@ namespace Paths.Core.Search {
         private readonly float[] _weight;
 
         private float _minWeight = 1f;
-        private bool _minStale;
+        private float _maxWeight = 1f;
+        private bool _statsStale;
 
         public Grid(int width, int height) {
             if (width <= 0)
@@ -57,10 +58,7 @@ namespace Paths.Core.Search {
             if (weight <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(weight), weight, "cell weight must be positive");
             _weight[index] = weight;
-            if (weight < _minWeight)
-                _minWeight = weight;
-            else
-                _minStale = true; // might have been the only cell holding the old minimum
+            _statsStale = true;
         }
 
         /// <summary>
@@ -69,19 +67,30 @@ namespace Paths.Core.Search {
         /// overshooting once a cell is allowed to cost less than one.
         /// </summary>
         public float MinWeight {
-            get {
-                if (!_minStale)
-                    return _minWeight;
+            get { Refresh(); return _minWeight; }
+        }
 
-                float least = float.PositiveInfinity;
-                for (int i = 0; i < _weight.Length; i++) {
-                    if (_weight[i] < least)
-                        least = _weight[i];
-                }
-                _minWeight = least;
-                _minStale = false;
-                return _minWeight;
+        public float MaxWeight {
+            get { Refresh(); return _maxWeight; }
+        }
+
+        /// <summary>Whether anything here costs other than the default to walk over.</summary>
+        public bool HasTerrain => MinWeight < 1f || MaxWeight > 1f;
+
+        // painting a brush stroke writes many cells before anything reads back, so the scan is put
+        // off until it is asked for rather than run per cell
+        private void Refresh() {
+            if (!_statsStale)
+                return;
+
+            float least = float.PositiveInfinity, most = 0f;
+            for (int i = 0; i < _weight.Length; i++) {
+                if (_weight[i] < least) least = _weight[i];
+                if (_weight[i] > most) most = _weight[i];
             }
+            _minWeight = least;
+            _maxWeight = most;
+            _statsStale = false;
         }
 
         /// <summary>Most neighbours any cell can have, so callers can size a buffer once.</summary>

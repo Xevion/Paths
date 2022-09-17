@@ -6,5 +6,8 @@ namespace Paths.Core.Search {
     /// </summary>
     public sealed class GreedySearch : BestFirstSearch {
         protected override float Priority(float cost, float estimate) => estimate;
+
+        // it never looks at what a cell costs to enter, so terrain does not steer it
+        public override bool HonorsWeights => false;
     }
 }

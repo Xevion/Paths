@@ -14,6 +14,9 @@ namespace Paths.Core.Search {
         /// <summary>Depth-first takes the cell it found most recently, breadth-first the oldest.</summary>
         protected abstract bool TakeNewest { get; }
 
+        // both pick by when a cell turned up, so what it costs to enter never enters into it
+        public bool HonorsWeights => false;
+
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) {
             var state = new SearchState(grid.CellCount);
             var visits = new List<Visit>(grid.CellCount / 4);

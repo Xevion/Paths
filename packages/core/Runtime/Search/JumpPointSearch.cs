@@ -17,6 +17,9 @@ namespace Paths.Core.Search {
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) =>
             new Run(grid, goal).Execute(start);
 
+        // skipping over cells assumes they all cost the same, which is the whole trick
+        public bool HonorsWeights => false;
+
         // one of these per call, so the recursion has somewhere to hang its context without the
         // search itself holding state between runs
         private sealed class Run {

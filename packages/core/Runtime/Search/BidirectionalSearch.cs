@@ -11,6 +11,8 @@ namespace Paths.Core.Search {
     /// its own local arrays, so the two halves were written twice over. Both are SearchStates now.
     /// </summary>
     public sealed class BidirectionalSearch : ISearch {
+        public bool HonorsWeights => true;
+
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) {
             var forward = new SearchState(grid.CellCount);
             var backward = new SearchState(grid.CellCount);

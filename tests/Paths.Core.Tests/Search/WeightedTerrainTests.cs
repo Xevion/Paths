@@ -73,6 +73,58 @@ namespace Paths.Tests.Search {
         }
 
         [Test]
+        public void GridKnowsWhetherAnythingIsWeighted() {
+            var grid = new Grid(4, 4);
+            Assert.IsFalse(grid.HasTerrain);
+
+            grid.SetWeight(grid.Index(new Coord(0, 1)), 3f);
+            Assert.IsTrue(grid.HasTerrain);
+            Assert.AreEqual(3f, grid.MaxWeight, Eps);
+
+            grid.SetWeight(grid.Index(new Coord(0, 1)), 1f);
+            Assert.IsFalse(grid.HasTerrain);
+        }
+
+        /// <summary>
+        /// The searches that say they ignore terrain have to actually ignore it, or the warning the
+        /// app puts up is describing something that is not happening.
+        /// </summary>
+        [Test]
+        public void SearchesThatDisclaimWeightsReallyIgnoreThem() {
+            ISearch[] searches = {
+                new GreedySearch(), new BreadthFirstSearch(), new DepthFirstSearch(), new JumpPointSearch()
+            };
+
+            foreach (ISearch search in searches) {
+                Assert.IsFalse(search.HonorsWeights, $"{search.GetType().Name} should be disclaiming weights");
+
+                Grid plain = Seeded(7, 14, 14, 0.18);
+                Grid weighted = Seeded(7, 14, 14, 0.18);
+                for (int i = 0; i < weighted.CellCount; i++)
+                    if (weighted.IsWalkable(i))
+                        weighted.SetWeight(i, 6f);
+
+                int start = plain.Index(new Coord(0, 0));
+                int goal = plain.Index(new Coord(13, 13));
+                var options = new SearchOptions(true, Heuristic.Octile);
+
+                // every walkable cell got the same expensive weight, so a search that steered by cost
+                // would still walk the same route. one that reads weights at all would price it higher
+                CollectionAssert.AreEqual(
+                    search.Search(plain, start, goal, options).Path,
+                    search.Search(weighted, start, goal, options).Path,
+                    $"{search.GetType().Name} changed its route over uniform terrain");
+            }
+        }
+
+        [Test]
+        public void AStarAndDijkstraHonourWeights() {
+            Assert.IsTrue(new AStarSearch().HonorsWeights);
+            Assert.IsTrue(new DijkstraSearch().HonorsWeights);
+            Assert.IsTrue(new BidirectionalSearch().HonorsWeights);
+        }
+
+        [Test]
         public void DijkstraIsUnaffectedByTerrainScaling() {
             for (int seed = 0; seed < 30; seed++) {
                 Grid grid = Weighted(seed, 12, 12, 0.20, Tiers);

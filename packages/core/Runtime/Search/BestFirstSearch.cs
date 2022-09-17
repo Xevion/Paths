@@ -16,6 +16,9 @@ namespace Paths.Core.Search {
         /// <summary>Dijkstra turns this off so it never pays for an estimate it ignores.</summary>
         protected virtual bool UsesHeuristic => true;
 
+        /// <summary>True for the ones that order by cost. Greedy orders by the estimate alone.</summary>
+        public virtual bool HonorsWeights => true;
+
         public SearchResult Search(Grid grid, int start, int goal, SearchOptions options) {
             var state = new SearchState(grid.CellCount);
             var frontier = new IndexedMinHeap(grid.CellCount);

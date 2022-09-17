@@ -121,6 +121,11 @@ public class PathSolver {
         }
     }
 
+    /// <summary>Whether the selected search steers by what cells cost, for the UI to warn about.</summary>
+    public bool HonorsWeights => Create().HonorsWeights;
+
+    public bool HasTerrain => Grid.HasTerrain;
+
     public bool IsValid(Coord position) => Grid.InBounds(position);
 
     public bool IsWalkable(Coord position) => Grid.IsWalkable(Grid.Index(position));
