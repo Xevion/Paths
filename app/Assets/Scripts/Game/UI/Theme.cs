@@ -16,6 +16,7 @@ namespace Game.UI {
         public static readonly Color Accent = Hex("#29D3E6");
         public static readonly Color AccentText = Hex("#08191C");
         public static readonly Color Danger = Hex("#E0564E");
+        public static readonly Color Warning = Hex("#E0A73E");
 
         // spacing scale (px @ reference resolution)
         public const float Space1 = 4f;

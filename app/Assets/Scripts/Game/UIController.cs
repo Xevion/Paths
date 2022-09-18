@@ -153,6 +153,7 @@ public class UIController : MonoBehaviour {
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
         _shell.onShowDistances = OnShowDistances;
         _shell.onBidirectional = on => { _bidirectional = on; _solver.UseBidirectional = on; Resolve(); };
+        _shell.onBrush = i => SetBrush(i == 0 ? BrushKind.Wall : BrushKind.Terrain, TierFor(i));
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetLegend(_gridTheme);
@@ -184,6 +185,12 @@ public class UIController : MonoBehaviour {
 
     private void PushTerrain() {
         gridController.LoadTerrain(_solver.TerrainField());
+        UpdateTerrainWarning();
+    }
+
+    // terrain painted onto a grid the chosen search does not price is worth saying out loud
+    private void UpdateTerrainWarning() {
+        _shell?.SetTerrainWarning(_solver.HasTerrain && !_solver.HonorsWeights);
     }
 
     /// <summary>Arm a brush and colour the hover preview to match what it would draw.</summary>
@@ -193,6 +200,17 @@ public class UIController : MonoBehaviour {
         _gridEditor.Brush = brush;
         _gridEditor.Tier = tier;
         gridController.SetBrushColor(BrushColorFor(brush, tier));
+        _shell?.SetBrush(brush == BrushKind.Wall ? 0 : (int) tier);
+    }
+
+    // picker order is wall, then the tiers as they run cheapest to dearest
+    private static Terrain TierFor(int index) {
+        switch (index) {
+            case 1: return Terrain.Road;
+            case 2: return Terrain.Mud;
+            case 3: return Terrain.Water;
+            default: return Terrain.Plain;
+        }
     }
 
     private Color BrushColorFor(BrushKind brush, Terrain tier) {
@@ -397,6 +415,7 @@ public class UIController : MonoBehaviour {
     }
 
     private void GeneratePath() {
+        UpdateTerrainWarning();
         _playback.Load(_solver.Solve());
         if (_showDistances)
             gridController.LoadDistanceField(_solver.CostField());

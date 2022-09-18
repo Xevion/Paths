@@ -26,6 +26,7 @@ namespace Game.UI {
         public Action<Algorithm> onAlgorithm;
         public Action<Heuristic> onHeuristic;
         public Action<bool> onDiagonal;
+        public Action<int> onBrush; // 0 wall, then the terrain tiers in order
         public Action<float> onWeight;
         public Action<int> onWidth, onHeight, onSeed;
         public Action<Generator> onGenerator;
@@ -52,6 +53,9 @@ namespace Game.UI {
         private TextMeshProUGUI _statExpanded, _statFrontier, _statPath, _statTime;
         private RectTransform _statsRow; // toggled by the Show statistics checkbox
         private RoundedRectGraphic[] _legend; // recoloured on theme change
+        private RoundedRectGraphic[] _terrainKey;
+        private SegmentedControl _brush;
+        private TextMeshProUGUI _terrainWarning;
         private ScrubPress _scrubPress;
 
         // the timeline slider is being dragged - UIController stops auto-advancing so it doesn't fight the drag
@@ -130,6 +134,9 @@ namespace Game.UI {
             UIKit.Button(bar, _font, "Generate", () => onGenerate?.Invoke(), UIKit.ButtonStyle.Secondary, 96f, Icon.Random);
 
             ToolbarSep(bar);
+            Brush(bar);
+
+            ToolbarSep(bar);
             Stats(bar);
 
             // the transport scrubber takes the flexible middle of the bar
@@ -150,6 +157,23 @@ namespace Game.UI {
 
             UIKit.IconButton(bar, Icon.Sliders, () => _sidebar.Toggle());
             UIKit.IconButton(bar, Icon.Cog, OpenSettings);
+        }
+
+        // what the left button draws. the only control here that changes what a click does, so it
+        // sits with the transport rather than in the sidebar where it would be a click away.
+        private void Brush(Transform bar) {
+            RectTransform row = UIKit.Row(bar, Theme.Space2);
+            var le = row.gameObject.AddComponent<LayoutElement>();
+            le.preferredWidth = le.minWidth = 210f;
+            le.flexibleWidth = 0f;
+            _brush = UIKit.Segmented(row, new[] { "Wall", "Road", "Mud", "Water" }, 0,
+                i => onBrush?.Invoke(i));
+        }
+
+        /// <summary>Catch the picker up to a brush armed by its keyboard shortcut.</summary>
+        public void SetBrush(int index) {
+            if (_brush != null)
+                _brush.Show(index);
         }
 
         // the live readout - a row of stacked stat chips fed by SetStats off the real solver
@@ -201,6 +225,20 @@ namespace Game.UI {
             Color[] cols = { t.start, t.end, t.path, t.seen, t.expanded, t.wall };
             for (int i = 0; i < _legend.Length; i++)
                 _legend[i].color = cols[i];
+
+            if (_terrainKey == null) return;
+            Color[] terrain = { t.road, t.mud, t.water };
+            for (int i = 0; i < _terrainKey.Length; i++)
+                _terrainKey[i].color = terrain[i];
+        }
+
+        /// <summary>
+        /// Warn when the grid has terrain on it and the chosen search does not price it. Better than
+        /// showing a route that looks wrong for no visible reason.
+        /// </summary>
+        public void SetTerrainWarning(bool show) {
+            if (_terrainWarning != null)
+                _terrainWarning.gameObject.SetActive(show);
         }
 
         private RoundedRectGraphic LegendSwatch(Transform parent, string label) {
@@ -293,6 +331,19 @@ namespace Game.UI {
                 initialDiagonal, b => onDiagonal?.Invoke(b));
             UIKit.Switch(Field(col, "Bidirectional", tooltip: "Search from both ends and meet in the middle"),
                 false, b => onBidirectional?.Invoke(b));
+
+            _terrainWarning = UIKit.Label(col, _font,
+                "This search ignores terrain cost.", UIKit.Type.Caption, Theme.Warning);
+            _terrainWarning.enableWordWrapping = true;
+            _terrainWarning.gameObject.SetActive(false);
+
+            UIKit.SectionHeader(col, _font, "Terrain", Icon.Brush);
+            Sub(col, "Cost to enter a cell");
+            _terrainKey = new[] {
+                LegendSwatch(col, "Road    0.5x"),
+                LegendSwatch(col, "Mud     2x"),
+                LegendSwatch(col, "Water   4x"),
+            };
 
             UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
             UIKit.ScrubField(Field(col, "Width", tooltip: "Grid width in cells"), initialWidth, 8, 200, "",

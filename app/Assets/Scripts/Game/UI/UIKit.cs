@@ -449,8 +449,8 @@ namespace Game.UI {
         /// exclusive sets; lay it out horizontally (a few options) or vertically (a taller list). Idempotent:
         /// re-picking the active segment does nothing.
         /// </summary>
-        public static void Segmented(Transform parent, IList<string> options, int index, Action<int> onChange,
-            bool vertical = false) {
+        public static SegmentedControl Segmented(Transform parent, IList<string> options, int index,
+            Action<int> onChange, bool vertical = false) {
             RectTransform rt = New("Segmented", parent);
             var groove = rt.gameObject.AddComponent<RoundedRectGraphic>();
             groove.color = Theme.Track;
@@ -513,6 +513,7 @@ namespace Game.UI {
             control.onChange = onChange;
             control.Init(current);
             Apply(current);
+            return control;
         }
 
         /// <summary>

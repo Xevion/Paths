@@ -37,6 +37,17 @@ namespace Game.UI {
 
         public void OnSubmit(BaseEventData e) => Commit(_focus);
 
+        /// <summary>
+        /// Move the selection without firing onChange or stealing focus, for when something else
+        /// already made the change (a keyboard shortcut) and this only has to catch up.
+        /// </summary>
+        public void Show(int index) {
+            if (index == _current) return;
+            _current = _focus = index;
+            visuals(index);
+            animate?.Invoke(index);
+        }
+
         // a segment was clicked: focus it, select this control so the ring shows, and commit
         public void Pick(int index) {
             _focus = index;
