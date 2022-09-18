@@ -51,6 +51,7 @@ public class GridController : MonoBehaviour {
     private static readonly int ExpandedColor = Shader.PropertyToID("_ExpandedColor");
     private static readonly int PathColor = Shader.PropertyToID("_PathColor");
     private static readonly int HoverColor = Shader.PropertyToID("_HoverColor");
+    private static readonly int BrushColor = Shader.PropertyToID("_BrushColor");
     private static readonly int RoadColor = Shader.PropertyToID("_RoadColor");
     private static readonly int MudColor = Shader.PropertyToID("_MudColor");
     private static readonly int WaterColor = Shader.PropertyToID("_WaterColor");
@@ -135,6 +136,11 @@ public class GridController : MonoBehaviour {
         _hoverCell = cell;
         _brushPreview = brushPreview;
         _hoverTarget = 1f;
+    }
+
+    /// <summary>What colour the hover preview paints, so it shows the brush that is actually armed.</summary>
+    public void SetBrushColor(Color color) {
+        _material.SetColor(BrushColor, color);
     }
 
     /// <summary>Fade the cursor highlight out - cursor left the grid or moved onto the UI.</summary>

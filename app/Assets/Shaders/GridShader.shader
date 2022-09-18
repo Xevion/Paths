@@ -12,6 +12,7 @@ Shader "Paths/Grid"
         _PathColor ("Path Cell Color", Color) = (0.16, 0.83, 0.9, 1)
         _HoverColor ("Hover Color", Color) = (0.16, 0.83, 0.9, 1)
         _GhostColor ("Ghost Color", Color) = (1, 1, 1, 1)
+        _BrushColor ("Brush Preview Color", Color) = (0.16, 0.18, 0.22, 1)
         _RoadColor ("Road Terrain Color", Color) = (0.32, 0.34, 0.38, 1)
         _MudColor ("Mud Terrain Color", Color) = (0.36, 0.28, 0.16, 1)
         _WaterColor ("Water Terrain Color", Color) = (0.13, 0.25, 0.42, 1)
@@ -68,6 +69,7 @@ Shader "Paths/Grid"
             float _HoverStrength; // eased 0..1, so the highlight doesn't snap on and off
             float _BrushPreview; // 1 when a left click would draw a wall on the hovered empty cell
             float4 _GhostColor;
+            float4 _BrushColor; // what the hover preview paints - follows the selected brush
             float4 _RoadColor;
             float4 _MudColor;
             float4 _WaterColor;
@@ -378,7 +380,7 @@ Shader "Paths/Grid"
                 float3 baseCol = fade;
                 // an empty cell under the cursor previews the wall the brush would draw
                 if (hovered && _BrushPreview > 0.5 && index == 0)
-                    baseCol = lerp(baseCol, _WallColor.rgb, 0.4 * _HoverStrength);
+                    baseCol = lerp(baseCol, _BrushColor.rgb, 0.4 * _HoverStrength);
 
                 float3 outCol = lerp(_LineColor.rgb, baseCol, Mask(baseD, aa));
                 // own wall/path cells crossfade; spill from a neighbour draws settled

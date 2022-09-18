@@ -3,6 +3,7 @@ using Game;
 using Paths.Core.Search;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Terrain = Paths.Core.Search.Terrain;
 
 /// <summary>
 /// Handles mouse editing of the grid - drawing/erasing walls and dragging the start/end nodes
@@ -17,9 +18,21 @@ public class GridEditor {
     private ClickType _modify;
     private Vector2Int _lastClickLocation;
 
+    // what the left button draws. terrain paints the selected tier onto walkable cells; clicking a
+    // cell that is already that tier clears it back to plain, the same toggle the wall brush uses.
+    public BrushKind Brush { get; set; } = BrushKind.Wall;
+    public Terrain Tier { get; set; } = Terrain.Mud;
+
+    // the tier a terrain drag is laying down, decided by the cell the drag started on
+    private Terrain _painting;
+
     // true on any frame this edited the grid (wall toggle / start / end move), so UIController
     // knows to recompute the path live mid-drag instead of waiting for the mouse to come up
     public bool Dirtied { get; private set; }
+
+    // set alongside Dirtied when the edit was a terrain change, so UIController re-uploads the
+    // terrain texture only when it actually moved
+    public bool TerrainDirtied { get; private set; }
 
     // while a start/end marker is being dragged: the cell under the cursor and whether the marker
     // could actually drop there (walkable, not the other marker). UIController draws a ghost from it.
@@ -39,6 +52,7 @@ public class GridEditor {
     /// </summary>
     public AnimationState Process(AnimationState state) {
         Dirtied = false;
+        TerrainDirtied = false;
         Ghosting = false;
         if (!Input.GetMouseButton(0))
             return state;
@@ -58,6 +72,14 @@ public class GridEditor {
                 _modify = ClickType.Start;
             else if (cell == _solver.End)
                 _modify = ClickType.End;
+            else if (Brush == BrushKind.Terrain) {
+                _modify = ClickType.Paint;
+                // already this tier means the click is an erase, and the whole drag erases with it
+                _painting = _solver.TerrainAt(cell) == Tier ? Terrain.Plain : Tier;
+                PaintTerrain(cell);
+                if (state == AnimationState.Paused || state == AnimationState.Started)
+                    state = AnimationState.Reloading;
+            }
             else {
                 bool walkable = _solver.IsWalkable(cell);
                 _modify = walkable ? ClickType.Add : ClickType.Remove;
@@ -84,6 +106,11 @@ public class GridEditor {
                 case ClickType.Remove:
                     _solver.SetWalkable(cell, true);
                     Dirtied = true;
+                    if (ShouldReload(state))
+                        state = AnimationState.Reloading;
+                    break;
+                case ClickType.Paint:
+                    PaintTerrain(cell);
                     if (ShouldReload(state))
                         state = AnimationState.Reloading;
                     break;
@@ -119,6 +146,16 @@ public class GridEditor {
         }
 
         return state;
+    }
+
+    // terrain only means anything on a cell a route could cross, so walls are left alone
+    private void PaintTerrain(Coord cell) {
+        if (!_solver.IsWalkable(cell) || _solver.TerrainAt(cell) == _painting)
+            return;
+
+        _solver.SetTerrain(cell, _painting);
+        Dirtied = true;
+        TerrainDirtied = true;
     }
 
     // recompute on a drag-edit whenever there's an active run to update (playing or parked)

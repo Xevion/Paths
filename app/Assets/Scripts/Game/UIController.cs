@@ -8,6 +8,7 @@ using UnityEditor; // only Handles, in OnDrawGizmos - breaks player builds other
 #endif
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Terrain = Paths.Core.Search.Terrain;
 
 
 /// <summary>
@@ -17,8 +18,15 @@ using UnityEngine.EventSystems;
 public enum ClickType {
     Add,
     Remove,
+    Paint,
     Start,
     End
+}
+
+/// <summary>What the left mouse button draws on the grid.</summary>
+public enum BrushKind {
+    Wall,
+    Terrain
 }
 
 /// <summary>
@@ -82,6 +90,10 @@ public class UIController : MonoBehaviour {
     private Algorithm _algorithm = Algorithm.AStar;
     private Heuristic _heuristic = Heuristic.Manhattan;
     private bool _diagonal;
+
+    // the armed brush, held here so it survives the editor being rebuilt on a resize
+    private BrushKind _brush = BrushKind.Wall;
+    private Terrain _tier = Terrain.Mud;
     private bool _bidirectional; // two-ended Dijkstra, overrides the algorithm pick while on
 
     // grid generation - a seed + a generator + wall density; the sidebar's Grid section drives these,
@@ -165,12 +177,33 @@ public class UIController : MonoBehaviour {
         _animationState = AnimationState.Stopped;
         _previousAnimationState = _animationState;
         _shell?.SetPlayhead(0f);
+        SetBrush(_brush, _tier); // the editor is new, so re-arm whatever was selected
         PushTerrain();
         Resize();
     }
 
     private void PushTerrain() {
         gridController.LoadTerrain(_solver.TerrainField());
+    }
+
+    /// <summary>Arm a brush and colour the hover preview to match what it would draw.</summary>
+    private void SetBrush(BrushKind brush, Terrain tier) {
+        _brush = brush;
+        _tier = tier;
+        _gridEditor.Brush = brush;
+        _gridEditor.Tier = tier;
+        gridController.SetBrushColor(BrushColorFor(brush, tier));
+    }
+
+    private Color BrushColorFor(BrushKind brush, Terrain tier) {
+        if (brush == BrushKind.Wall)
+            return _gridTheme.wall;
+        switch (tier) {
+            case Terrain.Road: return _gridTheme.road;
+            case Terrain.Mud: return _gridTheme.mud;
+            case Terrain.Water: return _gridTheme.water;
+            default: return _gridTheme.empty;
+        }
     }
 
     /// <summary>Rebuild the grid at a (clamped) size and regenerate it from the current seed/generator.</summary>
@@ -205,11 +238,19 @@ public class UIController : MonoBehaviour {
         if (_animationState == AnimationState.Reloading && before != AnimationState.Reloading)
             _resumeState = before == AnimationState.Paused ? AnimationState.Paused : AnimationState.Started;
 
+        if (_gridEditor.TerrainDirtied)
+            PushTerrain();
+
         UpdateGhost();
 
         // Space and the on-screen Play/Pause button both run through here
         if (Input.GetKeyDown(KeyCode.Space))
             TogglePlayPause();
+        // 1-4 arm the brush: wall, then the three terrain tiers
+        if (Input.GetKeyDown(KeyCode.Alpha1)) SetBrush(BrushKind.Wall, Terrain.Plain);
+        if (Input.GetKeyDown(KeyCode.Alpha2)) SetBrush(BrushKind.Terrain, Terrain.Road);
+        if (Input.GetKeyDown(KeyCode.Alpha3)) SetBrush(BrushKind.Terrain, Terrain.Mud);
+        if (Input.GetKeyDown(KeyCode.Alpha4)) SetBrush(BrushKind.Terrain, Terrain.Water);
         // - / = resize the grid (= is the unshifted +, don't care about the shift)
         if (Input.GetKeyDown(KeyCode.Equals))
             RegenGrid(gridController.width + GridStep, gridController.height + GridStep);
@@ -306,6 +347,7 @@ public class UIController : MonoBehaviour {
     private void ApplyGridTheme(int index) {
         _gridTheme = GridTheme.Preset(index);
         gridController.ApplyTheme(_gridTheme);
+        gridController.SetBrushColor(BrushColorFor(_brush, _tier)); // the preview tracks the palette
         mainCamera.backgroundColor = _gridTheme.backdrop;
         _shell?.SetLegend(_gridTheme);
     }
