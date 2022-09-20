@@ -322,7 +322,9 @@ namespace Game.UI {
                 });
             heuristic = UIKit.Column(col, Theme.Space2);
             Sub(heuristic, "Heuristic");
-            UIKit.Segmented(heuristic, new[] { "Manhattan", "Euclidean", "Chebyshev" }, 0,
+            UIKit.SegmentedExpand(heuristic,
+                new[] { "Man", "Euc", "Che", "Oct" },
+                new[] { "Manhattan", "Euclidean", "Chebyshev", "Octile" }, 0,
                 i => onHeuristic?.Invoke((Heuristic) i));
             UIKit.ValueSlider(Field(heuristic, "Weight", fill: true,
                     tooltip: "Scales the estimate - above 1x trades optimality for speed"),
