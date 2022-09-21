@@ -167,7 +167,8 @@ namespace Game.UI {
         private GameObject ShortcutsTab() {
             RectTransform col = TabColumn();
             UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
-            Shortcut(col, "Click + drag", "Draw or erase walls");
+            Shortcut(col, "Click + drag", "Draw with the selected brush");
+            Shortcut(col, "1 - 4", "Pick the brush: wall, road, mud, water");
             Shortcut(col, "Drag start / end", "Move an endpoint");
             Shortcut(col, "Scroll", "Zoom the view");
             Shortcut(col, "Right-drag", "Pan the view");
