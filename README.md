@@ -125,6 +125,8 @@ deploy.
             - [x] Manhattan
             - [x] Euclidean
             - [x] Chebyshev
+            - [x] Octile
+        - [x] Weighted terrain
 - Level Generation
     - [x] Random placement
     - [x] Room carving
