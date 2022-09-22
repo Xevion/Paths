@@ -81,7 +81,8 @@ namespace Game.UI {
             RectTransform body = New("Body", root);
             body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
 
-            _sidebar = Sidebar(body);
+            Legend(body);
+            _sidebar = Sidebar(body); // after the legend, so an open sidebar draws over it
 
             new GameObject("Focus Ring").AddComponent<FocusRing>(); // follows the selected control
             gameObject.AddComponent<KeyboardFocus>(); // Tab moves focus so the ring is keyboard-reachable
@@ -143,7 +144,6 @@ namespace Game.UI {
             _scrubber = UIKit.Slider(bar, 0f, 1f, 0f, f => onScrub?.Invoke(f));
             _scrubPress = _scrubber.gameObject.AddComponent<ScrubPress>();
 
-            Legend(bar);
             ToolbarSep(bar);
 
             // speed: just a bolt + the bar (the separate "Speed" word read awkwardly next to the fill)
@@ -209,12 +209,28 @@ namespace Game.UI {
             return val;
         }
 
-        // a colour key matching the grid's cell states, recoloured with the grid theme
-        private void Legend(Transform bar) {
-            RectTransform row = UIKit.Row(bar, Theme.Space3);
+        // a colour key matching the grid's cell states, recoloured with the grid theme. it floats over
+        // the bottom-left of the board rather than sitting in the toolbar, which it was crowding, and
+        // stays faint until the cursor reaches it so it reads as reference rather than chrome.
+        private void Legend(Transform body) {
+            RectTransform panel = UIKit.Panel(body, Theme.Surface, Theme.RadiusMd, Theme.Space3, Theme.Space1,
+                fitWidth: true); // hug the labels rather than sit at the default 100px
+            panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(0f, 0f);
+            panel.anchoredPosition = new Vector2(Theme.Space4, Theme.Space4);
+            panel.GetComponent<RoundedRectGraphic>().raycastTarget = true; // so it can feel the cursor
+
+            var fade = panel.gameObject.AddComponent<HoverFade>();
+            fade.group = panel.gameObject.AddComponent<CanvasGroup>();
+            fade.group.alpha = fade.idle;
+
             _legend = new[] {
-                LegendSwatch(row, "Start"), LegendSwatch(row, "End"), LegendSwatch(row, "Path"),
-                LegendSwatch(row, "Frontier"), LegendSwatch(row, "Seen"), LegendSwatch(row, "Wall"),
+                LegendSwatch(panel, "Start"), LegendSwatch(panel, "End"), LegendSwatch(panel, "Path"),
+                LegendSwatch(panel, "Frontier"), LegendSwatch(panel, "Seen"), LegendSwatch(panel, "Wall"),
+            };
+            _terrainKey = new[] {
+                LegendSwatch(panel, "Road   0.5x"),
+                LegendSwatch(panel, "Mud    2x"),
+                LegendSwatch(panel, "Water  4x"),
             };
         }
 
@@ -250,7 +266,8 @@ namespace Game.UI {
             var le = sw.gameObject.AddComponent<LayoutElement>();
             le.minWidth = le.preferredWidth = 10f;
             le.minHeight = le.preferredHeight = 10f;
-            UIKit.Label(row, _font, label, UIKit.Type.Caption, Theme.Muted).fontSize = 11f;
+            // full-strength text, not Muted - the panel's own fade is what holds it back
+            UIKit.Label(row, _font, label, UIKit.Type.Caption, Theme.Text).fontSize = 11f;
             return g;
         }
 
@@ -339,13 +356,6 @@ namespace Game.UI {
             _terrainWarning.enableWordWrapping = true;
             _terrainWarning.gameObject.SetActive(false);
 
-            UIKit.SectionHeader(col, _font, "Terrain", Icon.Brush);
-            Sub(col, "Cost to enter a cell");
-            _terrainKey = new[] {
-                LegendSwatch(col, "Road    0.5x"),
-                LegendSwatch(col, "Mud     2x"),
-                LegendSwatch(col, "Water   4x"),
-            };
 
             UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
             UIKit.ScrubField(Field(col, "Width", tooltip: "Grid width in cells"), initialWidth, 8, 200, "",
