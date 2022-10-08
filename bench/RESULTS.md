@@ -53,6 +53,34 @@ Pre-sizing the recorded trace shaved a little off the rest. It costs Greedy slig
 almost nothing and now reserves more than it uses, but that is a few hundred KB against a search
 that is already an order of magnitude ahead of the others.
 
+## Repairing a plan against working it out again
+
+D* Lite holds its working state and repairs it when a cell changes. Both columns below cover the same
+job, having a correct route after one edit, so they compare directly.
+
+| Size | Full solve | Replan | Ratio |
+|---|---:|---:|---:|
+| 32x32 | 31 us | 4.8 us | 0.16 |
+| 128x128 | 684 us | 40 us | 0.06 |
+| 256x256 | 3,025 us | 232 us | 0.08 |
+
+An edit costs somewhere between a sixth and a sixteenth of what re-solving costs, because the repair
+only touches the cells the edit actually disturbed.
+
+That is not free. The first plan settles every reachable cell rather than stopping once it reaches
+the goal, so it costs about eight times a plain A\* solve:
+
+| Size | A\* solve | D\* Lite first plan | Ratio |
+|---|---:|---:|---:|
+| 32x32 | 31 us | 219 us | 7.1 |
+| 128x128 | 684 us | 5,743 us | 8.4 |
+| 256x256 | 3,025 us | 24,779 us | 8.2 |
+
+So it pays for itself after about eight edits, at every size measured. Draw one wall and it was the
+wrong choice; drag a brush across the board, which is what anyone actually does here, and it is well
+ahead. That is the trade, and it is worth knowing rather than assuming the incremental one always
+wins.
+
 ## Not done, on purpose
 
 Pooling the per-search arrays would remove the fixed allocation a solve pays whatever it explores.
