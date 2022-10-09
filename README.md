@@ -22,6 +22,7 @@ a single wall reshape the path without losing where you were.
 | **Depth-first** | Rarely sensible, always instructive |
 | **Jump Point Search** | A\* with symmetry-breaking jumps on a uniform grid |
 | **Bidirectional** | Dijkstra from both ends, meeting in the middle. Overrides the picker |
+| **D\* Lite** | Incremental. Repairs its plan as you edit rather than starting over. Overrides the picker |
 
 A\*, Dijkstra and Greedy share an expand loop over an indexed binary heap, relaxing a cell whenever
 a cheaper route to it turns up. The heuristic and 8-direction movement are toggled in the sidebar.
@@ -62,6 +63,22 @@ is the interesting one: a heuristic counts cells and assumes each is worth at le
 cheaper than that has to be accounted for or A\* overestimates what is left and settles for a route
 it should have looked past. The estimate is scaled by the cheapest weight on the grid to keep it
 honest.
+
+## Replanning as you edit
+
+Every other search here throws its work away the moment a wall moves. D\* Lite, behind the sidebar's
+**Incremental** switch, does not. It searches backward from the goal, so what it works out is each
+cell's cost to reach the goal, and an edit only invalidates the cells around it. Everything else
+keeps the answer it already had.
+
+Repairing after one edit costs somewhere between a sixth and a sixteenth of solving again, and the
+gap widens with the grid. It is not free: the first plan settles every reachable cell instead of
+stopping at the goal, so it costs about eight times a plain A\* solve and takes roughly eight edits
+to pay that back. Draw one wall and it was the wrong tool. Drag a brush across the board and it is
+well ahead. The numbers are in `bench/RESULTS.md`.
+
+Moving the start is repaired through. Moving the goal is not, because the whole field is measured
+from it, so that one plans again from scratch.
 
 Not every search reads terrain. Greedy orders by the estimate alone, breadth-first and depth-first
 pick by when a cell turned up, and JPS bakes uniform step costs into the rules it skips cells by.
@@ -115,7 +132,7 @@ deploy.
     - [ ] Orthogonal Jump Point Search
     - [ ] Trace
     - [ ] Bellman-Ford
-    - [ ] D\* or D\*-Lite
+    - [x] D\* or D\*-Lite
 - Configuration Options
     - Search Options
         - [x] Uninformed (BFS / DFS / Dijkstra)
