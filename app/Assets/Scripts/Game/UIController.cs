@@ -91,6 +91,8 @@ public class UIController : MonoBehaviour {
     private Heuristic _heuristic = Heuristic.Manhattan;
     private bool _diagonal;
 
+    private bool _incremental;
+
     // the armed brush, held here so it survives the editor being rebuilt on a resize
     private BrushKind _brush = BrushKind.Wall;
     private Terrain _tier = Terrain.Mud;
@@ -154,6 +156,7 @@ public class UIController : MonoBehaviour {
         _shell.onShowDistances = OnShowDistances;
         _shell.onBidirectional = on => { _bidirectional = on; _solver.UseBidirectional = on; Resolve(); };
         _shell.onBrush = i => SetBrush(i == 0 ? BrushKind.Wall : BrushKind.Terrain, TierFor(i));
+        _shell.onIncremental = on => { _incremental = on; _solver.Incremental = on; Resolve(); };
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetLegend(_gridTheme);
@@ -171,6 +174,7 @@ public class UIController : MonoBehaviour {
         _solver.Diagonal = _diagonal;
         _solver.Weight = _weight;
         _solver.UseBidirectional = _bidirectional;
+        _solver.Incremental = _incremental;
         _gridEditor = new GridEditor(mainCamera, gridController, _solver);
         _playback = new Playback(speed, clampIncrement);
         ApplySpeed(_speedScale);
@@ -410,6 +414,9 @@ public class UIController : MonoBehaviour {
     private void Resolve() {
         if (_playback.State == null)
             return;
+        // an option change is the one thing a standing plan can't be repaired through - it was built
+        // under the old ones. edits go through GeneratePath directly and keep theirs.
+        _solver.Reset();
         GeneratePath();
         LoadNextState(false); // swapping algorithm re-lays the whole search at the pinned step
     }

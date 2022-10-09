@@ -25,10 +25,22 @@ public class PathSolver {
     public float Weight { get; set; } = 1f; // A* heuristic weight, 1 keeps it shortest
     public bool UseBidirectional { get; set; } // overrides Algorithm with a two-ended Dijkstra
 
+    /// <summary>
+    /// Keep a plan between solves and repair it when the grid is edited, instead of searching again.
+    /// Overrides the picker the same way bidirectional does.
+    /// </summary>
+    public bool Incremental { get; set; }
+
     private static readonly int[] EmptyPath = new int[0];
 
     private readonly Random _random;
     private SearchResult? _result;
+
+    // the live plan, plus what it was built against and what has been edited since
+    private DStarLite? _plan;
+    private int _plannedStart = -1;
+    private int _plannedGoal = -1;
+    private readonly List<int> _edited = new List<int>();
 
     public PathSolver(int width, int height, Random? random = null) {
         _random = random ?? new Random();
@@ -98,12 +110,44 @@ public class PathSolver {
     public ChangeController Solve() {
         int start = Grid.Index(Start);
         int goal = Grid.Index(End);
+        var options = new SearchOptions(Diagonal, Heuristic, Weight);
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        _result = Create().Search(Grid, start, goal, new SearchOptions(Diagonal, Heuristic, Weight));
+        _result = Incremental ? Repair(start, goal, options) : Create().Search(Grid, start, goal, options);
         clock.Stop();
 
+        _edited.Clear();
         return SearchTrace.Build(Grid, _result, start, goal, clock.Elapsed.TotalSeconds);
+    }
+
+    /// <summary>
+    /// Repair the standing plan, or build one if there isn't a usable one. Moving the goal is the one
+    /// change that cannot be repaired: the whole field is measured from it, so that starts over.
+    /// </summary>
+    private SearchResult Repair(int start, int goal, SearchOptions options) {
+        if (_plan == null || goal != _plannedGoal) {
+            _plan = new DStarLite();
+            _plannedGoal = goal;
+            _plannedStart = start;
+            return _plan.Start(Grid, start, goal, options);
+        }
+
+        if (start != _plannedStart) {
+            _plan.MoveStart(start);
+            _plannedStart = start;
+        }
+        if (_edited.Count > 0)
+            _plan.Touch(_edited);
+
+        return _plan.Replan();
+    }
+
+    /// <summary>Throw the standing plan away, for when the options it was built under change.</summary>
+    public void Reset() {
+        _plan = null;
+        _plannedStart = -1;
+        _plannedGoal = -1;
+        _edited.Clear();
     }
 
     private ISearch Create() {
@@ -122,7 +166,7 @@ public class PathSolver {
     }
 
     /// <summary>Whether the selected search steers by what cells cost, for the UI to warn about.</summary>
-    public bool HonorsWeights => Create().HonorsWeights;
+    public bool HonorsWeights => Incremental || Create().HonorsWeights;
 
     public bool HasTerrain => Grid.HasTerrain;
 
@@ -130,12 +174,19 @@ public class PathSolver {
 
     public bool IsWalkable(Coord position) => Grid.IsWalkable(Grid.Index(position));
 
-    public void SetWalkable(Coord position, bool walkable) => Grid.SetWalkable(Grid.Index(position), walkable);
+    public void SetWalkable(Coord position, bool walkable) {
+        int cell = Grid.Index(position);
+        Grid.SetWalkable(cell, walkable);
+        _edited.Add(cell);
+    }
 
     public Terrain TerrainAt(Coord position) => Terrains.Of(Grid.Weight(Grid.Index(position)));
 
-    public void SetTerrain(Coord position, Terrain terrain) =>
-        Grid.SetWeight(Grid.Index(position), Terrains.Weight(terrain));
+    public void SetTerrain(Coord position, Terrain terrain) {
+        int cell = Grid.Index(position);
+        Grid.SetWeight(cell, Terrains.Weight(terrain));
+        _edited.Add(cell);
+    }
 
     /// <summary>Per-cell terrain as of now, for the renderer to tint the plain tiles with.</summary>
     public Terrain[,] TerrainField() {

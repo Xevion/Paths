@@ -27,6 +27,7 @@ namespace Game.UI {
         public Action<Heuristic> onHeuristic;
         public Action<bool> onDiagonal;
         public Action<int> onBrush; // 0 wall, then the terrain tiers in order
+        public Action<bool> onIncremental;
         public Action<float> onWeight;
         public Action<int> onWidth, onHeight, onSeed;
         public Action<Generator> onGenerator;
@@ -350,6 +351,9 @@ namespace Game.UI {
                 initialDiagonal, b => onDiagonal?.Invoke(b));
             UIKit.Switch(Field(col, "Bidirectional", tooltip: "Search from both ends and meet in the middle"),
                 false, b => onBidirectional?.Invoke(b));
+            UIKit.Switch(Field(col, "Incremental",
+                    tooltip: "D* Lite - repair the plan as you edit instead of searching again"),
+                false, b => onIncremental?.Invoke(b));
 
             _terrainWarning = UIKit.Label(col, _font,
                 "This search ignores terrain cost.", UIKit.Type.Caption, Theme.Warning);
