@@ -27,6 +27,17 @@ namespace Game.UI {
         private float _accum;
         private Vector2 _pressPoint;
 
+        // the browser hands over the cursor only from inside the press, so ask before it lands
+        public override void OnPointerEnter(PointerEventData e) {
+            base.OnPointerEnter(e);
+            PointerLock.Arm(true);
+        }
+
+        public override void OnPointerExit(PointerEventData e) {
+            base.OnPointerExit(e);
+            if (!_dragging) PointerLock.Arm(false);
+        }
+
         public override void OnPointerDown(PointerEventData e) {
             base.OnPointerDown(e); // selects the field, so the focus ring picks it up
             // capture the press point before the lock warps the OS cursor, then park a visible cursor there
@@ -34,7 +45,6 @@ namespace Game.UI {
             FrozenCursor.Instance.Show(_pressPoint);
             // the lock parks the cursor but not the position, so hold that still ourselves
             PointerInput.Pin(_pressPoint);
-            // lock on DOWN (not up) - browsers only grant Pointer Lock inside the gesture
             _dragging = true;
             _skipFrame = true; // the first locked frame reports a bogus jump-to-centre delta
             _accum = 0f;
@@ -49,6 +59,7 @@ namespace Game.UI {
 
         protected override void OnDisable() {
             base.OnDisable();
+            PointerLock.Arm(false);
             Release();
         }
 
@@ -56,6 +67,7 @@ namespace Game.UI {
             if (!_dragging) return;
             _dragging = false;
             Cursor.lockState = CursorLockMode.None;
+            PointerLock.Exit();
             // a warp is ignored in the same frame the cursor unlocks (it's still re-centring), so defer it a
             // frame while the control is live; if we're being disabled there's no next Update, so warp now
             if (isActiveAndEnabled) {

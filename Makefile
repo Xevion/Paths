@@ -28,7 +28,7 @@ endif
 
 # rebuild the player only when something actually changed. skip TextMesh Pro - it's
 # vendored, never changes, and the space in the path trips up make's prereq parsing.
-SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \) -not -path '*/TextMesh Pro/*')
+SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' -o -name '*.jslib' \) -not -path '*/TextMesh Pro/*')
 
 .PHONY: demo build run play web compile test test-play bench open clean
 
