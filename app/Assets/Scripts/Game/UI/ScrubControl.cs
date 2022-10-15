@@ -2,7 +2,6 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Game.UI {
@@ -31,7 +30,7 @@ namespace Game.UI {
         public override void OnPointerDown(PointerEventData e) {
             base.OnPointerDown(e); // selects the field, so the focus ring picks it up
             // capture the press point before the lock warps the OS cursor, then park a visible cursor there
-            _pressPoint = Input.mousePosition;
+            _pressPoint = PointerInput.Position;
             FrozenCursor.Instance.Show(_pressPoint);
             // lock on DOWN (not up) - browsers only grant Pointer Lock inside the gesture
             _dragging = true;
@@ -65,7 +64,7 @@ namespace Game.UI {
         }
 
         private void Warp() {
-            if (Mouse.current != null) Mouse.current.WarpCursorPosition(_pressPoint);
+            PointerInput.WarpTo(_pressPoint);
             Cursor.visible = true;
             FrozenCursor.Instance.Hide();
         }
@@ -78,11 +77,11 @@ namespace Game.UI {
             }
             if (!_dragging) return;
             // while the press holds the cursor locked, scroll events stop being routed here (the pointer is
-            // pinned), so read the wheel straight off Input to keep scroll-to-step working mid-drag
-            float wheel = Input.mouseScrollDelta.y;
+            // pinned), so read the wheel straight off the source to keep scroll-to-step working mid-drag
+            float wheel = PointerInput.ScrollDelta.y;
             if (wheel != 0f) Set(value + (wheel > 0f ? 1 : -1));
             if (_skipFrame) { _skipFrame = false; return; }
-            _accum += Input.GetAxisRaw("Mouse X");
+            _accum += PointerInput.DragDelta;
             int steps = (int) (_accum / unitsPerStep);
             if (steps == 0) return;
             _accum -= steps * unitsPerStep;

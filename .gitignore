@@ -64,6 +64,9 @@ ExportedObj/
 # Unity3D generated file on crash reports
 sysinfo.txt
 
+# Scratch scene the playmode test runner leaves behind
+app/[Aa]ssets/InitTestScene*.unity*
+
 # Builds
 *.apk
 *.unitypackage

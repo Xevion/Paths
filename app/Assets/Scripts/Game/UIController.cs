@@ -289,7 +289,7 @@ public class UIController : MonoBehaviour {
                 _shell.SetPlayhead(_playback.Fraction);
 
                 // mouse up: settle back to playing or parked, whichever we were before the edit
-                if (!Input.GetMouseButton(0))
+                if (!PointerInput.Held())
                     _animationState = _resumeState;
                 break;
             case AnimationState.Started:
@@ -354,8 +354,8 @@ public class UIController : MonoBehaviour {
     // highlight the cell under the cursor, previewing the wall the brush would draw on an empty
     // one. off while the pointer's over the toolbar/sidebar (that's a UI click, not a grid one).
     private void UpdateHover() {
-        Vector3 world = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-        bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        Vector3 world = mainCamera.ScreenToWorldPoint(PointerInput.Position);
+        bool overUi = PointerInput.OverUi;
         if (!overUi && gridController.CellAt(world, out Vector2Int cell)) {
             bool empty = _solver.IsWalkable(cell.ToCoord()) && cell.ToCoord() != _solver.Start &&
                          cell.ToCoord() != _solver.End;
@@ -384,7 +384,7 @@ public class UIController : MonoBehaviour {
             return;
         }
         Color marker = _gridEditor.GhostKind == ClickType.Start ? _gridTheme.start : _gridTheme.end;
-        Vector3 world = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 world = mainCamera.ScreenToWorldPoint(PointerInput.Position);
         bool valid = _gridEditor.GhostValid;
         gridController.SetGhost(world, valid ? marker : GhostInvalid, !valid);
     }
@@ -469,7 +469,7 @@ public class UIController : MonoBehaviour {
     public void OnDrawGizmos() {
         if (!Application.isPlaying) return;
 
-        Vector3 mouse = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 mouse = mainCamera.ScreenToWorldPoint(PointerInput.Position);
         Vector3 localScale = gridObject.transform.localScale;
         bool onGrid = gridController.CellAt(mouse, out Vector2Int gridPosition);
 

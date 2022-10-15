@@ -18,6 +18,8 @@ WEBSTAMP := Build/.web
 # the editor spews a novel to stdout, so log it to a file and just print pass/fail.
 # VERBOSE=1 streams it instead when you actually want to watch.
 LOG := Build/unity.log
+# unity resolves -testResults against the project folder, not the cwd, so spell it out
+PLAYRESULTS := $(CURDIR)/Build/playmode.xml
 ifeq ($(VERBOSE),1)
 LOGARG := -logFile -
 else
@@ -28,7 +30,7 @@ endif
 # vendored, never changes, and the space in the path trips up make's prereq parsing.
 SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' \) -not -path '*/TextMesh Pro/*')
 
-.PHONY: demo build run play web compile test bench open clean
+.PHONY: demo build run play web compile test test-play bench open clean
 
 # build if stale, then run the demo
 demo: $(STAMP)
@@ -72,6 +74,16 @@ compile:
 # instead of waiting on an editor domain reload.
 test:
 	$(DOTNET) test Paths.sln --nologo
+
+# the interface tests need a real event system and a real grid, so they run in the editor.
+# no -nographics here: the ui raycasts want a display.
+test-play:
+	@mkdir -p Build
+	@$(UNITY) -batchmode -projectPath $(PROJECT) -runTests -testPlatform PlayMode \
+		-testResults $(PLAYRESULTS) $(LOGARG) \
+		&& echo "playmode tests OK" \
+		|| (echo "playmode tests FAILED (see $(PLAYRESULTS)):"; \
+		    grep -soE 'name="[A-Za-z]+"[^>]*result="Failed"' $(PLAYRESULTS); false)
 
 # release only - a debug build's numbers are meaningless. BENCH=<filter> to run just one.
 bench:

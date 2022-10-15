@@ -98,11 +98,7 @@ namespace Game.UI {
             scaler.matchWidthOrHeight = 0.5f;
             gameObject.AddComponent<GraphicRaycaster>();
 
-            if (EventSystem.current == null) {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<EventSystem>();
-                es.AddComponent<StandaloneInputModule>();
-            }
+            PointerBaseInput.EnsureEventSystem();
         }
 
         // a dim full-screen scrim that blocks the app behind and centres the window

@@ -450,11 +450,7 @@ namespace Game.UI {
             _scaler.matchWidthOrHeight = 0.5f;
             gameObject.AddComponent<GraphicRaycaster>();
 
-            if (EventSystem.current == null) {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<EventSystem>();
-                es.AddComponent<StandaloneInputModule>();
-            }
+            PointerBaseInput.EnsureEventSystem();
         }
 
         private static RectTransform New(string name, Transform parent) {

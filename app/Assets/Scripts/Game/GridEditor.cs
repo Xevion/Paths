@@ -2,7 +2,6 @@ using System;
 using Game;
 using Paths.Core.Search;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using Terrain = Paths.Core.Search.Terrain;
 
 /// <summary>
@@ -54,20 +53,20 @@ public class GridEditor {
         Dirtied = false;
         TerrainDirtied = false;
         Ghosting = false;
-        if (!Input.GetMouseButton(0))
+        if (!PointerInput.Held())
             return state;
         // don't draw walls through the UI - the toolbar/sidebar/scrubber eat the click, not the grid under it
-        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        if (PointerInput.OverUi)
             return state;
 
-        Vector3 worldMouse = _camera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 worldMouse = _camera.ScreenToWorldPoint(PointerInput.Position);
         // the camera can be zoomed/panned so the cursor is easily off the grid - ignore those clicks
         if (!_gridController.CellAt(worldMouse, out Vector2Int position))
             return state;
         Coord cell = position.ToCoord();
 
         // Initial click, remember what they grabbed
-        if (Input.GetMouseButtonDown(0)) {
+        if (PointerInput.Pressed()) {
             if (cell == _solver.Start)
                 _modify = ClickType.Start;
             else if (cell == _solver.End)

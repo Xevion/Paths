@@ -1,3 +1,4 @@
+using Game;
 using UnityEngine;
 
 /// <summary>
@@ -37,24 +38,24 @@ public class CameraRig {
     }
 
     private void Zoom() {
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        float scroll = PointerInput.ScrollAxis;
         if (Mathf.Approximately(scroll, 0f))
             return;
 
         // pin whatever's under the cursor while zooming so it doesn't drift
-        Vector3 before = _camera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 before = _camera.ScreenToWorldPoint(PointerInput.Position);
         _zoom = Mathf.Clamp(_zoom * (1f + scroll * ZoomRate), MinZoom, MaxZoom);
         _camera.orthographicSize = _frameSize / _zoom;
-        Vector3 after = _camera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 after = _camera.ScreenToWorldPoint(PointerInput.Position);
         _camera.transform.position += before - after;
     }
 
     private void Pan() {
         // right or middle drag - left is the wall brush
-        if (Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2))
-            _panGrab = _camera.ScreenToWorldPoint(Input.mousePosition);
-        else if (Input.GetMouseButton(1) || Input.GetMouseButton(2)) {
-            Vector3 now = _camera.ScreenToWorldPoint(Input.mousePosition);
+        if (PointerInput.Pressed(1) || PointerInput.Pressed(2))
+            _panGrab = _camera.ScreenToWorldPoint(PointerInput.Position);
+        else if (PointerInput.Held(1) || PointerInput.Held(2)) {
+            Vector3 now = _camera.ScreenToWorldPoint(PointerInput.Position);
             _camera.transform.position += _panGrab - now; // keep the grabbed point under the cursor
         }
     }

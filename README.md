@@ -111,8 +111,9 @@ Built on **Unity 2020.3.18f1**. The `Makefile` builds and runs without opening t
 ```sh
 make demo    # build the desktop player if stale, then run it
 make web     # build the WebGL demo and serve it at localhost:8000
-make test    # the core test suite, no editor needed
-make compile # compile and import only, no build
+make test      # the core test suite, no editor needed
+make test-play # the interface tests, which need the editor
+make compile   # compile and import only, no build
 ```
 
 `make web` produces the deployable build under `Build/WebGL`, which is what runs at

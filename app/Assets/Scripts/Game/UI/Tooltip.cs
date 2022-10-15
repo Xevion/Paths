@@ -109,7 +109,7 @@ namespace Game.UI {
 
         // pin to the cursor, offset up-right, nudged back in-screen near the edges
         private void Place() {
-            Vector2 m = Input.mousePosition;
+            Vector2 m = PointerInput.Position;
             Vector2 size = _bubble.rect.size;
             float x = m.x + 16f;
             float y = m.y + 16f;
