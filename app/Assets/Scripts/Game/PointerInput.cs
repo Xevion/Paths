@@ -34,16 +34,22 @@ namespace Game {
     }
 
     /// <summary>
-    /// The app's pointer. Everything reads it through here, uGUI included, so there is one answer to
-    /// where the cursor is and what it is doing rather than one per caller.
+    /// The app's pointer. A control that drags with the cursor locked pins the position, since
+    /// locking parks the hardware cursor but not the position the app reads. A press belongs to
+    /// whatever it started on, so one that began on the interface never reaches the grid.
     /// </summary>
     public static class PointerInput {
         public static IPointerSource Source = new MousePointerSource();
 
-        public static Vector2 Position => Source.Position;
+        private static bool _pinned;
+        private static Vector2 _anchor;
+        private static readonly bool[] _ui = new bool[3];
+
+        public static Vector2 Position => _pinned ? _anchor : Source.Position;
         public static Vector2 ScrollDelta => Source.ScrollDelta;
         public static float ScrollAxis => Source.ScrollAxis;
         public static float DragDelta => Source.DragDelta;
+        public static bool Pinned => _pinned;
 
         public static bool Held(int button = 0) => Source.Held(button);
         public static bool Pressed(int button = 0) => Source.Pressed(button);
@@ -53,9 +59,37 @@ namespace Game {
         public static bool OverUi =>
             EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
+        /// <summary>Whether the press in progress began on the UI. Holds for the whole gesture.</summary>
+        public static bool UiOwns(int button = 0) => _ui[button];
+
+        /// <summary>A press the world is free to act on: held, and it did not begin on the UI.</summary>
+        public static bool Grabbed(int button = 0) => Source.Held(button) && !_ui[button];
+
+        /// <summary>Freeze the reported position at a point until <see cref="Unpin"/>.</summary>
+        public static void Pin(Vector2 at) {
+            _pinned = true;
+            _anchor = at;
+        }
+
+        public static void Unpin() => _pinned = false;
+
         public static void WarpTo(Vector2 position) => Source.WarpTo(position);
 
-        /// <summary>Go back to the real mouse.</summary>
-        public static void Reset() => Source = new MousePointerSource();
+        /// <summary>Latch press ownership. Runs once a frame, ahead of anything that reads it.</summary>
+        public static void Update() {
+            for (int b = 0; b < _ui.Length; b++) {
+                if (Source.Pressed(b))
+                    _ui[b] = OverUi;
+                else if (!Source.Held(b))
+                    _ui[b] = false;
+            }
+        }
+
+        /// <summary>Drop all latched state and go back to the real mouse.</summary>
+        public static void Reset() {
+            Source = new MousePointerSource();
+            _pinned = false;
+            for (int b = 0; b < _ui.Length; b++) _ui[b] = false;
+        }
     }
 }

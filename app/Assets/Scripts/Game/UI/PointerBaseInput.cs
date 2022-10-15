@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 namespace Game.UI {
     /// <summary>
     /// Feeds uGUI from <see cref="PointerInput"/> so the event system and the rest of the app agree
-    /// on where the pointer is. Tests drive the interface through the same seam.
+    /// on where the pointer is, pin included. Tests drive the interface through the same seam.
     /// </summary>
     public class PointerBaseInput : BaseInput {
         public override Vector2 mousePosition => PointerInput.Position;

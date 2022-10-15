@@ -38,6 +38,10 @@ public class CameraRig {
     }
 
     private void Zoom() {
+        // the wheel over the sidebar scrolls it or steps a field, so it shouldn't zoom the board too
+        if (PointerInput.OverUi)
+            return;
+
         float scroll = PointerInput.ScrollAxis;
         if (Mathf.Approximately(scroll, 0f))
             return;
@@ -51,12 +55,14 @@ public class CameraRig {
     }
 
     private void Pan() {
-        // right or middle drag - left is the wall brush
+        // right or middle drag, and only one that started on the board - left is the wall brush
+        if (!PointerInput.Grabbed(1) && !PointerInput.Grabbed(2))
+            return;
+
+        Vector3 now = _camera.ScreenToWorldPoint(PointerInput.Position);
         if (PointerInput.Pressed(1) || PointerInput.Pressed(2))
-            _panGrab = _camera.ScreenToWorldPoint(PointerInput.Position);
-        else if (PointerInput.Held(1) || PointerInput.Held(2)) {
-            Vector3 now = _camera.ScreenToWorldPoint(PointerInput.Position);
+            _panGrab = now;
+        else
             _camera.transform.position += _panGrab - now; // keep the grabbed point under the cursor
-        }
     }
 }

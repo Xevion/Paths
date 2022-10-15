@@ -251,6 +251,7 @@ public class UIController : MonoBehaviour {
     }
 
     private void Update() {
+        PointerInput.Update(); // settle who owns the press before anything acts on it
         _cameraRig.Update(); // zoom/pan first so edits this frame use the moved camera
         UpdateHover();
 
@@ -352,10 +353,11 @@ public class UIController : MonoBehaviour {
     }
 
     // highlight the cell under the cursor, previewing the wall the brush would draw on an empty
-    // one. off while the pointer's over the toolbar/sidebar (that's a UI click, not a grid one).
+    // one. off while the pointer's over the toolbar/sidebar, and off for the whole of a press
+    // that started there, so a control dragging the cursor doesn't trail a highlight behind it.
     private void UpdateHover() {
         Vector3 world = mainCamera.ScreenToWorldPoint(PointerInput.Position);
-        bool overUi = PointerInput.OverUi;
+        bool overUi = PointerInput.OverUi || PointerInput.UiOwns();
         if (!overUi && gridController.CellAt(world, out Vector2Int cell)) {
             bool empty = _solver.IsWalkable(cell.ToCoord()) && cell.ToCoord() != _solver.Start &&
                          cell.ToCoord() != _solver.End;

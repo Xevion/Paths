@@ -32,6 +32,8 @@ namespace Game.UI {
             // capture the press point before the lock warps the OS cursor, then park a visible cursor there
             _pressPoint = PointerInput.Position;
             FrozenCursor.Instance.Show(_pressPoint);
+            // the lock parks the cursor but not the position, so hold that still ourselves
+            PointerInput.Pin(_pressPoint);
             // lock on DOWN (not up) - browsers only grant Pointer Lock inside the gesture
             _dragging = true;
             _skipFrame = true; // the first locked frame reports a bogus jump-to-centre delta
@@ -65,6 +67,8 @@ namespace Game.UI {
 
         private void Warp() {
             PointerInput.WarpTo(_pressPoint);
+            // unpin only once the cursor is back, or the app sees it at wherever the drag drifted to
+            PointerInput.Unpin();
             Cursor.visible = true;
             FrozenCursor.Instance.Hide();
         }
@@ -76,6 +80,11 @@ namespace Game.UI {
                 return;
             }
             if (!_dragging) return;
+            // a mouse-up delivered outside the window never reaches OnPointerUp, so don't wait only on it
+            if (!PointerInput.Held()) {
+                Release();
+                return;
+            }
             // while the press holds the cursor locked, scroll events stop being routed here (the pointer is
             // pinned), so read the wheel straight off the source to keep scroll-to-step working mid-drag
             float wheel = PointerInput.ScrollDelta.y;

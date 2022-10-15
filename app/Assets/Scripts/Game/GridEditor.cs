@@ -17,6 +17,10 @@ public class GridEditor {
     private ClickType _modify;
     private Vector2Int _lastClickLocation;
 
+    // whether the press in progress started on a cell. a press that began anywhere else, off the
+    // grid or on the UI, never becomes an edit no matter where it is dragged afterwards
+    private bool _editing;
+
     // what the left button draws. terrain paints the selected tier onto walkable cells; clicking a
     // cell that is already that tier clears it back to plain, the same toggle the wall brush uses.
     public BrushKind Brush { get; set; } = BrushKind.Wall;
@@ -53,10 +57,14 @@ public class GridEditor {
         Dirtied = false;
         TerrainDirtied = false;
         Ghosting = false;
-        if (!PointerInput.Held())
+        if (!PointerInput.Held()) {
+            _editing = false;
             return state;
-        // don't draw walls through the UI - the toolbar/sidebar/scrubber eat the click, not the grid under it
-        if (PointerInput.OverUi)
+        }
+
+        // a press belongs to whatever it landed on. one that started on the toolbar or a scrub field
+        // stays theirs for the whole gesture, so a control that drags the cursor can't draw walls.
+        if (PointerInput.UiOwns())
             return state;
 
         Vector3 worldMouse = _camera.ScreenToWorldPoint(PointerInput.Position);
@@ -67,6 +75,7 @@ public class GridEditor {
 
         // Initial click, remember what they grabbed
         if (PointerInput.Pressed()) {
+            _editing = true;
             if (cell == _solver.Start)
                 _modify = ClickType.Start;
             else if (cell == _solver.End)
@@ -92,7 +101,7 @@ public class GridEditor {
             _lastClickLocation = position;
         }
         // still holding the button & dragged onto a new cell
-        else if (_lastClickLocation != position) {
+        else if (_editing && _lastClickLocation != position) {
             _lastClickLocation = position;
             switch (_modify) {
                 // wall toggling reloads instantly, but only a real start/end move reloads
@@ -137,7 +146,7 @@ public class GridEditor {
         }
 
         // marker drag in progress - flag it and whether the cell under the cursor can take the drop
-        if (_modify == ClickType.Start || _modify == ClickType.End) {
+        if (_editing && (_modify == ClickType.Start || _modify == ClickType.End)) {
             Ghosting = true;
             GhostKind = _modify;
             Coord other = _modify == ClickType.Start ? _solver.End : _solver.Start;
