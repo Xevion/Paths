@@ -83,8 +83,9 @@ public class UIController : MonoBehaviour {
     // camera framing + zoom/pan
     private CameraRig _cameraRig;
 
-    // the live grid palette, so the drag ghost can borrow the start/end marker colors
-    private GridTheme _gridTheme = GridTheme.Dark();
+    // the live grid palette, so the drag ghost can borrow the start/end marker colors. built in
+    // Start, not here: a theme parses hex colors and Unity forbids that from a field initializer
+    private GridTheme _gridTheme;
 
     // current algorithm selection - kept here so it survives a grid resize (which rebuilds the solver)
     private Algorithm _algorithm = Algorithm.AStar;
@@ -118,6 +119,7 @@ public class UIController : MonoBehaviour {
     private const int GridStep = 2;
 
     private void Start() {
+        _gridTheme = GridTheme.Dark(); // InitGrid arms the brush off it, so it has to exist first
         _cameraRig = new CameraRig(mainCamera); // before InitGrid - Resize() frames through it
         InitGrid(gridController.width, gridController.height);
 

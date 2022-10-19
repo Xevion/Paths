@@ -356,6 +356,12 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
+    /// The state a cell is currently drawn as. This reads the texel the shader samples, so it is
+    /// what is actually on screen rather than what something meant to put there.
+    /// </summary>
+    public GridNodeType StateAt(int x, int y) => (GridNodeType) _pixels[width * y + x].r;
+
+    /// <summary>
     /// World position to grid cell, the one mapping every picker (editing, hover, gizmos) goes
     /// through. Returns whether the position actually lands on the grid. The quad's UVs run
     /// opposite to world XY, so cell (0,0) is the far corner - GetWorldPosition mirrors this.

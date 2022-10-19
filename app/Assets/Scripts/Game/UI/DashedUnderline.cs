@@ -7,6 +7,8 @@ namespace Game.UI {
     /// label that carries a tooltip (the abbr[title] dotted-underline convention), so a field reads as
     /// "hover me for more" without a visible control.
     /// </summary>
+    // a Graphic subclass doesn't inherit the base's RequireComponent, so ask for the renderer here
+    [RequireComponent(typeof(CanvasRenderer))]
     public class DashedUnderline : MaskableGraphic {
         // the sidebar content is downscaled, so sub-1px geometry shimmers - keep the dashes a hair chunky
         // (short dash + wider gap still reads as dots) and the rule ~1.5px so it stays solid after the scale

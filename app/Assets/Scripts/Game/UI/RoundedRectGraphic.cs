@@ -7,6 +7,8 @@ namespace Game.UI {
     /// an optional soft shadow) through the UI/RoundedRect shader. Per-panel size, radius and shadow
     /// ride in the mesh's vertex channels, so every panel shares one material and one draw setup.
     /// </summary>
+    // a Graphic subclass doesn't inherit the base's RequireComponent, so ask for the renderer here
+    [RequireComponent(typeof(CanvasRenderer))]
     public class RoundedRectGraphic : MaskableGraphic {
         public float cornerRadius = Theme.RadiusMd;
         public float shadowSize;
