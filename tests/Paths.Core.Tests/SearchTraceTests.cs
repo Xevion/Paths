@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Paths.Core.Search;
+using Paths.Tests.Search;
 using static Paths.Tests.Search.SearchCorpus;
 
 namespace Paths.Tests {
@@ -93,16 +94,40 @@ namespace Paths.Tests {
             }
         }
 
-        [Test]
-        public void WallsAreLeftAlone() {
-            var (grid, result, start, goal) = Solve(7, 12, 0.3);
-            ChangeController trace = SearchTrace.Build(grid, result, start, goal);
-            trace.Forward(trace.Count);
+        /// <summary>
+        /// Every search, not just the ones that happen to keep off the walls. Edits and repairs are
+        /// EditedTraceTests' business; this pins the first plan for all of them.
+        /// </summary>
+        [TestCaseSource(typeof(Searches), nameof(Searches.All))]
+        public void StructuralCellsSurviveEverySearch(string name, ISearch search) {
+            foreach (bool diagonal in new[] { false, true })
+                foreach (int seed in new[] { 3, 7, 11 }) {
+                    Grid grid = Seeded(seed, 12, 12, 0.3);
+                    int start = grid.Index(new Coord(0, 0));
+                    int goal = grid.Index(new Coord(11, 11));
+                    SearchResult result = search.Search(grid, start, goal,
+                        new SearchOptions(diagonal, Heuristic.Octile));
 
+                    ChangeController trace = SearchTrace.Build(grid, result, start, goal);
+                    trace.Forward(trace.Count);
+
+                    AssertStructureIntact(grid, trace, start, goal, $"{name} seed {seed} diagonal {diagonal}");
+                }
+        }
+
+        internal static void AssertStructureIntact(Grid grid, ChangeController trace, int start, int goal, string where) {
             for (int i = 0; i < grid.CellCount; i++) {
-                if (grid.IsWalkable(i)) continue;
                 Coord at = grid.At(i);
-                Assert.AreEqual(GridNodeType.Wall, trace.Current[at.X, at.Y], $"wall at {at} was painted over");
+                GridNodeType drawn = trace.Current[at.X, at.Y];
+                if (i == start)
+                    Assert.AreEqual(GridNodeType.Start, drawn, $"start was painted over on {where}");
+                else if (i == goal)
+                    Assert.AreEqual(GridNodeType.End, drawn, $"end was painted over on {where}");
+                else if (!grid.IsWalkable(i))
+                    Assert.AreEqual(GridNodeType.Wall, drawn,
+                        $"wall at {at} was painted over on {where}{Render(grid, start, goal)}");
+                else
+                    Assert.AreNotEqual(GridNodeType.Wall, drawn, $"open cell {at} drawn as a wall on {where}");
             }
         }
     }

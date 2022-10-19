@@ -67,9 +67,12 @@ public class Playback {
         _runtime += increment;
     }
 
-    /// <summary>Point the ChangeController at the current index, clamped so start/end always render.</summary>
+    /// <summary>Point the ChangeController at the current index, clamped to the steps it has.</summary>
     public void SyncState() {
-        State.MoveTo(Mathf.Clamp(CurrentIndex, 1, Count - 1));
+        // a repair can land with nothing to step through - the opening picture is already the answer
+        if (Count == 0)
+            return;
+        State.MoveTo(Mathf.Clamp(CurrentIndex, 0, Count - 1));
     }
 
     // path tiles linger ~5x longer so you can actually watch the final route draw itself in

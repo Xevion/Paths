@@ -16,8 +16,9 @@ public static class SearchTrace {
         var controller = new ChangeController(initial, duration);
 
         foreach (Visit visit in result.Visits) {
-            // start and end are painted once, up front, and never scribbled over
-            if (visit.Cell == start || visit.Cell == goal)
+            // structural cells are painted up front and never scribbled over. a repair re-examines
+            // the cell just walled off, and a wall drawn as expanded is a wall you cannot see.
+            if (visit.Cell == start || visit.Cell == goal || !grid.IsWalkable(visit.Cell))
                 continue;
 
             Coord at = grid.At(visit.Cell);
