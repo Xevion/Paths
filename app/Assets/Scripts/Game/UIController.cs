@@ -1,6 +1,7 @@
 using System;
 using Game;
 using Game.UI;
+using Paths.Core;
 using Paths.Core.Generation;
 using Paths.Core.Search;
 #if UNITY_EDITOR

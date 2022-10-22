@@ -1,4 +1,5 @@
 ﻿using System;
+using Paths.Core;
 using UnityEngine;
 // UnityEngine has a Terrain of its own, and it is not this one
 using Terrain = Paths.Core.Search.Terrain;

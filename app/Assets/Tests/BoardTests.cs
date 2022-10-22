@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Game.UI;
 using NUnit.Framework;
+using Paths.Core;
 using Paths.Core.Search;
 using UnityEngine;
 using UnityEngine.EventSystems;

@@ -1,4 +1,5 @@
 using System;
+using Paths.Core;
 using UnityEngine;
 
 /// <summary>

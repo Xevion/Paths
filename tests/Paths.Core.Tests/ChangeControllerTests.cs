@@ -1,3 +1,4 @@
+using Paths.Core;
 using NUnit.Framework;
 
 namespace Paths.Tests {

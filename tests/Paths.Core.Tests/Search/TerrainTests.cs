@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Paths.Core;
 using Paths.Core.Generation;
 using Paths.Core.Search;
 

@@ -1,5 +1,6 @@
 using System;
 using Game;
+using Paths.Core;
 using Paths.Core.Search;
 using UnityEngine;
 using Terrain = Paths.Core.Search.Terrain;

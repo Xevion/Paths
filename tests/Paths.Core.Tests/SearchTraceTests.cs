@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Paths.Core;
 using Paths.Core.Search;
 using Paths.Tests.Search;
 using static Paths.Tests.Search.SearchCorpus;
