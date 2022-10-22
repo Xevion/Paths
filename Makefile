@@ -30,7 +30,9 @@ endif
 # vendored, never changes, and the space in the path trips up make's prereq parsing.
 SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.shader' -o -name '*.unity' -o -name '*.jslib' \) -not -path '*/TextMesh Pro/*')
 
-.PHONY: demo build run play web compile test test-play bench open clean
+COVERAGE := Build/coverage/core.cobertura.xml
+
+.PHONY: demo build run play web compile test test-play coverage bench open clean
 
 # build if stale, then run the demo
 demo: $(STAMP)
@@ -84,6 +86,15 @@ test-play:
 		&& echo "playmode tests OK" \
 		|| (echo "playmode tests FAILED (see $(PLAYRESULTS)):"; \
 		    grep -soE 'name="[A-Za-z]+"[^>]*result="Failed"' $(PLAYRESULTS); false)
+
+# which files the core tests never touch. informational - nothing here gates a commit,
+# and on an algorithm core the percentage is easy to game. DETAIL=1 lists the missed lines.
+coverage:
+	@mkdir -p Build/coverage
+	@$(DOTNET) test tests/Paths.Core.Tests --nologo -v quiet \
+		/p:CollectCoverage=true /p:Include='[Paths.Core]*' \
+		/p:CoverletOutputFormat=cobertura /p:CoverletOutput=$(CURDIR)/$(COVERAGE)
+	@python3 tools/coverage.py $(COVERAGE) $(if $(DETAIL),--detail)
 
 # release only - a debug build's numbers are meaningless. BENCH=<filter> to run just one.
 bench:
