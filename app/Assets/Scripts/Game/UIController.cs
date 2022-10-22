@@ -88,31 +88,26 @@ public class UIController : MonoBehaviour {
     // Start, not here: a theme parses hex colors and Unity forbids that from a field initializer
     private GridTheme _gridTheme;
 
-    // current algorithm selection - kept here so it survives a grid resize (which rebuilds the solver)
-    private Algorithm _algorithm = Algorithm.AStar;
-    private Heuristic _heuristic = Heuristic.Manhattan;
-    private bool _diagonal;
-
-    private bool _incremental;
+    // how the search is set up. one object, handed to every solver a resize builds, so a new
+    // setting can't be dropped on the way across the way a list of field copies could be.
+    private readonly SolverSettings _settings = new SolverSettings();
 
     // the armed brush, held here so it survives the editor being rebuilt on a resize
     private BrushKind _brush = BrushKind.Wall;
     private Terrain _tier = Terrain.Mud;
-    private bool _bidirectional; // two-ended Dijkstra, overrides the algorithm pick while on
 
     // grid generation - a seed + a generator + wall density; the sidebar's Grid section drives these,
     // and they're kept here so a resize/regen rebuilds the same layout from the same seed.
     private int _seed = 1;
     private Generator _generator = Generator.Random;
     private float _density = 0.25f;
-    private float _weight = 1f; // A* heuristic weight
 
     // playback pace - a 0..1 speed scale, an optional per-step delay (ms), and loop-on-finish
     private float _speedScale = 0.5f;
     private float _stepDelay = 30f;
     private bool _loop;
-    private bool _animateSearch = true; // Display toggle - off snaps each step instead of easing it in
-    private bool _showDistances; // Display toggle - paint the search layer with the g-cost heatmap
+    private bool _animateSearch = true; // off snaps each step instead of easing it in
+    private bool _showDistances; // paint the search layer with the g-cost heatmap
 
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;
@@ -138,13 +133,13 @@ public class UIController : MonoBehaviour {
         _shell.initialWidth = gridController.width;
         _shell.initialHeight = gridController.height;
         _shell.initialSeed = _seed;
-        _shell.initialDiagonal = _diagonal;
+        _shell.initialDiagonal = _settings.Diagonal;
         _shell.onPlayPause = TogglePlayPause;
         _shell.onScrub = fraction => _playback.SeekFraction(fraction);
         _shell.onAlgorithm = OnAlgorithm;
         _shell.onHeuristic = OnHeuristic;
         _shell.onDiagonal = OnDiagonal;
-        _shell.onWeight = w => { _weight = w; _solver.Weight = w; Resolve(); };
+        _shell.onWeight = w => { _settings.Weight = w; Resolve(); };
         _shell.onGenerate = () => RegenGrid(gridController.width, gridController.height);
         _shell.onWidth = w => RegenGrid(w, gridController.height);
         _shell.onHeight = h => RegenGrid(gridController.width, h);
@@ -157,9 +152,9 @@ public class UIController : MonoBehaviour {
         _shell.onGridLines = on => gridController.SetGridLines(on);
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
         _shell.onShowDistances = OnShowDistances;
-        _shell.onBidirectional = on => { _bidirectional = on; _solver.UseBidirectional = on; Resolve(); };
+        _shell.onBidirectional = on => { _settings.Bidirectional = on; Resolve(); };
         _shell.onBrush = i => SetBrush(i == 0 ? BrushKind.Wall : BrushKind.Terrain, TierFor(i));
-        _shell.onIncremental = on => { _incremental = on; _solver.Incremental = on; Resolve(); };
+        _shell.onIncremental = on => { _settings.Incremental = on; Resolve(); };
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetLegend(_gridTheme);
@@ -172,12 +167,7 @@ public class UIController : MonoBehaviour {
     /// </summary>
     private void InitGrid(int width, int height) {
         _solver = new PathSolver(width, height, _seed, _generator, _density);
-        _solver.Algorithm = _algorithm; // a fresh solver defaults to A* - re-apply the current pick
-        _solver.Heuristic = _heuristic;
-        _solver.Diagonal = _diagonal;
-        _solver.Weight = _weight;
-        _solver.UseBidirectional = _bidirectional;
-        _solver.Incremental = _incremental;
+        _solver.Settings = _settings; // a fresh solver starts on the defaults, so hand it the live set
         _gridEditor = new GridEditor(mainCamera, gridController, _solver);
         _playback = new Playback(speed, clampIncrement);
         ApplySpeed(_speedScale);
@@ -395,20 +385,17 @@ public class UIController : MonoBehaviour {
     }
 
     private void OnAlgorithm(Algorithm algorithm) {
-        _algorithm = algorithm;
-        _solver.Algorithm = algorithm;
+        _settings.Algorithm = algorithm;
         Resolve();
     }
 
     private void OnHeuristic(Heuristic heuristic) {
-        _heuristic = heuristic;
-        _solver.Heuristic = heuristic;
+        _settings.Heuristic = heuristic;
         Resolve();
     }
 
     private void OnDiagonal(bool diagonal) {
-        _diagonal = diagonal;
-        _solver.Diagonal = diagonal;
+        _settings.Diagonal = diagonal;
         Resolve();
     }
 
@@ -419,8 +406,8 @@ public class UIController : MonoBehaviour {
     private void Resolve() {
         if (_playback.State == null)
             return;
-        // an option change is the one thing a standing plan can't be repaired through - it was built
-        // under the old ones. edits go through GeneratePath directly and keep theirs.
+        // the solver drops a plan built under different settings on its own now, so this is belt and
+        // braces. what Resolve is actually for is the relay below - edits go straight to GeneratePath
         _solver.Reset();
         GeneratePath();
         LoadNextState(false); // swapping algorithm re-lays the whole search at the pinned step

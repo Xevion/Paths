@@ -19,18 +19,11 @@ namespace Paths.Core {
         /// <summary>Cells on the last path found, start first. Empty when there wasn't one.</summary>
         public IReadOnlyList<int> Path => _result?.Path ?? EmptyPath;
 
-        // what the next Solve uses. set these from the UI, then re-solve
-        public Algorithm Algorithm { get; set; } = Algorithm.AStar;
-        public Heuristic Heuristic { get; set; } = Heuristic.Manhattan;
-        public bool Diagonal { get; set; }
-        public float Weight { get; set; } = 1f; // A* heuristic weight, 1 keeps it shortest
-        public bool UseBidirectional { get; set; } // overrides Algorithm with a two-ended Dijkstra
-
         /// <summary>
-        /// Keep a plan between solves and repair it when the grid is edited, instead of searching again.
-        /// Overrides the picker the same way bidirectional does.
+        /// What the next Solve uses. Held by reference on purpose, so the interface can keep one set
+        /// and hand the same one to each solver it builds.
         /// </summary>
-        public bool Incremental { get; set; }
+        public SolverSettings Settings { get; set; } = new SolverSettings();
 
         private static readonly int[] EmptyPath = new int[0];
 
@@ -41,6 +34,7 @@ namespace Paths.Core {
         private DStarLite? _plan;
         private int _plannedStart = -1;
         private int _plannedGoal = -1;
+        private SolverSettings _planned = new SolverSettings();
         private readonly List<int> _edited = new List<int>();
 
         public PathSolver(int width, int height, Random? random = null) {
@@ -111,13 +105,13 @@ namespace Paths.Core {
         public ChangeController Solve() {
             int start = Grid.Index(Start);
             int goal = Grid.Index(End);
-            var options = new SearchOptions(Diagonal, Heuristic, Weight);
+            SearchOptions options = Settings.ForSearch();
 
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            _result = Incremental ? Repair(start, goal, options) : Create().Search(Grid, start, goal, options);
+            _result = Settings.Incremental ? Repair(start, goal, options) : Create().Search(Grid, start, goal, options);
             clock.Stop();
-
             _edited.Clear();
+
             return SearchTrace.Build(Grid, _result, start, goal, clock.Elapsed.TotalSeconds);
         }
 
@@ -126,10 +120,13 @@ namespace Paths.Core {
         /// change that cannot be repaired: the whole field is measured from it, so that starts over.
         /// </summary>
         private SearchResult Repair(int start, int goal, SearchOptions options) {
-            if (_plan == null || goal != _plannedGoal) {
+            // settings are baked into a plan when it is built, so a change to any of them asks a
+            // different question than the standing plan can be repaired into answering
+            if (_plan == null || goal != _plannedGoal || !_planned.SameAs(Settings)) {
                 _plan = new DStarLite();
                 _plannedGoal = goal;
                 _plannedStart = start;
+                _planned = Settings.Clone();
                 return _plan.Start(Grid, start, goal, options);
             }
 
@@ -153,10 +150,10 @@ namespace Paths.Core {
 
         private ISearch Create() {
             // bidirectional is a mode rather than an entry in the picker, so it overrides the choice
-            if (UseBidirectional)
+            if (Settings.Bidirectional)
                 return new BidirectionalSearch();
 
-            switch (Algorithm) {
+            switch (Settings.Algorithm) {
                 case Algorithm.Dijkstra: return new DijkstraSearch();
                 case Algorithm.Greedy: return new GreedySearch();
                 case Algorithm.BreadthFirst: return new BreadthFirstSearch();
@@ -167,7 +164,7 @@ namespace Paths.Core {
         }
 
         /// <summary>Whether the selected search steers by what cells cost, for the UI to warn about.</summary>
-        public bool HonorsWeights => Incremental || Create().HonorsWeights;
+        public bool HonorsWeights => Settings.Incremental || Create().HonorsWeights;
 
         public bool HasTerrain => Grid.HasTerrain;
 

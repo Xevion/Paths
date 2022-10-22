@@ -1,7 +1,6 @@
 using System;
 using NUnit.Framework;
 using Paths.Core;
-using Paths.Core.Generation;
 using Paths.Core.Search;
 
 namespace Paths.Tests {
@@ -11,41 +10,10 @@ namespace Paths.Tests {
     /// wrong, so this holds the incremental route against the ordinary one over the same edits.
     /// </summary>
     public class PathSolverIncrementalTests {
-        /// <summary>What the route actually costs, since two different routes can share a length.</summary>
-        private static float Cost(PathSolver solver) {
-            float total = 0f;
-            for (int i = 1; i < solver.Path.Count; i++)
-                total += solver.Grid.StepCost(solver.Path[i - 1], solver.Path[i]);
-            return total;
-        }
-
-        private static void AssertSameRoute(PathSolver incremental, PathSolver plain, string where) {
-            Assert.AreEqual(plain.Path.Count > 0, incremental.Path.Count > 0, $"reachability differs {where}");
-            Assert.AreEqual(Cost(plain), Cost(incremental), 1e-3f, $"route cost differs {where}");
-        }
-
         private static PathSolver Build(bool incremental) {
-            var solver = new PathSolver(16, 16, 5, Generator.Random, 0.2f);
-            solver.Diagonal = true;
-            solver.Heuristic = Heuristic.Octile;
-            solver.Incremental = incremental;
-            // opposite corners on purpose: with the generator's own random ends the route came out
-            // barely a dozen cells long, and random edits almost never touched it
-            solver.Start = Corner(solver, 0, 0);
-            solver.End = Corner(solver, 15, 15);
+            PathSolver solver = Solvers.Cornered();
+            solver.Settings.Incremental = incremental;
             return solver;
-        }
-
-        // the nearest walkable cell to a corner, spiralling out by rings
-        private static Coord Corner(PathSolver solver, int x, int y) {
-            for (int ring = 0; ring < 16; ring++)
-                for (int dx = 0; dx <= ring; dx++)
-                    for (int dy = 0; dy <= ring; dy++) {
-                        var at = new Coord(x == 0 ? dx : x - dx, y == 0 ? dy : y - dy);
-                        if (solver.IsValid(at) && solver.IsWalkable(at))
-                            return at;
-                    }
-            return new Coord(x, y);
         }
 
         [Test]
@@ -55,7 +23,7 @@ namespace Paths.Tests {
 
             incremental.Solve();
             plain.Solve();
-            AssertSameRoute(incremental, plain, "on the first plan");
+            Solvers.AssertSameRoute(incremental, plain, "on the first plan");
 
             var rng = new Random(12);
             for (int edit = 0; edit < 60; edit++) {
@@ -70,7 +38,7 @@ namespace Paths.Tests {
                 incremental.Solve();
                 plain.Solve();
 
-                AssertSameRoute(incremental, plain, $"after edit {edit} at {at}");
+                Solvers.AssertSameRoute(incremental, plain, $"after edit {edit} at {at}");
             }
         }
 
@@ -101,7 +69,7 @@ namespace Paths.Tests {
                 incremental.Solve();
                 plain.Solve();
 
-                AssertSameRoute(incremental, plain, $"after move {move} to {at}");
+                Solvers.AssertSameRoute(incremental, plain, $"after move {move} to {at}");
             }
         }
 
@@ -127,7 +95,7 @@ namespace Paths.Tests {
                 incremental.Solve();
                 plain.Solve();
 
-                AssertSameRoute(incremental, plain, $"after painting {tier} at {at}");
+                Solvers.AssertSameRoute(incremental, plain, $"after painting {tier} at {at}");
             }
         }
 

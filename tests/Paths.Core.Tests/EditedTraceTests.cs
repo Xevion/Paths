@@ -23,10 +23,12 @@ namespace Paths.Tests {
 
         private static PathSolver Solver(bool incremental, bool diagonal, Algorithm algorithm, int seed) =>
             new PathSolver(20, 16, seed, Generator.Random, 0.2f) {
-                Incremental = incremental,
-                Diagonal = diagonal,
-                Algorithm = algorithm,
-                Heuristic = Heuristic.Octile
+                Settings = {
+                    Incremental = incremental,
+                    Diagonal = diagonal,
+                    Algorithm = algorithm,
+                    Heuristic = Heuristic.Octile
+                }
             };
 
         /// <summary>
