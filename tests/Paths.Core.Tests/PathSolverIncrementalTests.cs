@@ -99,6 +99,42 @@ namespace Paths.Tests {
             }
         }
 
+        /// <summary>
+        /// Incremental switched off, edited against, then switched back on. Nothing folded those edits
+        /// into the plan that was standing when it went off, so that plan has to be dropped rather
+        /// than repaired - it would otherwise come back believing in walls that are no longer there.
+        /// </summary>
+        [Test]
+        public void EditsMadeWhileIncrementalWasOffAreNotRepairedThrough() {
+            PathSolver incremental = Build(true);
+            PathSolver plain = Build(false);
+            incremental.Solve();
+            plain.Solve();
+
+            incremental.Settings.Incremental = false;
+            incremental.Solve();
+            plain.Solve();
+
+            var rng = new Random(77);
+            for (int edit = 0; edit < 25; edit++) {
+                var at = new Coord(rng.Next(16), rng.Next(16));
+                if (at == incremental.Start || at == incremental.End)
+                    continue;
+
+                bool walkable = !incremental.IsWalkable(at);
+                incremental.SetWalkable(at, walkable);
+                plain.SetWalkable(at, walkable);
+                incremental.Solve();
+                plain.Solve();
+            }
+
+            incremental.Settings.Incremental = true;
+            incremental.Solve();
+            plain.Solve();
+
+            Solvers.AssertSameRoute(incremental, plain, "after incremental came back on");
+        }
+
         [Test]
         public void ResetThrowsThePlanAwayWithoutChangingTheAnswer() {
             PathSolver solver = Build(true);

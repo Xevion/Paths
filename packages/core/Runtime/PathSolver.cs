@@ -108,9 +108,15 @@ namespace Paths.Core {
             SearchOptions options = Settings.ForSearch();
 
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            _result = Settings.Incremental ? Repair(start, goal, options) : Create().Search(Grid, start, goal, options);
+            if (Settings.Incremental) {
+                _result = Repair(start, goal, options);
+            } else {
+                // a full search reads the grid as it stands, and nothing will fold the pending edits
+                // into a plan later, so drop the plan rather than let it come back stale
+                Reset();
+                _result = Create().Search(Grid, start, goal, options);
+            }
             clock.Stop();
-            _edited.Clear();
 
             return SearchTrace.Build(Grid, _result, start, goal, clock.Elapsed.TotalSeconds);
         }
@@ -127,6 +133,8 @@ namespace Paths.Core {
                 _plannedGoal = goal;
                 _plannedStart = start;
                 _planned = Settings.Clone();
+                // a fresh plan reads the grid as it stands, edits and all
+                _edited.Clear();
                 return _plan.Start(Grid, start, goal, options);
             }
 
@@ -134,8 +142,11 @@ namespace Paths.Core {
                 _plan.MoveStart(start);
                 _plannedStart = start;
             }
-            if (_edited.Count > 0)
+            if (_edited.Count > 0) {
                 _plan.Touch(_edited);
+                // the only place edits are dropped: they are forgotten once folded into a plan
+                _edited.Clear();
+            }
 
             return _plan.Replan();
         }
