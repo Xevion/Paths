@@ -62,13 +62,13 @@ public class UIController : MonoBehaviour {
     private AnimationState _resumeState = AnimationState.Started;
 
     // Grid State & Pathfinding (the grid + start/end + algorithm live in PathSolver now)
-    private PathSolver _solver;
+    internal PathSolver _solver;
     private GridEditor _gridEditor;
 
     // Playback (timeline scrubbing lives in Playback now)
     [SerializeField] private float clampIncrement;
     [SerializeField] private float speed;
-    private Playback _playback;
+    internal Playback _playback;
 
     // the search layer (seen/expanded/path) is always dimmed a touch so the walls/start/end read
     // clearly on top of it, and dimmed harder while you're editing so the change you're drawing
@@ -90,24 +90,25 @@ public class UIController : MonoBehaviour {
 
     // how the search is set up. one object, handed to every solver a resize builds, so a new
     // setting can't be dropped on the way across the way a list of field copies could be.
-    private readonly SolverSettings _settings = new SolverSettings();
+    internal readonly SolverSettings _settings = new SolverSettings();
 
     // the armed brush, held here so it survives the editor being rebuilt on a resize
-    private BrushKind _brush = BrushKind.Wall;
-    private Terrain _tier = Terrain.Mud;
+    internal BrushKind _brush = BrushKind.Wall;
+    internal Terrain _tier = Terrain.Mud;
 
     // grid generation - a seed + a generator + wall density; the sidebar's Grid section drives these,
     // and they're kept here so a resize/regen rebuilds the same layout from the same seed.
-    private int _seed = 1;
-    private Generator _generator = Generator.Random;
-    private float _density = 0.25f;
+    internal int _seed = 1;
+    internal Generator _generator = Generator.Random;
+    internal float _density = 0.25f;
 
-    // playback pace - a 0..1 speed scale, an optional per-step delay (ms), and loop-on-finish
-    private float _speedScale = 0.5f;
-    private float _stepDelay = 30f;
-    private bool _loop;
-    private bool _animateSearch = true; // off snaps each step instead of easing it in
-    private bool _showDistances; // paint the search layer with the g-cost heatmap
+    // playback pace - a 0..1 speed scale, an optional per-step delay (ms), and loop-on-finish,
+    // plus the two Display toggles. internal so the interface tests can see a control land
+    internal float _speedScale = 0.5f;
+    internal float _stepDelay = 30f;
+    internal bool _loop;
+    internal bool _animateSearch = true; // off snaps each step instead of easing it in
+    internal bool _showDistances; // paint the search layer with the g-cost heatmap
 
     // grid resize bounds + how much -/= changes it each press
     private const int MinGrid = 4;

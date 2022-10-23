@@ -202,11 +202,6 @@ namespace Game.Tests {
             Assert.AreNotEqual(GridNodeType.Wall, _grid.StateAt(cell.x, cell.y));
         }
 
-        private static PathSolver Solver() {
-            var ui = Object.FindObjectOfType<UIController>();
-            return (PathSolver) typeof(UIController)
-                .GetField("_solver", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .GetValue(ui);
-        }
+        private static PathSolver Solver() => Object.FindObjectOfType<UIController>()._solver;
     }
 }

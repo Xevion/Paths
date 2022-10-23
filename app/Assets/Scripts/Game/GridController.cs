@@ -362,6 +362,16 @@ public class GridController : MonoBehaviour {
     /// </summary>
     public GridNodeType StateAt(int x, int y) => (GridNodeType) _pixels[width * y + x].r;
 
+    /// <summary>The cell's heatmap reading, 0-255 as packed. Companion to StateAt.</summary>
+    public byte DistanceAt(int x, int y) => _distPixels[width * y + x].r;
+
+    /// <summary>The terrain tier the cell is tinted with, out of the same texture's green byte.</summary>
+    public Terrain TerrainAt(int x, int y) => (Terrain) _distPixels[width * y + x].g;
+
+    // the live material, for tests to read back the uniforms the shader runs on. everything the
+    // toggles change lands here rather than in the textures, so it is the only place to see them
+    internal Material Material => _material;
+
     /// <summary>
     /// World position to grid cell, the one mapping every picker (editing, hover, gizmos) goes
     /// through. Returns whether the position actually lands on the grid. The quad's UVs run

@@ -54,6 +54,11 @@ namespace Game.Tests {
             _editor = new GridEditor(_camera, _grid, _solver);
             _rig = new CameraRig(_camera);
 
+            // EnsureEventSystem leaves any existing event system alone, and one inherited from another
+            // fixture has no PointerBaseInput override on its module - so the fake pointer would never
+            // be read and every press here would look like it missed. Clear the field first.
+            foreach (EventSystem system in Object.FindObjectsOfType<EventSystem>())
+                Object.DestroyImmediate(system.gameObject);
             PointerBaseInput.EnsureEventSystem();
             BuildPanel();
         }
