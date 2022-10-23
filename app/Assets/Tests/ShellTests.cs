@@ -35,28 +35,17 @@ namespace Game.Tests {
         [UnitySetUp]
         public IEnumerator SetUp() {
             PointerInput.Reset();
-            yield return SceneManager.LoadSceneAsync("Default", LoadSceneMode.Additive);
-            SceneManager.SetActiveScene(SceneManager.GetSceneByName("Default"));
-            yield return null;
-            yield return null;
+            yield return AppScene.Load();
 
             _ui = UnityEngine.Object.FindObjectOfType<UIController>();
             _shell = UnityEngine.Object.FindObjectOfType<AppShell>();
             _grid = UnityEngine.Object.FindObjectOfType<GridController>();
         }
 
-        // same teardown as the board suite: a live board or a surviving event system is inherited
-        // by whatever fixture runs next, and PointerBaseInput adopts an event system it finds
         [UnityTearDown]
         public IEnumerator TearDown() {
             PointerInput.Reset();
-            Scene scene = SceneManager.GetSceneByName("Default");
-            if (scene.isLoaded)
-                yield return SceneManager.UnloadSceneAsync(scene);
-
-            foreach (EventSystem system in UnityEngine.Object.FindObjectsOfType<EventSystem>())
-                UnityEngine.Object.DestroyImmediate(system.gameObject);
-            yield return null;
+            yield return AppScene.Unload();
         }
 
         /// <summary>Let the app run a few frames, since most controls land through Update.</summary>

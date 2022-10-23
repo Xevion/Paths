@@ -54,11 +54,10 @@ namespace Game.Tests {
             _editor = new GridEditor(_camera, _grid, _solver);
             _rig = new CameraRig(_camera);
 
-            // EnsureEventSystem leaves any existing event system alone, and one inherited from another
-            // fixture has no PointerBaseInput override on its module - so the fake pointer would never
-            // be read and every press here would look like it missed. Clear the field first.
-            foreach (EventSystem system in Object.FindObjectsOfType<EventSystem>())
-                Object.DestroyImmediate(system.gameObject);
+            // this fixture builds its own screen, so anything still standing came from a fixture that
+            // loads the app. EnsureEventSystem would adopt a stray event system rather than build one
+            // reading the scripted pointer, and a stray sidebar would swallow every press on the grid
+            Assert.IsEmpty(AppScene.LeftStanding(), "a previous fixture left something on screen");
             PointerBaseInput.EnsureEventSystem();
             BuildPanel();
         }
@@ -95,10 +94,12 @@ namespace Game.Tests {
         [TearDown]
         public void TearDown() {
             PointerInput.Reset();
-            if (_canvas != null) Object.Destroy(_canvas);
-            if (_grid != null) Object.Destroy(_grid.gameObject);
-            if (_camera != null) Object.Destroy(_camera.gameObject);
-            if (EventSystem.current != null) Object.Destroy(EventSystem.current.gameObject);
+            // immediate, not deferred: the next SetUp runs before a frame passes, so a Destroy here
+            // leaves the screen still standing when it looks
+            if (_canvas != null) Object.DestroyImmediate(_canvas);
+            if (_grid != null) Object.DestroyImmediate(_grid.gameObject);
+            if (_camera != null) Object.DestroyImmediate(_camera.gameObject);
+            if (EventSystem.current != null) Object.DestroyImmediate(EventSystem.current.gameObject);
         }
 
         /// <summary>One app frame. Two yields of slack: the event system and the test runner both

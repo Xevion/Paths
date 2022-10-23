@@ -4,6 +4,7 @@ using Game.UI;
 using NUnit.Framework;
 using Paths.Core;
 using Paths.Core.Search;
+using Terrain = Paths.Core.Search.Terrain;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -35,29 +36,17 @@ namespace Game.Tests {
             PointerInput.Reset();
             PointerInput.Source = _pointer;
 
-            yield return SceneManager.LoadSceneAsync("Default", LoadSceneMode.Additive);
-            SceneManager.SetActiveScene(SceneManager.GetSceneByName("Default"));
-            yield return null;
-            yield return null;
+            yield return AppScene.Load();
 
             _grid = Object.FindObjectOfType<GridController>();
             _shell = Object.FindObjectOfType<AppShell>();
             _camera = Camera.main;
         }
 
-        // take the app back down, or whatever runs next inherits a live board and a live event system
         [UnityTearDown]
         public IEnumerator TearDown() {
             PointerInput.Reset();
-            Scene scene = SceneManager.GetSceneByName("Default");
-            if (scene.isLoaded)
-                yield return SceneManager.UnloadSceneAsync(scene);
-
-            // the unload's destroys are deferred, and an event system still standing next frame is one
-            // the next fixture will adopt instead of building its own
-            foreach (EventSystem system in Object.FindObjectsOfType<EventSystem>())
-                Object.DestroyImmediate(system.gameObject);
-            yield return null;
+            yield return AppScene.Unload();
         }
 
         private IEnumerator Frame() {
@@ -200,6 +189,97 @@ namespace Game.Tests {
             yield return Click(cell);
             yield return Frames(2);
             Assert.AreNotEqual(GridNodeType.Wall, _grid.StateAt(cell.x, cell.y));
+        }
+
+        /// <summary>
+        /// Paused is its own transport state with its own branch, and editing while parked is a
+        /// normal thing to do. The Modes matrix crosses how the board searches, not how it is
+        /// playing, so this is the one place the parked branch gets looked at.
+        /// </summary>
+        [UnityTest]
+        [TestCaseSource(nameof(Modes))]
+        public IEnumerator EditingWhilePausedStillDrawsTheWall(bool incremental, bool bidirectional) {
+            var cell = new Vector2Int(-1, -1);
+            yield return FindClearCell(c => cell = c);
+            Assert.GreaterOrEqual(cell.x, 0, "no clear cell to click on");
+
+            yield return StartSearching(incremental, bidirectional);
+            _shell.onPlayPause(); // park it
+            yield return Frames(3);
+
+            yield return Click(cell);
+            yield return Frames(3);
+            Assert.AreEqual(GridNodeType.Wall, _grid.StateAt(cell.x, cell.y),
+                "a wall drawn while paused is not on the board");
+
+            yield return Click(cell);
+            yield return Frames(3);
+            Assert.AreNotEqual(GridNodeType.Wall, _grid.StateAt(cell.x, cell.y),
+                "the wall was cleared while paused but the board still shows it");
+        }
+
+        /// <summary>
+        /// Terrain rides in the heatmap texture's green byte rather than the state index, so that the
+        /// search can sweep over a painted cell without erasing it. Both halves of that are checked
+        /// here: the tier arrives, and the cell's state is left alone.
+        /// </summary>
+        [UnityTest]
+        [TestCaseSource(nameof(Modes))]
+        public IEnumerator PaintingTerrainLeavesTheCellsStateAlone(bool incremental, bool bidirectional) {
+            var cell = new Vector2Int(-1, -1);
+            yield return FindClearCell(c => cell = c);
+            Assert.GreaterOrEqual(cell.x, 0, "no clear cell to paint on");
+
+            yield return StartSearching(incremental, bidirectional);
+            GridNodeType before = _grid.StateAt(cell.x, cell.y);
+
+            _shell.onBrush(2); // the tiers run cheapest first, so 2 is Mud
+            yield return Frames(2);
+            yield return Click(cell);
+            yield return Frames(3);
+
+            Assert.AreEqual(Terrain.Mud, _grid.TerrainAt(cell.x, cell.y), "the painted tier never reached the board");
+            Assert.AreNotEqual(GridNodeType.Wall, _grid.StateAt(cell.x, cell.y), "painting terrain drew a wall");
+            if (before != GridNodeType.Empty)
+                Assert.AreNotEqual(GridNodeType.Empty, _grid.StateAt(cell.x, cell.y),
+                    "painting terrain wiped the search state off the cell");
+        }
+
+        /// <summary>Resizing mid-search has to leave a board that is still drawn correctly.</summary>
+        [UnityTest]
+        [TestCaseSource(nameof(Modes))]
+        public IEnumerator ResizingMidSearchRedrawsTheWholeBoard(bool incremental, bool bidirectional) {
+            yield return StartSearching(incremental, bidirectional);
+
+            _shell.onWidth(_grid.width + 5);
+            yield return Frames(20);
+
+            PathSolver solver = Solver();
+            Assert.AreEqual(_grid.width * _grid.height, solver.Grid.CellCount, "the board and the solver disagree on size");
+            for (int x = 0; x < _grid.width; x++)
+                for (int y = 0; y < _grid.height; y++) {
+                    bool solid = !solver.IsWalkable(new Coord(x, y));
+                    bool drawn = _grid.StateAt(x, y) == GridNodeType.Wall;
+                    Assert.AreEqual(solid, drawn, $"cell ({x}, {y}) drawn as {_grid.StateAt(x, y)} after the resize");
+                }
+        }
+
+        /// <summary>A theme is colour only, so swapping it must not disturb a single cell's state.</summary>
+        [UnityTest]
+        public IEnumerator SwitchingThemeDoesNotDisturbWhatIsDrawn() {
+            yield return StartSearching(false, false);
+
+            var before = new GridNodeType[_grid.width, _grid.height];
+            for (int x = 0; x < _grid.width; x++)
+                for (int y = 0; y < _grid.height; y++)
+                    before[x, y] = _grid.StateAt(x, y);
+
+            _shell.onTheme(1);
+            yield return Frames(3);
+
+            for (int x = 0; x < _grid.width; x++)
+                for (int y = 0; y < _grid.height; y++)
+                    Assert.AreEqual(before[x, y], _grid.StateAt(x, y), $"cell ({x}, {y}) changed state with the theme");
         }
 
         private static PathSolver Solver() => Object.FindObjectOfType<UIController>()._solver;
