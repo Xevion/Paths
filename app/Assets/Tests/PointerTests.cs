@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Game;
 using Game.UI;
 using NUnit.Framework;
@@ -8,6 +9,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using Terrain = Paths.Core.Search.Terrain;
 
 namespace Game.Tests {
     /// <summary>
@@ -112,6 +114,23 @@ namespace Game.Tests {
             _pointer.NextFrame();
         }
 
+        /// <summary>
+        /// Move, settle, then press - never both in one frame. Whether a press belongs to the
+        /// interface is decided from the event system's raycast, and that is refreshed on its own
+        /// Update; pressing the same frame the cursor arrives can be judged against where it was.
+        /// </summary>
+        private IEnumerator MoveTo(Vector2 position) {
+            _pointer.Position = position;
+            yield return Step();
+            yield return Step(); // a second frame: one is not always enough for uGUI to re-raycast
+        }
+
+        private IEnumerator PressAt(Vector2 position) {
+            yield return MoveTo(position);
+            _pointer.SetButton(0, true);
+            yield return Step();
+        }
+
         private int WallCount() {
             int walls = 0;
             for (int y = 0; y < Size; y++)
@@ -125,11 +144,8 @@ namespace Game.Tests {
         public IEnumerator PressOnTheGridDrawsWalls() {
             int before = WallCount();
 
-            _pointer.Position = OverGrid;
-            _pointer.SetButton(0, true);
-            yield return Step();
-            _pointer.Position = OverGridNextCell;
-            yield return Step();
+            yield return PressAt(OverGrid);
+            yield return MoveTo(OverGridNextCell);
 
             Assert.Greater(WallCount(), before, "a press that started on the grid should draw");
         }
@@ -138,15 +154,11 @@ namespace Game.Tests {
         public IEnumerator PressOnTheInterfaceNeverDrawsWalls() {
             int before = WallCount();
 
-            _pointer.Position = OverUi;
-            _pointer.SetButton(0, true);
-            yield return Step();
+            yield return PressAt(OverUi);
 
             // the control has the cursor now - drag it clean across the board
-            _pointer.Position = OverGrid;
-            yield return Step();
-            _pointer.Position = OverGridNextCell;
-            yield return Step();
+            yield return MoveTo(OverGrid);
+            yield return MoveTo(OverGridNextCell);
 
             Assert.AreEqual(before, WallCount(), "a press that started on the interface must not draw");
         }
@@ -155,15 +167,12 @@ namespace Game.Tests {
         public IEnumerator DraggingAScrubFieldHoldsThePointerStill() {
             int before = WallCount();
 
-            _pointer.Position = OverScrub;
-            _pointer.SetButton(0, true);
-            yield return Step();
+            yield return PressAt(OverScrub);
 
             Assert.IsTrue(PointerInput.Pinned, "the press should have pinned the pointer");
 
             // the hardware cursor is parked but the OS keeps reporting movement. nothing should see it.
-            _pointer.Position = OverGrid;
-            yield return Step();
+            yield return MoveTo(OverGrid);
 
             Assert.AreEqual(OverScrub, PointerInput.Position);
             Assert.IsTrue(EventSystem.current.IsPointerOverGameObject(),
@@ -192,16 +201,12 @@ namespace Game.Tests {
 
         [UnityTest]
         public IEnumerator ReleasingHandsTheGridBackItsPresses() {
-            _pointer.Position = OverUi;
-            _pointer.SetButton(0, true);
-            yield return Step();
+            yield return PressAt(OverUi);
             _pointer.SetButton(0, false);
             yield return Step();
 
             int before = WallCount();
-            _pointer.Position = OverGrid;
-            _pointer.SetButton(0, true);
-            yield return Step();
+            yield return PressAt(OverGrid);
 
             Assert.Greater(WallCount(), before, "a fresh press on the grid should draw again");
         }
@@ -210,9 +215,7 @@ namespace Game.Tests {
         public IEnumerator WheelOverTheInterfaceDoesNotZoom() {
             float size = _camera.orthographicSize;
 
-            _pointer.Position = OverUi;
-            yield return null;
-            yield return null;
+            yield return MoveTo(OverUi);
             _pointer.Wheel(1f);
             PointerInput.Update();
             _rig.Update();
@@ -220,9 +223,7 @@ namespace Game.Tests {
 
             Assert.AreEqual(size, _camera.orthographicSize, "the wheel over a panel scrolls it, not the board");
 
-            _pointer.Position = OverGrid;
-            yield return null;
-            yield return null;
+            yield return MoveTo(OverGrid);
             _pointer.Wheel(1f);
             PointerInput.Update();
             _rig.Update();
@@ -230,5 +231,148 @@ namespace Game.Tests {
 
             Assert.AreNotEqual(size, _camera.orthographicSize, "the wheel over the board should zoom it");
         }
+
+        private Vector2 ScreenOf(Vector2Int cell) => _camera.WorldToScreenPoint(_grid.GetWorldPosition(cell));
+
+        /// <summary>
+        /// A run of cells in one column that all sit clear of the panel, so a drag down them reaches
+        /// the board the whole way. Found rather than hardcoded: the runner's window is small and the
+        /// grid only covers the middle of it.
+        /// </summary>
+        private List<Vector2Int> DragLane() {
+            var lane = new List<Vector2Int>();
+            for (int x = 0; x < Size; x++) {
+                lane.Clear();
+                for (int y = 0; y < Size; y++) {
+                    Vector2 screen = ScreenOf(new Vector2Int(x, y));
+                    if (screen.x > Screen.width * 0.58f && screen.y > 4f && screen.y < Screen.height - 4f)
+                        lane.Add(new Vector2Int(x, y));
+                }
+                if (lane.Count >= 4)
+                    return lane;
+            }
+            return lane;
+        }
+
+        private IEnumerator DragDown(List<Vector2Int> lane) {
+            yield return PressAt(ScreenOf(lane[0]));
+            for (int i = 1; i < lane.Count; i++)
+                yield return MoveTo(ScreenOf(lane[i]));
+            _pointer.SetButton(0, false);
+            yield return Step();
+        }
+
+        /// <summary>
+        /// A drag commits to one operation on the cell it started from and does that the whole way.
+        /// Toggling each cell as it is crossed would mean dragging back over your own line rubbed it
+        /// out, and a fast drag skipping about would leave a dotted mess behind it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ADragThatStartsOnOpenGroundOnlyDrawsWalls() {
+            List<Vector2Int> lane = DragLane();
+            Assert.GreaterOrEqual(lane.Count, 4, "no run of cells clear of the panel to drag down");
+
+            // a wall already sitting in the middle of the lane - a toggling drag would rub it out
+            _solver.SetWalkable(lane[1].ToCoord(), false);
+            Assert.IsTrue(_solver.IsWalkable(lane[0].ToCoord()), "the drag has to start on open ground");
+
+            yield return DragDown(lane);
+
+            foreach (Vector2Int cell in lane)
+                Assert.IsFalse(_solver.IsWalkable(cell.ToCoord()), $"cell {cell} was crossed but is not a wall");
+        }
+
+        [UnityTest]
+        public IEnumerator ADragThatStartsOnAWallOnlyClearsThem() {
+            List<Vector2Int> lane = DragLane();
+            Assert.GreaterOrEqual(lane.Count, 4, "no run of cells clear of the panel to drag down");
+
+            // start on a wall, and leave the rest of the lane open so a toggling drag would fill it in
+            _solver.SetWalkable(lane[0].ToCoord(), false);
+            for (int i = 1; i < lane.Count; i++)
+                _solver.SetWalkable(lane[i].ToCoord(), true);
+
+            yield return DragDown(lane);
+
+            foreach (Vector2Int cell in lane)
+                Assert.IsTrue(_solver.IsWalkable(cell.ToCoord()), $"cell {cell} was crossed but is still a wall");
+        }
+
+        /// <summary>
+        /// Pressing a cell that already holds the armed tier means erase, and that decision is taken
+        /// once, at the press, for the whole drag. Taken per cell instead, a drag over mixed ground
+        /// would paint some cells and erase others and come out striped.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ATerrainDragErasesAllTheWayWhenItStartsOnThatTier() {
+            List<Vector2Int> lane = DragLane();
+            Assert.GreaterOrEqual(lane.Count, 4, "no run of cells clear of the panel to drag down");
+
+            foreach (Vector2Int cell in lane) {
+                _solver.SetWalkable(cell.ToCoord(), true);
+                _solver.SetTerrain(cell.ToCoord(), Terrain.Mud);
+            }
+            // one cell along the way is not the armed tier, so a per-cell decision would paint it
+            _solver.SetTerrain(lane[2].ToCoord(), Terrain.Plain);
+
+            _editor.Brush = BrushKind.Terrain;
+            _editor.Tier = Terrain.Mud;
+            yield return PressAt(ScreenOf(lane[0]));
+            // say which half failed: the press never reaching the board reads the same at the end as
+            // the drag deciding per cell, and they are very different problems
+            Assert.AreEqual(Terrain.Plain, _solver.TerrainAt(lane[0].ToCoord()),
+                "the press never reached the board, so the drag never started");
+            for (int i = 1; i < lane.Count; i++)
+                yield return MoveTo(ScreenOf(lane[i]));
+            _pointer.SetButton(0, false);
+            yield return Step();
+
+            foreach (Vector2Int cell in lane)
+                Assert.AreEqual(Terrain.Plain, _solver.TerrainAt(cell.ToCoord()),
+                    $"the drag started as an erase, so cell {cell} should have come out plain");
+        }
+
+        [UnityTest]
+        public IEnumerator ATerrainDragPaintsOneTierAllTheWay() {
+            List<Vector2Int> lane = DragLane();
+            Assert.GreaterOrEqual(lane.Count, 4, "no run of cells clear of the panel to drag down");
+
+            foreach (Vector2Int cell in lane) {
+                _solver.SetWalkable(cell.ToCoord(), true);
+                _solver.SetTerrain(cell.ToCoord(), Terrain.Plain);
+            }
+            _solver.SetTerrain(lane[2].ToCoord(), Terrain.Water); // a different tier in the way
+
+            _editor.Brush = BrushKind.Terrain;
+            _editor.Tier = Terrain.Mud;
+            yield return DragDown(lane);
+
+            foreach (Vector2Int cell in lane)
+                Assert.AreEqual(Terrain.Mud, _solver.TerrainAt(cell.ToCoord()), $"cell {cell} was crossed but is not Mud");
+        }
+
+        /// <summary>
+        /// A marker cannot be dropped in a wall. The drag ends on one, so the marker has to stay put
+        /// at the last cell that would take it rather than follow the cursor in.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator DraggingTheStartIntoAWallLeavesItOutside() {
+            List<Vector2Int> lane = DragLane();
+            Assert.GreaterOrEqual(lane.Count, 4, "no run of cells clear of the panel to drag down");
+
+            foreach (Vector2Int cell in lane)
+                _solver.SetWalkable(cell.ToCoord(), true);
+            _solver.Start = lane[0].ToCoord();
+            _solver.End = new Coord(0, 0);
+
+            Vector2Int last = lane[lane.Count - 1];
+            _solver.SetWalkable(last.ToCoord(), false); // the drag finishes inside this one
+
+            yield return DragDown(lane);
+
+            Assert.AreNotEqual(last.ToCoord(), _solver.Start, "the start was dropped into a wall");
+            Assert.IsTrue(_solver.IsWalkable(_solver.Start), "the start is standing in a wall");
+        }
+
     }
 }
