@@ -150,7 +150,7 @@ namespace Game.UI {
         // app-wide preferences only - anything you'd touch per run lives in the sidebar
         private GameObject GeneralTab() {
             RectTransform col = TabColumn();
-            UIKit.SectionHeader(col, _font, "Interface", Icon.Brush);
+            UIKit.SectionHeader(col, _font, "Interface", Icon.Brush, rule: false);
             UIKit.Switch(UIKit.Field(col, _font, "Reduce motion",
                 tooltip: "Snap the panel and dialog animations instead of easing them"),
                 Motion.Reduced, on => Motion.Reduced = on);
@@ -162,36 +162,35 @@ namespace Game.UI {
 
         private GameObject ShortcutsTab() {
             RectTransform col = TabColumn();
-            UIKit.SectionHeader(col, _font, "Grid", Icon.Grid);
-            Shortcut(col, "Click + drag", "Draw with the selected brush");
-            Shortcut(col, "1 - 4", "Pick the brush: wall, road, mud, water");
-            Shortcut(col, "Drag start / end", "Move an endpoint");
-            Shortcut(col, "Scroll", "Zoom the view");
-            Shortcut(col, "Right-drag", "Pan the view");
-            Shortcut(col, "- / =", "Shrink or grow the grid");
+            UIKit.SectionHeader(col, _font, "Grid", Icon.Grid, rule: false);
+            Shortcut(col, new[] { "Left drag" }, "Paint with the selected brush");
+            Shortcut(col, new[] { "1", "2", "3", "4" }, "Select a brush: wall, road, mud, water");
+            Shortcut(col, new[] { "Left drag" }, "Move the start or end", "on an endpoint");
+            Shortcut(col, new[] { "Right drag", "Middle drag" }, "Pan the view");
+            Shortcut(col, new[] { "Scroll" }, "Zoom in and out");
+            Shortcut(col, new[] { "-", "=" }, "Shrink or grow the grid");
 
-            UIKit.SectionHeader(col, _font, "Playback", Icon.Play);
-            Shortcut(col, "Space", "Play or pause the search");
+            UIKit.SectionHeader(col, _font, "Playback", Icon.Play, rule: false);
+            Shortcut(col, new[] { "Space" }, "Play or pause the search");
 
-            UIKit.SectionHeader(col, _font, "Interface", Icon.Sliders);
-            Shortcut(col, "Tab", "Move focus between controls");
-            Shortcut(col, "Esc", "Close this dialog");
+            UIKit.SectionHeader(col, _font, "Interface", Icon.Sliders, rule: false);
+            Shortcut(col, new[] { "Tab" }, "Move focus between controls");
+            Shortcut(col, new[] { "Esc" }, "Close this dialog");
             return col.gameObject;
         }
 
-        // a mono key chip on the left, what it does on the right
-        private void Shortcut(Transform parent, string keys, string description) {
-            RectTransform row = UIKit.Row(parent, Theme.Space3);
-            row.gameObject.AddComponent<LayoutElement>().minHeight = 26f;
+        // key caps flush left, what they do flush right - the qualifier says where the gesture has to land
+        private void Shortcut(Transform parent, string[] keys, string description, string qualifier = null) {
+            RectTransform row = UIKit.Row(parent, Theme.Space2);
+            row.gameObject.AddComponent<LayoutElement>().minHeight = 30f;
 
-            RectTransform chip = UIKit.Panel(row, Theme.Track, Theme.RadiusSm, Theme.Space2, 0f,
-                shadow: false, fit: false);
-            var chipLe = chip.gameObject.AddComponent<LayoutElement>();
-            chipLe.minWidth = chipLe.preferredWidth = 132f;
-            chipLe.minHeight = 22f;
-            UIKit.Label(chip, Fonts.Mono, keys, UIKit.Type.Caption);
+            foreach (string key in keys)
+                UIKit.KeyCap(row, key);
+            if (qualifier != null)
+                UIKit.Label(row, _font, qualifier, UIKit.Type.Caption, Theme.Muted);
 
-            UIKit.Label(row, _font, description, UIKit.Type.Body, Theme.Muted);
+            UIKit.Flexible(row);
+            UIKit.Label(row, _font, description, UIKit.Type.Body);
         }
 
         private GameObject AboutTab() {

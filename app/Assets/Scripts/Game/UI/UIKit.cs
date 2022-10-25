@@ -115,25 +115,42 @@ namespace Game.UI {
 
         /// <summary>
         /// A letter-spaced section heading with a hairline rule running off to the right - the header and
-        /// the divider are one element, sharing the muted/border palette.
+        /// the divider are one element, sharing the muted/border palette. Pass rule=false for a bare
+        /// heading where the rules would stack up (a short list of grouped rows).
         /// </summary>
-        public static void SectionHeader(Transform parent, TMP_FontAsset font, string text, string icon = null) {
+        public static void SectionHeader(Transform parent, TMP_FontAsset font, string text, string icon = null,
+            bool rule = true) {
             RectTransform row = Row(parent, Theme.Space3);
             row.gameObject.AddComponent<LayoutElement>().minHeight = 26f;
             if (icon != null) Icon.Make(row, icon, Theme.Caption + 1f, Theme.Muted);
             TextMeshProUGUI label = Label(row, Fonts.SemiBold, text.ToUpperInvariant(), Type.Caption, Theme.Muted);
             label.characterSpacing = 5f;
+            if (!rule) return;
 
-            RectTransform rule = New("Rule", row);
-            var rle = rule.gameObject.AddComponent<LayoutElement>();
+            RectTransform slot = New("Rule", row);
+            var rle = slot.gameObject.AddComponent<LayoutElement>();
             rle.flexibleWidth = 1f;
             rle.minHeight = 12f;
-            RectTransform line = New("Line", rule);
+            RectTransform line = New("Line", slot);
             var g = line.gameObject.AddComponent<RoundedRectGraphic>();
             g.color = Theme.Border;
             g.cornerRadius = 0f;
             g.raycastTarget = false;
             CenterBand(line, 1f);
+        }
+
+        /// <summary>A raised key cap sized to the key it names.</summary>
+        public static void KeyCap(Transform parent, string key) {
+            RectTransform cap = Panel(parent, Theme.SurfaceRaised, Theme.RadiusSm, 0f, 0f,
+                shadow: false, fit: false, fitWidth: true);
+            var group = cap.GetComponent<VerticalLayoutGroup>();
+            group.padding = new RectOffset(7, 7, 3, 4);
+            group.childAlignment = TextAnchor.MiddleCenter;
+            cap.GetComponent<RoundedRectGraphic>().shadowSize = 4f; // the lift that makes it a key, not a field
+            var element = cap.gameObject.AddComponent<LayoutElement>();
+            element.minWidth = 26f;
+            element.minHeight = 24f;
+            Label(cap, Fonts.Mono, key, Type.Caption).alignment = TextAlignmentOptions.Center;
         }
 
         /// <summary>A 1px horizontal rule.</summary>
