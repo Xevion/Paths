@@ -678,7 +678,7 @@ namespace Game.UI {
         /// </summary>
         public static void TabBar(Transform parent, TMP_FontAsset font, IList<string> tabs, Action<int> onSelect) {
             RectTransform bar = Row(parent, Theme.Space4);
-            bar.gameObject.AddComponent<LayoutElement>().minHeight = 34f;
+            bar.gameObject.AddComponent<LayoutElement>().minHeight = 36f;
             var labels = new List<TextMeshProUGUI>();
             var underlines = new List<RectTransform>();
 
@@ -686,7 +686,8 @@ namespace Game.UI {
                 int index = i;
                 RectTransform tab = New("Tab", bar);
                 var inner = tab.gameObject.AddComponent<HorizontalLayoutGroup>();
-                inner.padding = new RectOffset(2, 2, 0, 0);
+                // the bottom padding is the underline's lane, and the room the focus ring needs below the text
+                inner.padding = new RectOffset(4, 4, 5, 9);
                 inner.childAlignment = TextAnchor.MiddleCenter;
                 inner.childControlWidth = inner.childControlHeight = true;
                 inner.childForceExpandWidth = inner.childForceExpandHeight = false;
@@ -698,14 +699,15 @@ namespace Game.UI {
                 TextMeshProUGUI label = Label(tab, Fonts.SemiBold, tabs[i], Type.Body, Theme.Muted);
                 labels.Add(label);
 
-                // accent underline pinned to the tab's bottom edge, outside the layout flow
+                // accent underline sitting in the tab's bottom padding, outside the layout flow. It runs the
+                // label's width, not the tab's, so it can't be mistaken for the focus ring's bottom edge.
                 RectTransform under = New("Underline", tab);
                 under.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 under.anchorMin = new Vector2(0f, 0f);
                 under.anchorMax = new Vector2(1f, 0f);
                 under.pivot = new Vector2(0.5f, 0f);
-                under.sizeDelta = new Vector2(0f, 2f);
-                under.anchoredPosition = new Vector2(0f, -6f);
+                under.sizeDelta = new Vector2(-8f, 2f);
+                under.anchoredPosition = new Vector2(0f, 6f);
                 var underG = under.gameObject.AddComponent<RoundedRectGraphic>();
                 underG.color = Theme.Accent;
                 underG.cornerRadius = 1f;
@@ -715,7 +717,6 @@ namespace Game.UI {
                 var button = tab.gameObject.AddComponent<Button>();
                 button.targetGraphic = hit;
                 button.transition = Selectable.Transition.None;
-                tab.gameObject.AddComponent<FocusRingBottomInset>(); // keep the focus ring off the underline
                 AddCursor(tab.gameObject, CursorKind.Hand);
                 button.onClick.AddListener(() => {
                     for (int j = 0; j < labels.Count; j++) {

@@ -12,14 +12,6 @@ namespace Game.UI {
     }
 
     /// <summary>
-    /// Pulls the focus ring's bottom edge up by `amount` px on the control it's added to. Tabs carry one so
-    /// the ring clears the accent underline pinned below them instead of fusing into it.
-    /// </summary>
-    public class FocusRingBottomInset : MonoBehaviour {
-        public float amount = 7f;
-    }
-
-    /// <summary>
     /// Draws the accent ring through UI/FocusRing - geometry rides the mesh, the pulse rides the colour
     /// alpha (driven by FocusRing). Same vertex packing as RoundedRectGraphic; the mesh grows past the rect
     /// so the band can sit just outside the control's edge.
@@ -150,9 +142,7 @@ namespace Game.UI {
                 rt.SetParent((RectTransform) sel.transform, false);
                 rt.anchorMin = Vector2.zero;
                 rt.anchorMax = Vector2.one;
-                var inset = sel.GetComponent<FocusRingBottomInset>();
-                rt.offsetMin = new Vector2(0f, inset != null ? inset.amount : 0f); // lift the bottom off a tab underline
-                rt.offsetMax = Vector2.zero;
+                rt.offsetMin = rt.offsetMax = Vector2.zero;
                 rt.SetAsLastSibling();
                 SetMaskable(true);
                 var rr = sel.GetComponent<RoundedRectGraphic>();
