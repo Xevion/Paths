@@ -680,7 +680,7 @@ namespace Game.UI {
             RectTransform bar = Row(parent, Theme.Space4);
             bar.gameObject.AddComponent<LayoutElement>().minHeight = 36f;
             var labels = new List<TextMeshProUGUI>();
-            var underlines = new List<RectTransform>();
+            var underlines = new List<RoundedRectGraphic>();
 
             for (int i = 0; i < tabs.Count; i++) {
                 int index = i;
@@ -699,8 +699,9 @@ namespace Game.UI {
                 TextMeshProUGUI label = Label(tab, Fonts.SemiBold, tabs[i], Type.Body, Theme.Muted);
                 labels.Add(label);
 
-                // accent underline sitting in the tab's bottom padding, outside the layout flow. It runs the
-                // label's width, not the tab's, so it can't be mistaken for the focus ring's bottom edge.
+                // the tab rail, sitting in the bottom padding outside the layout flow: accent on the active
+                // tab, a hairline on the rest so the focus ring never wraps an empty lane. It runs the label's
+                // width, not the tab's, so it can't be mistaken for the ring's own bottom edge.
                 RectTransform under = New("Underline", tab);
                 under.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
                 under.anchorMin = new Vector2(0f, 0f);
@@ -709,10 +710,9 @@ namespace Game.UI {
                 under.sizeDelta = new Vector2(-8f, 2f);
                 under.anchoredPosition = new Vector2(0f, 6f);
                 var underG = under.gameObject.AddComponent<RoundedRectGraphic>();
-                underG.color = Theme.Accent;
                 underG.cornerRadius = 1f;
                 underG.raycastTarget = false;
-                underlines.Add(under);
+                underlines.Add(underG);
 
                 var button = tab.gameObject.AddComponent<Button>();
                 button.targetGraphic = hit;
@@ -722,14 +722,15 @@ namespace Game.UI {
                     for (int j = 0; j < labels.Count; j++) {
                         bool active = j == index;
                         labels[j].color = active ? Theme.Text : Theme.Muted;
-                        underlines[j].gameObject.SetActive(active);
+                        underlines[j].color = active ? Theme.Accent : Theme.Border;
                     }
                     onSelect(index);
                 });
             }
             // first tab starts selected
             labels[0].color = Theme.Text;
-            for (int i = 0; i < underlines.Count; i++) underlines[i].gameObject.SetActive(i == 0);
+            for (int i = 0; i < underlines.Count; i++)
+                underlines[i].color = i == 0 ? Theme.Accent : Theme.Border;
         }
 
         private static void ControlShell(Transform parent, out RectTransform inner, out RoundedRectGraphic bg,
