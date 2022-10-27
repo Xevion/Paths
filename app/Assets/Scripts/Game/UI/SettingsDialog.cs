@@ -69,7 +69,7 @@ namespace Game.UI {
         }
 
         private void Update() {
-            if (Input.GetKeyDown(KeyCode.Escape)) Close();
+            if (KeyInput.Pressed(KeyCode.Escape)) Close();
         }
 
         // animate out, then destroy - routed from every dismissing control so the close is never instant

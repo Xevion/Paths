@@ -422,7 +422,7 @@ namespace Game.UI {
             line.anchoredPosition = Vector2.zero;
         }
 
-        private void OpenSettings() {
+        internal void OpenSettings() {
             if (_modal != null) return;
             _modal = new GameObject("Settings");
             var dialog = _modal.AddComponent<SettingsDialog>();

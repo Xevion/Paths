@@ -35,6 +35,18 @@ namespace Game.UI {
         private readonly List<Selectable> _buf = new List<Selectable>();
 
         /// <summary>
+        /// True when the interface should get this key rather than the app's own shortcuts: a modal takes
+        /// every key, and a focused control keeps the ones that drive it (Space and Enter submit it).
+        /// </summary>
+        public static bool UiOwns(KeyCode key) {
+            if (_modalCount > 0) return true;
+            if (key != KeyCode.Space && key != KeyCode.Return && key != KeyCode.KeypadEnter) return false;
+            EventSystem es = EventSystem.current;
+            GameObject sel = es != null ? es.currentSelectedGameObject : null;
+            return sel != null && IsFocusable(sel.GetComponent<Selectable>());
+        }
+
+        /// <summary>
         /// A control is a focus stop when it's interactable and on screen, but NOT when it's an item inside an
         /// open dropdown popup - the dropdown is one stop, and its option list owns its own highlight. Shared
         /// with FocusRing so the ring and the Tab order agree on what's focusable.
@@ -69,7 +81,7 @@ namespace Game.UI {
         }
 
         private void Update() {
-            if (!Input.GetKeyDown(KeyCode.Tab)) return;
+            if (!KeyInput.Pressed(KeyCode.Tab)) return;
             if (!modal && _modalCount > 0) return; // a modal has the keyboard
             EventSystem es = EventSystem.current;
             if (es == null) return;
@@ -90,7 +102,7 @@ namespace Game.UI {
                 return ra != rb ? rb.CompareTo(ra) : pa.x.CompareTo(pb.x);
             });
 
-            bool back = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            bool back = KeyInput.Held(KeyCode.LeftShift) || KeyInput.Held(KeyCode.RightShift);
             GameObject cur = es.currentSelectedGameObject;
             int idx = _buf.FindIndex(s => s.gameObject == cur);
             int next = idx < 0 ? 0 : (idx + (back ? -1 : 1) + _buf.Count) % _buf.Count;

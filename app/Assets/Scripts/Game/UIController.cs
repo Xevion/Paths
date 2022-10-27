@@ -57,6 +57,7 @@ public class UIController : MonoBehaviour {
 
     // Animation State
     private AnimationState _animationState;
+    internal AnimationState State => _animationState;
     private AnimationState _previousAnimationState;
     // where to land after a Reloading recompute - keep playing if we were playing, stay parked if paused
     private AnimationState _resumeState = AnimationState.Started;
@@ -261,17 +262,17 @@ public class UIController : MonoBehaviour {
         UpdateGhost();
 
         // Space and the on-screen Play/Pause button both run through here
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Shortcut(KeyCode.Space))
             TogglePlayPause();
         // 1-4 arm the brush: wall, then the three terrain tiers
-        if (Input.GetKeyDown(KeyCode.Alpha1)) SetBrush(BrushKind.Wall, Terrain.Plain);
-        if (Input.GetKeyDown(KeyCode.Alpha2)) SetBrush(BrushKind.Terrain, Terrain.Road);
-        if (Input.GetKeyDown(KeyCode.Alpha3)) SetBrush(BrushKind.Terrain, Terrain.Mud);
-        if (Input.GetKeyDown(KeyCode.Alpha4)) SetBrush(BrushKind.Terrain, Terrain.Water);
+        if (Shortcut(KeyCode.Alpha1)) SetBrush(BrushKind.Wall, Terrain.Plain);
+        if (Shortcut(KeyCode.Alpha2)) SetBrush(BrushKind.Terrain, Terrain.Road);
+        if (Shortcut(KeyCode.Alpha3)) SetBrush(BrushKind.Terrain, Terrain.Mud);
+        if (Shortcut(KeyCode.Alpha4)) SetBrush(BrushKind.Terrain, Terrain.Water);
         // - / = resize the grid (= is the unshifted +, don't care about the shift)
-        if (Input.GetKeyDown(KeyCode.Equals))
+        if (Shortcut(KeyCode.Equals))
             RegenGrid(gridController.width + GridStep, gridController.height + GridStep);
-        if (Input.GetKeyDown(KeyCode.Minus))
+        if (Shortcut(KeyCode.Minus))
             RegenGrid(gridController.width - GridStep, gridController.height - GridStep);
 
         switch (_animationState) {
@@ -320,6 +321,12 @@ public class UIController : MonoBehaviour {
         float fadeTarget = _animationState == AnimationState.Reloading ? editFade : idleFade;
         _gridFade = Mathf.MoveTowards(_gridFade, fadeTarget, fadeSpeed * Time.deltaTime);
         gridController.SetFade(_gridFade);
+    }
+
+    // the interface gets first refusal on every key, so a dialog or a focused control can't be typed
+    // straight through into the board
+    private static bool Shortcut(KeyCode key) {
+        return !KeyboardFocus.UiOwns(key) && KeyInput.Pressed(key);
     }
 
     /// <summary>
