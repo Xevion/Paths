@@ -212,10 +212,18 @@ namespace Paths.Core {
 
         /// <summary>
         /// Per-cell distance from the start as of the last Solve, for the heatmap. Cells the search
-        /// never reached come back at zero, which is what the shader treats as no reading.
+        /// never reached come back negative, which the renderer floors back to nothing. A cell can
+        /// legitimately read zero - anything level with the start does - so "unreached" needs to say
+        /// so rather than share the coldest reading with them.
         /// </summary>
+        public const float Unreached = -1f;
+
         public float[,] CostField() {
             var field = new float[Grid.Width, Grid.Height];
+            for (int i = 0; i < Grid.CellCount; i++) {
+                Coord at = Grid.At(i);
+                field[at.X, at.Y] = Unreached;
+            }
             if (_result == null)
                 return field;
 

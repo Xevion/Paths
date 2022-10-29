@@ -102,8 +102,8 @@ namespace Paths.Tests {
         }
 
         /// <summary>
-        /// The heatmap reads this. Zero means the search never got there, which is what the shader
-        /// treats as no reading, so an unreached cell and a cell at distance zero have to stay apart.
+        /// The heatmap reads this. An unreached cell and a cell at distance zero have to stay apart,
+        /// so nothing solved yet reads as unreached rather than as a field of cold zeroes.
         /// </summary>
         [Test]
         public void TheCostFieldIsEmptyUntilSomethingHasBeenSolved() {
@@ -113,7 +113,7 @@ namespace Paths.Tests {
             Assert.AreEqual(solver.Grid.Width, cost.GetLength(0));
             Assert.AreEqual(solver.Grid.Height, cost.GetLength(1));
             foreach (float reading in cost)
-                Assert.AreEqual(0f, reading);
+                Assert.AreEqual(PathSolver.Unreached, reading);
         }
 
         [Test]

@@ -102,13 +102,44 @@ namespace Paths.Core.Search {
                 return new SearchResult(new List<int>(), visits, forward, expanded);
 
             List<int> path = Stitch(forward, backward, meetForward, meetBackward);
-            // the forward half never reached the goal, so record what the whole route actually cost
-            forward.SetCost(goal, best);
             foreach (int cell in path)
                 visits.Add(new Visit(cell, VisitKind.Path));
 
-            return new SearchResult(path, visits, forward, expanded);
+            return new SearchResult(path, visits, Merge(forward, backward, goal, best), expanded);
         }
+
+        /// <summary>
+        /// One published field measured from the start, so the heatmap reads continuously across both
+        /// waves. Cells the forward wave reached carry its own cost; cells only the backward wave saw
+        /// know their distance to the goal, which subtracts off the route cost to give the same
+        /// reading. Publishing the forward state alone left every backward-only cell at infinity,
+        /// which the heatmap cannot tell apart from a cost of zero.
+        ///
+        /// Costs are the whole point of this; the parents that come with them are the forward tree
+        /// only, so walking them does not retrace the route. Stitch is what knows the route.
+        /// </summary>
+        private static SearchState Merge(SearchState forward, SearchState backward, int goal, float best) {
+            var merged = new SearchState(forward.CellCount);
+            for (int i = 0; i < forward.CellCount; i++) {
+                if (!float.IsPositiveInfinity(forward.Cost(i))) {
+                    merged.SetCost(i, forward.Cost(i));
+                    merged.SetParent(i, forward.Parent(i));
+                    merged.SetState(i, forward.State(i));
+                    continue;
+                }
+                if (float.IsPositiveInfinity(backward.Cost(i)))
+                    continue;
+                // an off-route cell can sit further from the goal than the whole route is long; the
+                // floor keeps it at the cold end rather than reading as a negative distance
+                merged.SetCost(i, Max(0f, best - backward.Cost(i)));
+                merged.SetState(i, backward.State(i));
+            }
+            // the forward wave stopped at the meeting, so the goal's own reading is the route cost
+            merged.SetCost(goal, best);
+            return merged;
+        }
+
+        private static float Max(float a, float b) => a > b ? a : b;
 
         /// <summary>Start to the meeting edge off the forward tree, then across it and out to the goal.</summary>
         private static List<int> Stitch(SearchState forward, SearchState backward, int meetForward, int meetBackward) {

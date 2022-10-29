@@ -249,6 +249,8 @@ public class GridController : MonoBehaviour {
     /// <summary>
     /// Upload a per-cell cost field, normalized to its own max into the red byte of the heatmap
     /// texture. The shader reads it only for search-layer cells, gated by SetShowDistances.
+    /// Cells the search never reached arrive negative (PathSolver.Unreached) and floor to nothing,
+    /// so they never take the maximum the rest of the field is scaled against.
     /// </summary>
     public void LoadDistanceField(float[,] cost) {
         int w = cost.GetLength(0), h = cost.GetLength(1);
