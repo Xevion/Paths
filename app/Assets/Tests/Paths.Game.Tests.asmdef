@@ -3,6 +3,7 @@
     "references": [
         "Paths.Game",
         "Paths.Core",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

@@ -139,6 +139,21 @@ namespace Game.UI {
             CenterBand(line, 1f);
         }
 
+        /// <summary>The width a label actually needs, before any layout group has had a say.</summary>
+        public static float Measure(TextMeshProUGUI label) {
+            return label.GetPreferredValues(label.text).x;
+        }
+
+        /// <summary>
+        /// Give a control smaller forms for an AdaptiveRow to fall back on, widest first. Each form
+        /// reconfigures the control and sets the honest min width that form needs.
+        /// </summary>
+        public static AdaptiveSteps Adaptive(GameObject go, int yield, params Action[] forms) {
+            var steps = go.AddComponent<AdaptiveSteps>();
+            steps.Build(yield, forms);
+            return steps;
+        }
+
         /// <summary>A raised key cap sized to the key it names.</summary>
         public static void KeyCap(Transform parent, string key) {
             RectTransform cap = Panel(parent, Theme.SurfaceRaised, Theme.RadiusSm, 0f, 0f,
@@ -211,17 +226,23 @@ namespace Game.UI {
             // parent row and balloon (first wide About buttons, then extremely tall ones).
             pad.childForceExpandWidth = pad.childForceExpandHeight = false;
 
-            if (icon != null)
-                Icon.Make(rt, icon, Theme.Body, textColor);
+            float content = pad.padding.left + pad.padding.right;
+            if (icon != null) {
+                TextMeshProUGUI glyph = Icon.Make(rt, icon, Theme.Body, textColor);
+                content += Measure(glyph) + pad.spacing;
+            }
             if (!string.IsNullOrEmpty(text)) {
                 TextMeshProUGUI label = Label(rt, Fonts.SemiBold, text, Type.Body, textColor);
                 label.alignment = TextAlignmentOptions.Center;
+                content += Measure(label);
             }
 
-            // fixed size, no flex - the row can't stretch it
+            // fixed size, no flex - the row can't stretch it. the floor is whatever it actually draws,
+            // never the caller's nominal width: a min narrower than the content squeezes the label under
+            // the icon rather than clipping, and the two render on top of each other.
             var element = rt.gameObject.AddComponent<LayoutElement>();
             element.minHeight = element.preferredHeight = 34f;
-            element.minWidth = minWidth;
+            element.minWidth = Mathf.Max(minWidth, content);
             element.flexibleWidth = element.flexibleHeight = 0f;
 
             // a sheen sweep on hover for the solid styles (ghost has no fill to catch the light). a dark

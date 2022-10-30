@@ -62,8 +62,8 @@ namespace Game.UI {
             canvas.sortingOrder = 32000; // above TMP's dropdown popup (it sorts itself to 30000)
             canvas.pixelPerfect = true;
             canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
-            var scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+            gameObject.AddComponent<CanvasScaler>();
+            gameObject.AddComponent<UiScale>(); // else it renders full size over a shrunken interface
 
             _bubble = New("Bubble");
             _bubble.SetParent(transform, false);

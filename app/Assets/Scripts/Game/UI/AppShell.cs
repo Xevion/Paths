@@ -16,6 +16,7 @@ namespace Game.UI {
     public class AppShell : MonoBehaviour {
         private const float SidebarWidth = 268f;
         private static readonly Vector2 BaseReference = new Vector2(1280f, 800f);
+        private const float ScrubMin = 72f;
         private const float Scale = 0.84f; // the whole sidebar reads one notch smaller than the toolbar
 
         // wired by UIController before Build(). null-safe so a half-bound shell still runs.
@@ -133,7 +134,7 @@ namespace Game.UI {
 
             _play = UIKit.IconButton(bar, Icon.Play, () => onPlayPause?.Invoke(), UIKit.ButtonStyle.Primary);
             _playIcon = _play.GetComponentInChildren<TextMeshProUGUI>();
-            UIKit.Button(bar, _font, "Generate", () => onGenerate?.Invoke(), UIKit.ButtonStyle.Secondary, 96f, Icon.Random);
+            Generate(bar);
 
             ToolbarSep(bar);
             Brush(bar);
@@ -141,23 +142,51 @@ namespace Game.UI {
             ToolbarSep(bar);
             Stats(bar);
 
-            // the transport scrubber takes the flexible middle of the bar
+            // the transport scrubber takes the flexible middle of the bar, down to a floor - without one
+            // it is the slack everything else eats, and a zero-width scrubber can't be grabbed
             _scrubber = UIKit.Slider(bar, 0f, 1f, 0f, f => onScrub?.Invoke(f));
+            _scrubber.gameObject.GetComponent<LayoutElement>().minWidth = ScrubMin;
             _scrubPress = _scrubber.gameObject.AddComponent<ScrubPress>();
 
             ToolbarSep(bar);
-
-            // speed: just a bolt + the bar (the separate "Speed" word read awkwardly next to the fill)
-            RectTransform speed = UIKit.Row(bar, Theme.Space2);
-            var speedLe = speed.gameObject.AddComponent<LayoutElement>();
-            speedLe.preferredWidth = speedLe.minWidth = 168f;
-            speedLe.flexibleWidth = 0f;
-            Icon.Make(speed, Icon.Bolt, Theme.Body, Theme.Muted);
-            UIKit.ValueSlider(speed, 0f, 1f, 0.5f, x => Mathf.RoundToInt(x * 100f) + "%",
-                x => onSpeed?.Invoke(x), height: 22f);
+            Speed(bar);
 
             UIKit.IconButton(bar, Icon.Sliders, () => _sidebar.Toggle());
             UIKit.IconButton(bar, Icon.Cog, OpenSettings);
+
+            // the transport and the two trailing buttons never step down; everything between them does
+            bar.gameObject.AddComponent<AdaptiveRow>().Collect();
+        }
+
+        // full label, then the icon alone - the first thing worth giving up, since Generate is also a
+        // sidebar control and the die glyph carries it
+        private void Generate(Transform bar) {
+            Button button = UIKit.Button(bar, _font, "Generate", () => onGenerate?.Invoke(),
+                UIKit.ButtonStyle.Secondary, 96f, Icon.Random);
+            TextMeshProUGUI label = button.GetComponentsInChildren<TextMeshProUGUI>()[1];
+            var element = button.GetComponent<LayoutElement>();
+            float full = element.minWidth;
+            UIKit.Adaptive(button.gameObject, 3,
+                () => { label.gameObject.SetActive(true); element.minWidth = full; },
+                () => { label.gameObject.SetActive(false); element.minWidth = 36f; });
+        }
+
+        // bolt + fill, then the fill narrows, then the bolt alone
+        private void Speed(Transform bar) {
+            RectTransform speed = UIKit.Row(bar, Theme.Space2);
+            var element = speed.gameObject.AddComponent<LayoutElement>();
+            element.flexibleWidth = 0f;
+            Icon.Make(speed, Icon.Bolt, Theme.Body, Theme.Muted);
+            Slider fill = UIKit.ValueSlider(speed, 0f, 1f, 0.5f,
+                x => Mathf.RoundToInt(x * 100f) + "%", x => onSpeed?.Invoke(x), height: 22f);
+            UIKit.Adaptive(speed.gameObject, 1,
+                () => { fill.gameObject.SetActive(true); Width(element, 168f); },
+                () => { fill.gameObject.SetActive(true); Width(element, 104f); },
+                () => { fill.gameObject.SetActive(false); Width(element, 20f); });
+        }
+
+        private static void Width(LayoutElement element, float width) {
+            element.preferredWidth = element.minWidth = width;
         }
 
         // what the left button draws. the only control here that changes what a click does, so it
@@ -165,10 +194,21 @@ namespace Game.UI {
         private void Brush(Transform bar) {
             RectTransform row = UIKit.Row(bar, Theme.Space2);
             var le = row.gameObject.AddComponent<LayoutElement>();
-            le.preferredWidth = le.minWidth = 210f;
             le.flexibleWidth = 0f;
-            _brush = UIKit.Segmented(row, new[] { "Wall", "Road", "Mud", "Water" }, 0,
-                i => onBrush?.Invoke(i));
+            string[] names = { "Wall", "Road", "Mud", "Water" };
+            _brush = UIKit.Segmented(row, names, 0, i => onBrush?.Invoke(i));
+            // full names, then initials - a four-way picker is still readable as W/R/M/W next to the legend
+            UIKit.Adaptive(row.gameObject, 2,
+                () => { Rename(names, false); Width(le, 210f); },
+                () => { Rename(names, true); Width(le, 116f); });
+        }
+
+        private void Rename(string[] names, bool initials) {
+            if (_brush == null) return;
+            for (int i = 0; i < _brush.segments.Length && i < names.Length; i++) {
+                var label = _brush.segments[i].GetComponentInChildren<TextMeshProUGUI>();
+                if (label != null) label.text = initials ? names[i].Substring(0, 1) : names[i];
+            }
         }
 
         /// <summary>Catch the picker up to a brush armed by its keyboard shortcut.</summary>
@@ -184,6 +224,18 @@ namespace Game.UI {
             _statFrontier = StatChip(_statsRow, "Frontier", 38f);
             _statPath = StatChip(_statsRow, "Path", 38f);
             _statTime = StatChip(_statsRow, "Time", 72f);
+            // captions go first (the numbers still read in order), then the whole readout - it is a
+            // readout, not a control, so it is the most willing thing on the bar
+            var group = _statsRow.GetComponent<HorizontalLayoutGroup>();
+            UIKit.Adaptive(_statsRow.gameObject, 4,
+                () => { _statsRow.gameObject.SetActive(true); Captions(true); group.spacing = Theme.Space4; },
+                () => { _statsRow.gameObject.SetActive(true); Captions(false); group.spacing = Theme.Space2; },
+                () => _statsRow.gameObject.SetActive(false));
+        }
+
+        private void Captions(bool shown) {
+            foreach (Transform chip in _statsRow)
+                chip.GetChild(0).gameObject.SetActive(shown);
         }
 
         // a tiny caption over a mono value; the value carries a min width so its digits don't jiggle the row
@@ -430,11 +482,9 @@ namespace Game.UI {
             dialog.onUiScale = SetUiScale;
         }
 
-        // scaleFactor is ignored in ScaleWithScreenSize mode - shrinking the reference resolution is what
-        // makes the interface bigger there
         private void SetUiScale(float scale) {
             _uiScale = scale;
-            _scaler.referenceResolution = BaseReference / scale;
+            UiScale.User = scale; // every canvas reads it, so the dialog scales with the shell behind it
         }
 
         private void BuildCanvas() {
@@ -445,9 +495,8 @@ namespace Game.UI {
             canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
 
             _scaler = gameObject.AddComponent<CanvasScaler>();
-            _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            _scaler.referenceResolution = BaseReference / _uiScale;
-            _scaler.matchWidthOrHeight = 0.5f;
+            UiScale.User = _uiScale;
+            gameObject.AddComponent<UiScale>();
             gameObject.AddComponent<GraphicRaycaster>();
 
             PointerBaseInput.EnsureEventSystem();

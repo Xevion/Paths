@@ -15,8 +15,15 @@ namespace Game.UI {
         public Action<float> onUiScale;
         public float initialUiScale = 1f; // so reopening shows the scale in use, not a fresh 100%
 
+        private const float WindowWidth = 760f;
+        private const float BodyHeight = 260f;
+        private const float Margin = 24f;
+
         private TMP_FontAsset _font;
         private RectTransform _content;
+        private RectTransform _window;
+        private RectTransform _viewport;
+        private RectTransform _body;
         private PopIn _pop;
         private readonly System.Collections.Generic.List<GameObject> _tabs =
             new System.Collections.Generic.List<GameObject>();
@@ -32,8 +39,7 @@ namespace Game.UI {
             UIKit.Divider(window);
             UIKit.TabBar(window, _font, new[] { "General", "Shortcuts", "About" }, Select);
 
-            _content = UIKit.Column(window, Theme.Space3);
-            _content.gameObject.AddComponent<LayoutElement>().minHeight = 260f;
+            _content = Body(window);
 
             _tabs.Add(GeneralTab());
             _tabs.Add(ShortcutsTab());
@@ -59,6 +65,8 @@ namespace Game.UI {
             // scale layered on top of the first-frame layout resize (which read as a flicker)
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(window);
+            Fit();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(window);
 
             // scale + fade as it opens; Close() reverses it before the modal is destroyed
             var group = screen.gameObject.AddComponent<CanvasGroup>();
@@ -69,6 +77,7 @@ namespace Game.UI {
         }
 
         private void Update() {
+            Fit();
             if (KeyInput.Pressed(KeyCode.Escape)) Close();
         }
 
@@ -92,10 +101,8 @@ namespace Game.UI {
             canvas.pixelPerfect = false;
             canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
 
-            var scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280, 800);
-            scaler.matchWidthOrHeight = 0.5f;
+            gameObject.AddComponent<CanvasScaler>();
+            gameObject.AddComponent<UiScale>();
             gameObject.AddComponent<GraphicRaycaster>();
 
             PointerBaseInput.EnsureEventSystem();
@@ -135,8 +142,60 @@ namespace Game.UI {
             window.anchoredPosition = Vector2.zero;
             // the scrim has no layout group, so a LayoutElement width wouldn't be read - the panel's
             // own ContentSizeFitter only drives height, so the width has to be set on the rect directly.
-            window.sizeDelta = new Vector2(760f, window.sizeDelta.y);
+            window.sizeDelta = new Vector2(WindowWidth, window.sizeDelta.y);
+            _window = window;
             return window;
+        }
+
+        /// <summary>
+        /// The tab body: a clipped viewport with the tab columns inside it. Header, tabs and footer stay
+        /// pinned, so a window too short for the content scrolls its middle rather than running off screen.
+        /// </summary>
+        private RectTransform Body(Transform parent) {
+            RectTransform viewport = UIKit.Column(parent, 0f);
+            var element = viewport.gameObject.AddComponent<LayoutElement>();
+            element.minHeight = 0f;
+            element.preferredHeight = BodyHeight;
+            element.flexibleHeight = 0f;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            // the wheel needs something to hit, and it stops a scroll here reaching the board behind
+            viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+
+            RectTransform content = New("Body", viewport);
+            content.anchorMin = new Vector2(0f, 1f); // full width, hung from the top so scrolling is one axis
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            var v = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            v.spacing = Theme.Space3;
+            v.childControlWidth = v.childControlHeight = true;
+            v.childForceExpandWidth = true;
+            v.childForceExpandHeight = false;
+            content.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = viewport.gameObject.AddComponent<SidebarScroll>();
+            scroll.content = content;
+            scroll.viewport = viewport;
+            _body = content;
+            _viewport = viewport;
+            return content;
+        }
+
+        // the window is centred, so it can only grow to the screen less a margin on each side
+        private void Fit() {
+            float maxHeight = Screen.height / UiScale.Current - 2f * Margin;
+            float maxWidth = Screen.width / UiScale.Current - 2f * Margin;
+            float width = Mathf.Min(WindowWidth, maxWidth);
+            if (!Mathf.Approximately(width, _window.sizeDelta.x))
+                _window.sizeDelta = new Vector2(width, _window.sizeDelta.y);
+
+            // the panel's own fitter drives the height off its children, so cap the one child that can give
+            float chrome = _window.rect.height - _viewport.rect.height;
+            float room = Mathf.Max(80f, maxHeight - chrome);
+            var element = _viewport.GetComponent<LayoutElement>();
+            float natural = Mathf.Max(BodyHeight, _body.rect.height);
+            element.preferredHeight = Mathf.Min(natural, room);
         }
 
         private void Header(Transform parent) {
@@ -219,6 +278,12 @@ namespace Game.UI {
             RectTransform col = UIKit.Column(_content, Theme.Space2);
             col.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
             return col;
+        }
+
+        private static RectTransform New(string name, Transform parent) {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return (RectTransform) go.transform;
         }
 
         private static void Spacer(Transform parent) {
