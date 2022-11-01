@@ -47,6 +47,7 @@ namespace Game.UI {
 
         private RectTransform _bubble;
         private TextMeshProUGUI _label;
+        private Canvas _canvas;
         private bool _shown;
 
         private static TooltipLayer Build() {
@@ -56,12 +57,12 @@ namespace Game.UI {
         }
 
         private TooltipLayer Construct() {
-            var canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.overrideSorting = true;
-            canvas.sortingOrder = 32000; // above TMP's dropdown popup (it sorts itself to 30000)
-            canvas.pixelPerfect = true;
-            canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
+            _canvas = gameObject.AddComponent<Canvas>();
+            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            _canvas.overrideSorting = true;
+            _canvas.sortingOrder = 32000; // above TMP's dropdown popup (it sorts itself to 30000)
+            _canvas.pixelPerfect = true;
+            _canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
             gameObject.AddComponent<CanvasScaler>();
             gameObject.AddComponent<UiScale>(); // else it renders full size over a shrunken interface
 
@@ -95,6 +96,9 @@ namespace Game.UI {
             _label.text = text;
             _bubble.gameObject.SetActive(true);
             _shown = true;
+            // the bubble is placed against its own size, which is still the last tooltip's until the
+            // fitter runs, and one frame in the wrong place is a visible jump
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_bubble);
             Place();
         }
 
@@ -107,15 +111,24 @@ namespace Game.UI {
             if (_shown) Place();
         }
 
-        // pin to the cursor, offset up-right, nudged back in-screen near the edges
+        /// <summary>
+        /// Pin to the cursor, offset up-right, flipped back inside near the edges. The cursor arrives in
+        /// screen pixels while this canvas lays out in scaled units, so the position has to be divided
+        /// by the scale it renders at and kept inside the canvas rather than inside the screen. Read as
+        /// pixels it drifts by however far the interface scale is from 1, which is nothing in a small
+        /// window and most of a control's width in a large one.
+        /// </summary>
         private void Place() {
-            Vector2 m = PointerInput.Position;
+            float scale = _canvas.scaleFactor > 0f ? _canvas.scaleFactor : 1f;
+            Vector2 m = PointerInput.Position / scale;
+            Vector2 bounds = ((RectTransform) transform).rect.size;
             Vector2 size = _bubble.rect.size;
             float x = m.x + 16f;
             float y = m.y + 16f;
-            if (x + size.x > Screen.width) x = m.x - 16f - size.x;
-            if (y + size.y > Screen.height) y = m.y - 16f - size.y;
-            _bubble.anchoredPosition = new Vector2(x, y);
+            if (x + size.x > bounds.x) x = m.x - 16f - size.x;
+            if (y + size.y > bounds.y) y = m.y - 16f - size.y;
+            // a bubble wider or taller than the window would now hang off the near edge instead
+            _bubble.anchoredPosition = new Vector2(Mathf.Max(0f, x), Mathf.Max(0f, y));
         }
 
         private static RectTransform New(string name) {
