@@ -12,9 +12,10 @@ namespace Paths.Core {
         public Heuristic Heuristic = Heuristic.Manhattan;
         public bool Diagonal;
         public float Weight = 1f; // A* heuristic weight, 1 keeps it shortest
-        public bool Bidirectional; // two-ended Dijkstra, overrides Algorithm while on
-        // keep a plan between solves and repair it rather than search again
-        public bool Incremental;
+        // both modify the picked search where there is a version of them for it, and are dropped
+        // where there is not. Capabilities is what knows which is which.
+        public bool Bidirectional; // run the search from both ends at once
+        public bool Incremental; // repair a kept plan rather than search again
 
         /// <summary>The part of this one search call receives.</summary>
         public SearchOptions ForSearch() => new SearchOptions(Diagonal, Heuristic, Weight);

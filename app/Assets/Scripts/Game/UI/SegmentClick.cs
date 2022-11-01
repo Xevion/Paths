@@ -15,7 +15,8 @@ namespace Game.UI {
         public void OnPointerClick(PointerEventData e) => control.Pick(index);
 
         public void OnPointerEnter(PointerEventData e) {
-            if (!control.IsCurrent(index)) fill.color = new Color(1f, 1f, 1f, 0.06f);
+            if (!control.IsCurrent(index) && control.IsInteractable())
+                fill.color = new Color(1f, 1f, 1f, 0.06f);
         }
 
         public void OnPointerExit(PointerEventData e) {

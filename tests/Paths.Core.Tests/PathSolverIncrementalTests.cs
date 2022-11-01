@@ -12,7 +12,11 @@ namespace Paths.Tests {
     public class PathSolverIncrementalTests {
         private static PathSolver Build(bool incremental) {
             PathSolver solver = Solvers.Cornered();
+            // D* Lite stands in for Dijkstra and no other search, so that is what it is compared to
+            solver.Settings.Algorithm = Algorithm.Dijkstra;
             solver.Settings.Incremental = incremental;
+            if (incremental)
+                Solvers.AssertArmed(solver, Control.Incremental);
             return solver;
         }
 

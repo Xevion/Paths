@@ -22,6 +22,17 @@ namespace Paths.Tests {
             return solver;
         }
 
+        /// <summary>
+        /// Hold a fixture to the modifier it means to exercise. A modifier the picked search has no
+        /// version of is dropped, so arming one over a search that does not support it exercises the
+        /// plain search instead, silently and while staying green.
+        /// </summary>
+        public static void AssertArmed(PathSolver solver, Control modifier) {
+            Assert.IsTrue(Capabilities.Reads(solver.Settings, modifier),
+                $"{solver.Settings.Algorithm} has no {modifier} version, so it is dropped and this " +
+                "fixture exercises the plain search");
+        }
+
         /// <summary>The closest walkable cell to a target, searched outwards in rings.</summary>
         public static Coord NearestOpen(PathSolver solver, Coord target) {
             for (int ring = 0; ring < 64; ring++)

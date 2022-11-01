@@ -35,7 +35,9 @@ namespace Game.UI {
             base.OnMove(e); // up/down: navigation is none, so this no-ops
         }
 
-        public void OnSubmit(BaseEventData e) => Commit(_focus);
+        public void OnSubmit(BaseEventData e) {
+            if (IsInteractable()) Commit(_focus);
+        }
 
         /// <summary>
         /// Move the selection without firing onChange or stealing focus, for when something else
@@ -48,8 +50,10 @@ namespace Game.UI {
             animate?.Invoke(index);
         }
 
-        // a segment was clicked: focus it, select this control so the ring shows, and commit
+        // a segment was clicked: focus it, select this control so the ring shows, and commit. the
+        // segments aren't Selectables, so nothing else asks whether the group is taking input.
         public void Pick(int index) {
+            if (!IsInteractable()) return;
             _focus = index;
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(gameObject);
             Commit(index);

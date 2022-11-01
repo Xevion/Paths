@@ -14,15 +14,20 @@ namespace Paths.Tests {
     /// </summary>
     public class EditedTraceTests {
         private static IEnumerable<TestCaseData> Modes() {
-            foreach (bool incremental in new[] { false, true })
-                foreach (bool diagonal in new[] { false, true })
-                    foreach (Algorithm algorithm in new[] { Algorithm.AStar, Algorithm.Dijkstra, Algorithm.JumpPoint })
-                        yield return new TestCaseData(incremental, diagonal, algorithm)
-                            .SetName($"{{m}}({(incremental ? "incremental" : algorithm.ToString())},{(diagonal ? "8" : "4")}way)");
+            foreach (bool diagonal in new[] { false, true }) {
+                foreach (Algorithm algorithm in new[] { Algorithm.AStar, Algorithm.Dijkstra, Algorithm.JumpPoint })
+                    yield return Mode(false, diagonal, algorithm);
+                // the repair has a Dijkstra version and no other, so that is what it is armed over
+                yield return Mode(true, diagonal, Algorithm.Dijkstra);
+            }
         }
 
-        private static PathSolver Solver(bool incremental, bool diagonal, Algorithm algorithm, int seed) =>
-            new PathSolver(20, 16, seed, Generator.Random, 0.2f) {
+        private static TestCaseData Mode(bool incremental, bool diagonal, Algorithm algorithm) =>
+            new TestCaseData(incremental, diagonal, algorithm).SetName(
+                $"{{m}}({algorithm}{(incremental ? "+incremental" : "")},{(diagonal ? "8" : "4")}way)");
+
+        private static PathSolver Solver(bool incremental, bool diagonal, Algorithm algorithm, int seed) {
+            var solver = new PathSolver(20, 16, seed, Generator.Random, 0.2f) {
                 Settings = {
                     Incremental = incremental,
                     Diagonal = diagonal,
@@ -30,6 +35,10 @@ namespace Paths.Tests {
                     Heuristic = Heuristic.Octile
                 }
             };
+            if (incremental)
+                Solvers.AssertArmed(solver, Control.Incremental);
+            return solver;
+        }
 
         /// <summary>
         /// Toggling a cell has to change what is drawn there. This is the bug that started the suite:

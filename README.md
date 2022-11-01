@@ -21,12 +21,30 @@ a single wall reshape the path without losing where you were.
 | **Breadth-first** | The uninformed baseline |
 | **Depth-first** | Rarely sensible, always instructive |
 | **Jump Point Search** | A\* with symmetry-breaking jumps on a uniform grid |
-| **Bidirectional** | Dijkstra from both ends, meeting in the middle. Overrides the picker |
-| **D\* Lite** | Incremental. Repairs its plan as you edit rather than starting over. Overrides the picker |
 
 A\*, Dijkstra and Greedy share an expand loop over an indexed binary heap, relaxing a cell whenever
 a cheaper route to it turns up. The heuristic and 8-direction movement are toggled in the sidebar.
-JPS is the exception. It is 8-connected by design, so the diagonal toggle does not apply to it.
+
+## Modifiers
+
+The picker above chooses the search. Everything else in the Search section modifies that choice, and
+a modifier with no version for the chosen search is greyed out rather than run in its place, so
+picking a search always gets you that search.
+
+| Modifier | Effect | Available for |
+|---|---|---|
+| **Bidirectional** | Runs the search from both ends, meeting in the middle. Two frontiers each cover less ground than one crossing the whole distance | Dijkstra |
+| **Incremental** | D\* Lite. Repairs the standing plan as you edit rather than starting over | Dijkstra |
+| **Diagonal** | Lets the search step between diagonal neighbours | Everything but JPS, which is 8-connected by design |
+| **Heuristic** | Which distance estimate to steer by | A\*, Greedy |
+| **Weight** | Scales the estimate, trading optimality for speed above 1x | A\* |
+
+Both switches are Dijkstra-only for now because that is the version that exists: the two-ended search
+here is Dijkstra from both ends, and its stopping rule is only sound where the estimate is zero, while
+D\* Lite settles the same cells a Dijkstra would whatever estimate it is handed. JPS reads nothing from
+the heuristic picker or the diagonal toggle, being octile-scored and 8-connected by construction, and
+Greedy orders by the estimate and nothing else, so scaling it with the weight slider reorders nothing.
+Hovering a greyed control says which of these is the reason.
 
 Pick the heuristic to match the movement. Manhattan counts a diagonal step as two when it really
 costs about 1.41, so with 8-direction movement on it overestimates and A\* stops finding the

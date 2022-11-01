@@ -108,7 +108,7 @@ namespace Paths.Core {
             SearchOptions options = Settings.ForSearch();
 
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            if (Settings.Incremental) {
+            if (Settings.Incremental && Applies(Control.Incremental)) {
                 _result = Repair(start, goal, options);
             } else {
                 // a full search reads the grid as it stands, and nothing will fold the pending edits
@@ -159,9 +159,15 @@ namespace Paths.Core {
             _edited.Clear();
         }
 
+        /// <summary>
+        /// Whether a modifier has a version for the picked search. One that does not is dropped, so
+        /// the picker always selects the search: a switch standing in for it would mean changing the
+        /// algorithm did nothing, which is the interface lying about what it offers.
+        /// </summary>
+        private bool Applies(Control modifier) => Capabilities.Reads(Settings, modifier);
+
         private ISearch Create() {
-            // bidirectional is a mode rather than an entry in the picker, so it overrides the choice
-            if (Settings.Bidirectional)
+            if (Settings.Bidirectional && Applies(Control.Bidirectional))
                 return new BidirectionalSearch();
 
             switch (Settings.Algorithm) {
@@ -175,7 +181,8 @@ namespace Paths.Core {
         }
 
         /// <summary>Whether the selected search steers by what cells cost, for the UI to warn about.</summary>
-        public bool HonorsWeights => Settings.Incremental || Create().HonorsWeights;
+        public bool HonorsWeights =>
+            (Settings.Incremental && Applies(Control.Incremental)) || Create().HonorsWeights;
 
         public bool HasTerrain => Grid.HasTerrain;
 

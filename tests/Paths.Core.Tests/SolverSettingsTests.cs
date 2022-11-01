@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using Paths.Core;
+using Paths.Core.Search;
 
 namespace Paths.Tests {
     /// <summary>
@@ -67,17 +68,20 @@ namespace Paths.Tests {
         /// <summary>
         /// The behaviour behind SameAs: a plan standing from before the change has to give the same
         /// answer as one built from scratch afterwards. Not every setting can pull the two apart -
-        /// Algorithm is overridden while Incremental is on, for one - but the invariant holds for all
-        /// of them, and the ones that can diverge are what makes this bite.
+        /// changing the algorithm drops the repair rather than repairing differently, for one - but
+        /// the invariant holds for all of them, and the ones that can diverge are what makes this bite.
         /// </summary>
         [TestCaseSource(nameof(EachSettingAndGrid))]
         public void APlanIsRebuiltWhenASettingChanges(string name, int seed) {
             PathSolver repaired = Solvers.Cornered(seed: seed);
+            repaired.Settings.Algorithm = Algorithm.Dijkstra; // the search the repair stands in for
             repaired.Settings.Incremental = true;
+            Solvers.AssertArmed(repaired, Control.Incremental);
             // a plan stands from here on, built under the settings as they read now
             repaired.Solve();
 
             PathSolver fresh = Solvers.Cornered(seed: seed);
+            fresh.Settings.Algorithm = Algorithm.Dijkstra;
             fresh.Settings.Incremental = true;
 
             Change(repaired.Settings, name);

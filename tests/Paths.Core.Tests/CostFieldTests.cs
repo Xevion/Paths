@@ -20,8 +20,12 @@ namespace Paths.Tests {
             yield return Case("BFS", s => s.Algorithm = Algorithm.BreadthFirst);
             yield return Case("DFS", s => s.Algorithm = Algorithm.DepthFirst);
             yield return Case("JPS", s => s.Algorithm = Algorithm.JumpPoint);
-            yield return Case("Bidirectional", s => s.Bidirectional = true);
-            yield return Case("Incremental", s => s.Incremental = true);
+            // both switches have a Dijkstra version and no other, so that is what they run over.
+            // left on the default pick they would be dropped and this would test A* twice more.
+            yield return Case("Bidirectional",
+                s => { s.Algorithm = Algorithm.Dijkstra; s.Bidirectional = true; });
+            yield return Case("Incremental",
+                s => { s.Algorithm = Algorithm.Dijkstra; s.Incremental = true; });
         }
 
         private static TestCaseData Case(string name, Action<SolverSettings> setup) =>

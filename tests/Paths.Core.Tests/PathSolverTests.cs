@@ -183,28 +183,61 @@ namespace Paths.Tests {
             Assert.AreEqual(solver.Grid.Index(solver.End), solver.Path[solver.Path.Count - 1]);
         }
 
-        /// <summary>Bidirectional and Incremental both override the picker, so they answer past it.</summary>
+        /// <summary>
+        /// The pick is the pick. Neither switch has a depth-first version, so both are dropped and the
+        /// route is depth-first's own rather than the shortest one a stand-in search would have found.
+        /// A switch answering past the picker is what makes changing the algorithm look like it does
+        /// nothing, which is the whole reason the table decides this.
+        /// </summary>
         [TestCase(false, false)]
         [TestCase(true, false)]
         [TestCase(false, true)]
-        public void TheOverridesRunInsteadOfThePickedAlgorithm(bool bidirectional, bool incremental) {
+        [TestCase(true, true)]
+        public void AModifierWithNoVersionForThePickedAlgorithmIsDropped(bool bidirectional, bool incremental) {
             PathSolver solver = Solvers.Cornered(density: 0.15f);
             solver.Settings.Algorithm = Algorithm.DepthFirst; // the one whose route is nothing like the rest
             solver.Settings.Bidirectional = bidirectional;
             solver.Settings.Incremental = incremental;
-
             solver.Solve();
-            float cost = Solvers.RouteCost(solver);
+
+            PathSolver bare = Solvers.Cornered(density: 0.15f);
+            bare.Settings.Algorithm = Algorithm.DepthFirst;
+            bare.Solve();
+
+            Assert.AreEqual(Solvers.RouteCost(bare), Solvers.RouteCost(solver), 1e-3f,
+                "a switch with no depth-first version changed the route anyway");
 
             PathSolver shortest = Solvers.Cornered(density: 0.15f);
             shortest.Settings.Algorithm = Algorithm.Dijkstra;
             shortest.Solve();
+            Assert.Greater(Solvers.RouteCost(solver), Solvers.RouteCost(shortest),
+                "depth-first is not supposed to be shortest here, so this proves nothing");
+        }
 
-            bool overridden = bidirectional || incremental;
-            if (overridden)
-                Assert.AreEqual(Solvers.RouteCost(shortest), cost, 1e-3f, "an override should still find the shortest route");
-            else
-                Assert.Greater(cost, Solvers.RouteCost(shortest), "depth-first is not supposed to be shortest here");
+        /// <summary>
+        /// Where a modifier does have a version, applying it must not cost the shortest route. That it
+        /// runs at all is held to the capability table next door, which sweeps each switch over several
+        /// grids; asserting it here off one solve would not hold, since a first incremental plan sweeps
+        /// exactly as much as a fresh search and only pays off on the edit after.
+        /// </summary>
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        public void AModifierThePickedAlgorithmSupportsKeepsTheRouteOptimal(bool bidirectional, bool incremental) {
+            PathSolver solver = Solvers.Cornered(density: 0.15f);
+            solver.Settings.Algorithm = Algorithm.Dijkstra; // the one both switches have a version of
+            solver.Settings.Bidirectional = bidirectional;
+            solver.Settings.Incremental = incremental;
+            // with both on the repair takes precedence, so that is the one that has to be armed
+            Solvers.AssertArmed(solver, incremental ? Control.Incremental : Control.Bidirectional);
+            solver.Solve();
+
+            PathSolver plain = Solvers.Cornered(density: 0.15f);
+            plain.Settings.Algorithm = Algorithm.Dijkstra;
+            plain.Solve();
+
+            Assert.AreEqual(Solvers.RouteCost(plain), Solvers.RouteCost(solver), 1e-3f,
+                "the modified search stopped finding the shortest route");
         }
 
         /// <summary>
@@ -225,9 +258,9 @@ namespace Paths.Tests {
         }
 
         [Test]
-        public void TheOverridesBothPriceTerrain() {
+        public void BothModifiersPriceTerrainWhereTheyApply() {
             PathSolver solver = Solver(Generator.Empty);
-            solver.Settings.Algorithm = Algorithm.Greedy; // ignores weights on its own
+            solver.Settings.Algorithm = Algorithm.Dijkstra;
 
             solver.Settings.Bidirectional = true;
             Assert.IsTrue(solver.HonorsWeights, "the two-ended search prices steps");
@@ -235,6 +268,24 @@ namespace Paths.Tests {
             solver.Settings.Bidirectional = false;
             solver.Settings.Incremental = true;
             Assert.IsTrue(solver.HonorsWeights, "a repair prices steps");
+        }
+
+        /// <summary>
+        /// The terrain warning reads this, so a dropped modifier must not answer for the search that
+        /// actually runs. Greedy has no incremental version, so the switch cannot make it price steps.
+        /// </summary>
+        [Test]
+        public void ADroppedModifierDoesNotAnswerForWhatPricesTerrain() {
+            PathSolver solver = Solver(Generator.Empty);
+            solver.Settings.Algorithm = Algorithm.Greedy; // ignores weights on its own
+
+            solver.Settings.Incremental = true;
+            Assert.IsFalse(solver.HonorsWeights,
+                "greedy still runs, so the terrain warning has to keep showing");
+
+            solver.Settings.Incremental = false;
+            solver.Settings.Bidirectional = true;
+            Assert.IsFalse(solver.HonorsWeights, "greedy still runs, so it still ignores terrain");
         }
     }
 }

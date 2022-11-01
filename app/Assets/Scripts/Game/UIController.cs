@@ -160,6 +160,7 @@ public class UIController : MonoBehaviour {
         _shell.onTheme = ApplyGridTheme;
         _shell.Build();
         _shell.SetLegend(_gridTheme);
+        _shell.SetCapabilities(_settings);
         _shell.SetPlaying(false);
     }
 
@@ -412,6 +413,9 @@ public class UIController : MonoBehaviour {
     /// same step under a different algorithm. No-op if nothing's been solved yet (applies on play).
     /// </summary>
     private void Resolve() {
+        // ahead of the guard below: which controls the new settings leave live is worth saying
+        // whether or not there is a search on screen to redo
+        _shell?.SetCapabilities(_settings);
         if (_playback.State == null)
             return;
         // the solver drops a plan built under different settings on its own now, so this is belt and

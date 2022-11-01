@@ -50,10 +50,18 @@ namespace Paths.Tests {
                     };
                 case Control.Diagonal:
                     return new Action<SolverSettings>[] { s => s.Diagonal = false, s => s.Diagonal = true };
-                default:
+                case Control.Bidirectional:
                     return new Action<SolverSettings>[] {
                         s => s.Bidirectional = false, s => s.Bidirectional = true,
                     };
+                case Control.Incremental:
+                    return new Action<SolverSettings>[] {
+                        s => s.Incremental = false, s => s.Incremental = true,
+                    };
+                default:
+                    // falling through to another control's values would sweep the wrong setting and
+                    // assert the wrong thing about it, quietly and in both directions
+                    throw new ArgumentOutOfRangeException(nameof(control), control, "no values to sweep");
             }
         }
 
@@ -142,6 +150,22 @@ namespace Paths.Tests {
 
             Assert.Greater(live, 0, "the table ignores everything, so the live-control test checks nothing");
             Assert.Greater(ignored, 0, "the table allows everything, so the ignored-control test checks nothing");
+        }
+
+        /// <summary>
+        /// The picker is the choice, not one of the things a choice can take away. Nothing may put it
+        /// out of play, in any combination, so that is asserted over the whole table rather than left
+        /// to the two sweeps above to notice one configuration at a time.
+        /// </summary>
+        [Test]
+        public void ThePickerIsLiveInEveryConfiguration() {
+            foreach (TestCaseData configuration in Configurations()) {
+                var settings = new SolverSettings();
+                ((Action<SolverSettings>) configuration.Arguments[1])(settings);
+                Assert.IsTrue(Capabilities.Reads(settings, Control.Algorithm),
+                    $"{configuration.Arguments[0]}: {Capabilities.Ignoring(settings, Control.Algorithm)} " +
+                    "greyed out the algorithm picker");
+            }
         }
 
         /// <summary>Every control has to be reachable, or the interface would grey one out forever.</summary>

@@ -1,4 +1,5 @@
 using System;
+using Paths.Core;
 using Paths.Core.Search;
 using Paths.Core.Generation;
 using TMPro;
@@ -59,6 +60,7 @@ namespace Game.UI {
         private SegmentedControl _brush;
         private TextMeshProUGUI _terrainWarning;
         private ScrubPress _scrubPress;
+        private ControlGate[] _gates;
 
         // the timeline slider is being dragged - UIController stops auto-advancing so it doesn't fight the drag
         public bool Scrubbing => _scrubPress != null && _scrubPress.pressed;
@@ -310,6 +312,43 @@ namespace Game.UI {
                 _terrainWarning.gameObject.SetActive(show);
         }
 
+        /// <summary>
+        /// Grey the settings this configuration's search does not read, so the sidebar stops offering a
+        /// choice that changes nothing. Push it on every settings change, since which ones are live
+        /// depends on the rest of them. The algorithm picker is not among them and never greys.
+        /// </summary>
+        public void SetCapabilities(SolverSettings settings) {
+            if (_gates == null)
+                return;
+            foreach (ControlGate gate in _gates) {
+                Override cause = Capabilities.Ignoring(settings, gate.control);
+                gate.Set(cause == Override.None, Reason(gate.control, cause));
+            }
+        }
+
+        private static ControlGate Gate(Component row, Control setting) =>
+            row.gameObject.AddComponent<ControlGate>().Bind(setting);
+
+        // what a greyed control says when hovered, in place of what it would otherwise do
+        private static string Reason(Control control, Override cause) {
+            switch (cause) {
+                case Override.Algorithm:
+                    return control == Control.Bidirectional
+                        ? "Only Dijkstra has a version that runs from both ends."
+                        : "Only Dijkstra has a version that repairs its plan.";
+                case Override.Incremental:
+                    return "A repaired plan runs one wave, so it cannot also run from both ends.";
+                case Override.JumpPoint:
+                    return "Jump Point is octile-scored and 8-connected by design.";
+                case Override.Uninformed:
+                    return "This search works without an estimate.";
+                case Override.Greedy:
+                    return "Greedy orders by the estimate alone, so scaling it reorders nothing.";
+                default:
+                    return null;
+            }
+        }
+
         private RoundedRectGraphic LegendSwatch(Transform parent, string label) {
             RectTransform row = UIKit.Row(parent, Theme.Space1);
             RectTransform sw = New("Swatch", row);
@@ -380,32 +419,40 @@ namespace Game.UI {
 
         private void Populate(Transform col) {
             UIKit.SectionHeader(col, _font, "Search", Icon.Search);
-            Sub(col, "Algorithm");
-            // switching the algorithm shows/hides the heuristic block below, so the layout shift is visible
-            RectTransform heuristic = null;
-            UIKit.SegmentedExpand(col,
+            RectTransform algorithm = UIKit.Column(col, Theme.Space2);
+            algorithm.name = "Algorithm";
+            Sub(algorithm, "Algorithm");
+            UIKit.SegmentedExpand(algorithm,
                 new[] { "A*", "Dij", "Grd", "BFS", "DFS", "JPS" },
                 new[] { "A*", "Dijkstra", "Greedy", "Breadth-first", "Depth-first", "JPS" }, 0,
-                i => {
-                    onAlgorithm?.Invoke((Algorithm) i);
-                    heuristic.gameObject.SetActive(i == 0 || i == 2 || i == 5); // A*, Greedy, JPS use a heuristic
-                });
-            heuristic = UIKit.Column(col, Theme.Space2);
+                i => onAlgorithm?.Invoke((Algorithm) i));
+            RectTransform heuristic = UIKit.Column(col, Theme.Space2);
+            heuristic.name = "Heuristic";
             Sub(heuristic, "Heuristic");
             UIKit.SegmentedExpand(heuristic,
                 new[] { "Man", "Euc", "Che", "Oct" },
                 new[] { "Manhattan", "Euclidean", "Chebyshev", "Octile" }, 0,
                 i => onHeuristic?.Invoke((Heuristic) i));
-            UIKit.ValueSlider(Field(heuristic, "Weight", fill: true,
-                    tooltip: "Scales the estimate - above 1x trades optimality for speed"),
-                1f, 3f, 1f, x => x.ToString("0.0") + "x", x => onWeight?.Invoke(x));
-            UIKit.Switch(Field(col, "Diagonal", tooltip: "Let the search step diagonally between cells"),
-                initialDiagonal, b => onDiagonal?.Invoke(b));
-            UIKit.Switch(Field(col, "Bidirectional", tooltip: "Search from both ends and meet in the middle"),
-                false, b => onBidirectional?.Invoke(b));
-            UIKit.Switch(Field(col, "Incremental",
-                    tooltip: "D* Lite - repair the plan as you edit instead of searching again"),
-                false, b => onIncremental?.Invoke(b));
+            RectTransform weight = Field(col, "Weight", fill: true,
+                tooltip: "Scales the estimate - above 1x trades optimality for speed");
+            UIKit.ValueSlider(weight, 1f, 3f, 1f, x => x.ToString("0.0") + "x", x => onWeight?.Invoke(x));
+            RectTransform diagonal = Field(col, "Diagonal",
+                tooltip: "Let the search step diagonally between cells");
+            UIKit.Switch(diagonal, initialDiagonal, b => onDiagonal?.Invoke(b));
+            RectTransform bidirectional = Field(col, "Bidirectional",
+                tooltip: "Search from both ends and meet in the middle");
+            UIKit.Switch(bidirectional, false, b => onBidirectional?.Invoke(b));
+            RectTransform incremental = Field(col, "Incremental",
+                tooltip: "D* Lite - repair the plan as you edit instead of searching again");
+            UIKit.Switch(incremental, false, b => onIncremental?.Invoke(b));
+
+            // everything the pick can take out of play, gated so one table decides what is on offer.
+            // the picker itself is absent on purpose: it is the choice, so it has no gate to close.
+            _gates = new[] {
+                Gate(heuristic, Control.Heuristic), Gate(weight, Control.Weight),
+                Gate(diagonal, Control.Diagonal), Gate(bidirectional, Control.Bidirectional),
+                Gate(incremental, Control.Incremental)
+            };
 
             _terrainWarning = UIKit.Label(col, _font,
                 "This search ignores terrain cost.", UIKit.Type.Caption, Theme.Warning);

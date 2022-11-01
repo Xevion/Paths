@@ -27,7 +27,11 @@ namespace Paths.Tests {
             PathSolver solver = Solvers.Cornered(Size, seed);
             solver.Settings.Diagonal = diagonal;
             solver.Settings.Heuristic = diagonal ? Heuristic.Octile : Heuristic.Manhattan;
+            // the repair stands in for Dijkstra, so both sides of the comparison run that
+            solver.Settings.Algorithm = Algorithm.Dijkstra;
             solver.Settings.Incremental = incremental;
+            if (incremental)
+                Solvers.AssertArmed(solver, Control.Incremental);
             return solver;
         }
 
