@@ -12,9 +12,9 @@ using UnityEngine.TestTools;
 
 namespace Game.Tests {
     /// <summary>
-    /// The whole app, driven by a scripted pointer and read back off the state texture. The texture
-    /// is what the shader samples, so it is what ends up on screen; the solver's grid would only say
-    /// what the app meant to draw, and the failures worth catching are the two disagreeing.
+    /// The whole app, driven by a scripted pointer and read back off the textures the shader
+    /// samples. The solver's grid would only say what the app meant to draw; the failures worth
+    /// catching are the two disagreeing.
     /// </summary>
     public class BoardTests {
         private GridController _grid;
@@ -79,8 +79,8 @@ namespace Game.Tests {
         }
 
         /// <summary>
-        /// A cell well inside the board that no panel covers, so a press on it reaches the grid. The
-        /// runner's window is small, which is exactly why this is found rather than hardcoded.
+        /// A cell no panel covers, so a press reaches the grid. Found rather than hardcoded because
+        /// the runner's window is small.
         /// </summary>
         private IEnumerator FindClearCell(System.Action<Vector2Int> found) {
             for (int x = 2; x < _grid.width - 2; x++)
@@ -103,9 +103,8 @@ namespace Game.Tests {
         }
 
         /// <summary>
-        /// The bug this suite was written for: with a repair running, clicking a cell drew the search
-        /// state the repair had just recorded for it instead of the wall, so clicking the same spot
-        /// over and over looked like nothing happening.
+        /// A repair records a state for the clicked cell, and that must not win over the wall the
+        /// click drew, or clicking the same spot repeatedly looks like nothing happening.
         /// </summary>
         [UnityTest]
         [TestCaseSource(nameof(Modes))]
@@ -127,10 +126,7 @@ namespace Game.Tests {
             }
         }
 
-        /// <summary>
-        /// Wider than the one cell: every wall the solver holds is a wall on screen, and nothing else
-        /// is. This is the invariant that catches the data and the render drifting apart at all.
-        /// </summary>
+        /// <summary>Every wall the solver holds is a wall on screen, and nothing else is.</summary>
         [UnityTest]
         [TestCaseSource(nameof(Modes))]
         public IEnumerator TheBoardShowsEveryWallTheSolverHolds(bool incremental, bool bidirectional) {
@@ -192,9 +188,8 @@ namespace Game.Tests {
         }
 
         /// <summary>
-        /// Paused is its own transport state with its own branch, and editing while parked is a
-        /// normal thing to do. The Modes matrix crosses how the board searches, not how it is
-        /// playing, so this is the one place the parked branch gets looked at.
+        /// Paused is its own branch, and the Modes matrix crosses how the board searches rather
+        /// than how it is playing, so this is the only place that branch is exercised.
         /// </summary>
         [UnityTest]
         [TestCaseSource(nameof(Modes))]
@@ -219,9 +214,8 @@ namespace Game.Tests {
         }
 
         /// <summary>
-        /// Terrain rides in the heatmap texture's green byte rather than the state index, so that the
-        /// search can sweep over a painted cell without erasing it. Both halves of that are checked
-        /// here: the tier arrives, and the cell's state is left alone.
+        /// Terrain rides in the heatmap texture rather than the state index so the search can sweep
+        /// over it. Both halves: the tier arrives, and the cell's state is left alone.
         /// </summary>
         [UnityTest]
         [TestCaseSource(nameof(Modes))]
@@ -262,6 +256,95 @@ namespace Game.Tests {
                     bool drawn = _grid.StateAt(x, y) == GridNodeType.Wall;
                     Assert.AreEqual(solid, drawn, $"cell ({x}, {y}) drawn as {_grid.StateAt(x, y)} after the resize");
                 }
+        }
+
+        /// <summary>
+        /// Nothing else here notices a broken shader: every assertion reads a texture, not the
+        /// screen, and a batch compile imports the shader without compiling its CGPROGRAM.
+        /// Asked through the editor because Shader.isSupported comes back true for one that failed.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheBoardShaderCompiles() {
+            yield return Frame();
+            Shader shader = _grid.Material.shader;
+            Assert.IsNotNull(shader, "the grid material has no shader");
+#if UNITY_EDITOR
+            Assert.IsFalse(UnityEditor.ShaderUtil.ShaderHasError(shader), $"{shader.name} has a compile error");
+#else
+            Assert.Fail("nothing here can see a shader compile error outside the editor");
+#endif
+        }
+
+        /// <summary>
+        /// The join mask is the last thing this side of the GPU that says what shape the route is,
+        /// so it has to say what the solver walked. Not the shader's copy of the bit order.
+        /// </summary>
+        [UnityTest]
+        [TestCaseSource(nameof(Modes))]
+        public IEnumerator TheRibbonIsJoinedAlongTheRouteAndNowhereElse(bool incremental, bool bidirectional) {
+            yield return StartSearching(incremental, bidirectional);
+            AssertRibbonMatchesTheRoute("after the first search");
+        }
+
+        /// <summary>
+        /// The mask holds the whole route rather than being revealed a step at a time, so a push
+        /// that does not happen leaves a ribbon drawn along a route that no longer exists.
+        /// </summary>
+        [UnityTest]
+        [TestCaseSource(nameof(Modes))]
+        public IEnumerator EditingTheRouteRedrawsTheRibbon(bool incremental, bool bidirectional) {
+            yield return StartSearching(incremental, bidirectional);
+
+            var onRoute = new Vector2Int(-1, -1);
+            yield return FindRouteCell(c => onRoute = c);
+            Assume.That(onRoute.x >= 0, "no reachable cell on the route to wall off");
+
+            yield return Click(onRoute);
+            yield return Frames(5);
+
+            AssertRibbonMatchesTheRoute("after walling off a cell the route ran through");
+        }
+
+        /// <summary>A cell the route runs through, clear of the panels so a press reaches it.</summary>
+        private IEnumerator FindRouteCell(System.Action<Vector2Int> found) {
+            PathSolver solver = Solver();
+            for (int i = 1; i < solver.Path.Count - 1; i++) {
+                Coord at = solver.Grid.At(solver.Path[i]);
+                var cell = new Vector2Int(at.X, at.Y);
+                _pointer.Position = ScreenOf(cell);
+                yield return Frame();
+                if (!PointerInput.OverUi) {
+                    found(cell);
+                    yield break;
+                }
+            }
+            found(new Vector2Int(-1, -1));
+        }
+
+        private void AssertRibbonMatchesTheRoute(string when) {
+            PathSolver solver = Solver();
+            Assume.That(solver.Path.Count > 1, $"there is no route to draw {when}");
+
+            var steps = new HashSet<(int, int, int, int)>();
+            for (int i = 1; i < solver.Path.Count; i++) {
+                Coord a = solver.Grid.At(solver.Path[i - 1]);
+                Coord b = solver.Grid.At(solver.Path[i]);
+                steps.Add((a.X, a.Y, b.X, b.Y));
+                steps.Add((b.X, b.Y, a.X, a.Y));
+                Assert.IsTrue(PathLinks.Linked(_grid.LinkAt(a.X, a.Y), b.X - a.X, b.Y - a.Y),
+                    $"step {i} of the route is not drawn {when}");
+            }
+
+            for (int x = 0; x < _grid.width; x++)
+                for (int y = 0; y < _grid.height; y++)
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++) {
+                            if (!PathLinks.Linked(_grid.LinkAt(x, y), dx, dy))
+                                continue;
+                            Assert.IsTrue(steps.Contains((x, y, x + dx, y + dy)),
+                                $"({x}, {y}) is drawn joined to ({x + dx}, {y + dy}), which the route " +
+                                $"never stepped between, {when}");
+                        }
         }
 
         /// <summary>A theme is colour only, so swapping it must not disturb a single cell's state.</summary>

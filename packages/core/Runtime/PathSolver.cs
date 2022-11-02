@@ -217,14 +217,16 @@ namespace Paths.Core {
         /// <summary>The plain editable grid, walls plus start and end, for when nothing is animating.</summary>
         public GridNodeType[,] RenderEditable() => SearchTrace.Render(Grid, Grid.Index(Start), Grid.Index(End));
 
+        /// <summary>Which neighbours each cell steps to along the last route, for drawing it.</summary>
+        public byte[,] LinkField() => PathLinks.Of(Grid, Path);
+
         /// <summary>
-        /// Per-cell distance from the start as of the last Solve, for the heatmap. Cells the search
-        /// never reached come back negative, which the renderer floors back to nothing. A cell can
-        /// legitimately read zero - anything level with the start does - so "unreached" needs to say
-        /// so rather than share the coldest reading with them.
+        /// What an unreached cell reads in the cost field. Negative rather than zero, which cells
+        /// level with the start legitimately read.
         /// </summary>
         public const float Unreached = -1f;
 
+        /// <summary>Per-cell distance from the start as of the last Solve, for the heatmap.</summary>
         public float[,] CostField() {
             var field = new float[Grid.Width, Grid.Height];
             for (int i = 0; i < Grid.CellCount; i++) {

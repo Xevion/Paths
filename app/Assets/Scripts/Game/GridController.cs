@@ -247,10 +247,8 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Upload a per-cell cost field, normalized to its own max into the red byte of the heatmap
-    /// texture. The shader reads it only for search-layer cells, gated by SetShowDistances.
-    /// Cells the search never reached arrive negative (PathSolver.Unreached) and floor to nothing,
-    /// so they never take the maximum the rest of the field is scaled against.
+    /// Upload a per-cell cost field, normalized to its own max, into the red byte of the heatmap
+    /// texture. Unreached cells arrive negative and floor to nothing, so they never set the max.
     /// </summary>
     public void LoadDistanceField(float[,] cost) {
         int w = cost.GetLength(0), h = cost.GetLength(1);
@@ -271,9 +269,8 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Upload the per-cell terrain tier into the green byte of the same texture. Kept out of the
-    /// state texture on purpose: terrain has to stay visible underneath the search sweeping over it,
-    /// and a cell only holds one state index.
+    /// Upload the per-cell terrain tier into the green byte. Out of the state texture on purpose:
+    /// terrain stays visible under the search, and a cell holds only one state index.
     /// </summary>
     public void LoadTerrain(Terrain[,] terrain) {
         if (_distPixels == null)
@@ -283,6 +280,25 @@ public class GridController : MonoBehaviour {
         for (int x = 0; x < w; x++)
             for (int y = 0; y < h; y++) {
                 _distPixels[width * y + x].g = (byte) terrain[x, y];
+                _distPixels[width * y + x].a = 255;
+            }
+        _distTex.SetPixels32(_distPixels);
+        _distTex.Apply(false);
+    }
+
+    /// <summary>
+    /// Upload the route's join mask into the blue byte, in PathLinks' bit order, which the shader
+    /// decodes from its own copy of that arithmetic. Every cell is written, so a search that found
+    /// nothing clears the last route rather than leaving it drawn.
+    /// </summary>
+    public void LoadPathLinks(byte[,] links) {
+        if (_distPixels == null)
+            return; // Rebuild hasn't run yet, and it pushes everything when it does
+
+        int w = links.GetLength(0), h = links.GetLength(1);
+        for (int x = 0; x < w; x++)
+            for (int y = 0; y < h; y++) {
+                _distPixels[width * y + x].b = links[x, y];
                 _distPixels[width * y + x].a = 255;
             }
         _distTex.SetPixels32(_distPixels);
@@ -340,14 +356,12 @@ public class GridController : MonoBehaviour {
     }
 
     /// <summary>
-    /// Packs a cell into its texel: current state in R, the state it came from in G, and when it
-    /// changed in BA (16-bit, 0.02s units of Time.time - wraps every ~22 min, the shader handles
-    /// the wrap when it computes the age). Only cells whose state actually changed are restamped,
-    /// so full repaints don't retrigger animations. animate=false snaps: prev is written equal to
-    /// current so there's no transition to play - scrubs and reloads use it, otherwise a seek
-    /// would fire hundreds of transitions in one frame.
-    /// Per-cell scalar data (a g-cost heatmap, say) would go in a second texture next to this one,
-    /// not in here - all four channels are spoken for.
+    /// Packs a cell into its texel: state in R, the state it came from in G, and when it changed
+    /// in BA (16 bits of 0.02s, wrapping every ~22 min, which the shader unwraps). Only a cell
+    /// that actually changed is restamped, so a repaint does not replay its animation, and
+    /// animate=false writes prev equal to current so a seek cannot fire hundreds at once.
+    ///
+    /// All four channels are spoken for; per-cell scalars go in _DistTex instead.
     /// </summary>
     public void SetValue(int x, int y, int value, bool animate = true) {
         int i = width * y + x;
@@ -369,6 +383,12 @@ public class GridController : MonoBehaviour {
 
     /// <summary>The terrain tier the cell is tinted with, out of the same texture's green byte.</summary>
     public Terrain TerrainAt(int x, int y) => (Terrain) _distPixels[width * y + x].g;
+
+    /// <summary>
+    /// Which neighbours the cell is drawn joined to, out of the blue byte. Decode with
+    /// PathLinks.Linked. Pins what the shader is given, not what it does with it.
+    /// </summary>
+    public byte LinkAt(int x, int y) => _distPixels[width * y + x].b;
 
     // the live material, for tests to read back the uniforms the shader runs on. everything the
     // toggles change lands here rather than in the textures, so it is the only place to see them

@@ -19,7 +19,8 @@ Shader "Paths/Grid"
 
         // one texel per cell: state in R, previous state in G, change time in BA. set from GridController.
         [PerRendererData] _GridTex ("Grid State", 2D) = "black" {}
-        // per-cell heatmap cost in the red byte, terrain tier in the green. set from GridController.
+        // per-cell heatmap cost in the red byte, terrain tier in the green, and which neighbours
+        // the route steps to in the blue. all three set from GridController.
         [PerRendererData] _DistTex ("Distance Field", 2D) = "black" {}
         _Gap ("Tile Gap", Range(0, 0.5)) = 0.12
         _Radius ("Corner Radius", Range(0, 0.5)) = 0.1
@@ -85,11 +86,8 @@ Shader "Paths/Grid"
                 return o;
             }
 
-            // Every shape below is drawn by EVERY cell it can reach into, not just the cell that
-            // owns it. The old per-state dispatch clipped each shape at its own cell border, which
-            // is exactly where the notch/seam artifacts came from - a disc or capsule spilling into
-            // a neighbouring cell just stopped dead at the boundary. The fields are unions over the
-            // 3x3 neighbourhood, so they're continuous across borders by construction.
+            // every shape below is drawn by EVERY cell it reaches into, not just the one that owns
+            // it: unions over the 3x3 are continuous across a cell border, clipped shapes notch at it.
 
             // signed distance to a rounded box of half-extent b, corner radius r, centered at 0
             float RoundedBox(float2 p, float2 b, float r)
@@ -114,6 +112,15 @@ Shader "Paths/Grid"
                     return -1.0;
                 float2 uv = (c + 0.5) / grid;
                 return floor(tex2Dlod(_GridTex, float4(uv, 0, 0)).r * 255.0 + 0.5);
+            }
+
+            // the route's join mask at grid coord 'c', 0 off the grid. Written by LoadPathLinks.
+            float NeighbourLink(float2 c, float2 grid)
+            {
+                if (c.x < 0.0 || c.y < 0.0 || c.x > grid.x - 1.0 || c.y > grid.y - 1.0)
+                    return 0.0;
+                float2 uv = (c + 0.5) / grid;
+                return floor(tex2Dlod(_DistTex, float4(uv, 0, 0)).b * 255.0 + 0.5);
             }
 
             // the 3x3 state block around the pixel's cell, fetched once per fragment
@@ -216,55 +223,63 @@ Shader "Paths/Grid"
                 return lerp(d, filled, smoothstep(1.5, 3.0, rr / max(pixel, 1e-5)));
             }
 
-            // the path connects path cells to each other and docks into the start/end markers
-            bool LinkEnd(float s)
+            // the route's own states: path cells, and the markers it docks into
+            bool Drawn(float s)
             {
                 return s == 6.0 || s == 2.0 || s == 3.0;
             }
 
-            // both ends connectable and at least one is actual path - start touching end with no
-            // route between them draws nothing
-            bool Link(float a, float b)
+            // bit weight for a step to (ox, oy), in PathLinks' order. one encoding, two halves.
+            float LinkBit(int ox, int oy)
             {
-                return LinkEnd(a) && LinkEnd(b) && (a == 6.0 || b == 6.0);
+                int i = (oy + 1) * 3 + (ox + 1);
+                return exp2((float) (i > 4 ? i - 1 : i));
             }
 
-            // a diagonal link only draws when the route can't turn through an orthogonal cell at
-            // that corner instead. the states carry no step order, so without this every
-            // right-angle turn also grows a spurious diagonal chord across its inside corner.
-            bool DiagLink(float s[9], int ax, int ay, int bx, int by)
+            // float arithmetic rather than a bitwise test, which GLSL ES on the web does not have
+            bool Joined(float mask, int ox, int oy)
             {
-                if (!Link(StateAt(s, ax, ay), StateAt(s, bx, by)))
+                return frac(mask / (LinkBit(ox, oy) * 2.0)) >= 0.5;
+            }
+
+            float LinkAt(float m[9], int ox, int oy)
+            {
+                return m[(oy + 1) * 3 + ox + 1];
+            }
+
+            // the mask holds the whole route and never moves; the states say how much is revealed
+            bool Joins(float s[9], float m[9], int ax, int ay, int bx, int by)
+            {
+                if (!Drawn(StateAt(s, ax, ay)) || !Drawn(StateAt(s, bx, by)))
                     return false;
-                return !LinkEnd(StateAt(s, ax, by)) && !LinkEnd(StateAt(s, bx, ay));
+                return Joined(LinkAt(m, ax, ay), bx - ax, by - ay);
             }
 
-            // the path ribbon: a constant-width capsule per link, centre to centre. every capsule
-            // is drawn by each of the (up to four) cells it can cross - the two endpoint cells, and
-            // for a diagonal link the two cells flanking the corner it cuts through.
-            float PathField(float s[9], float2 p, float hw)
+            // a constant-width capsule per join, centre to centre, drawn by each of the (up to
+            // four) cells it crosses - the two it runs between, plus a diagonal's two flanks
+            float PathField(float s[9], float m[9], float2 p, float hw)
             {
                 float self = StateAt(s, 0, 0);
                 float d = 1e5;
                 if (self == 6.0)
                     d = length(p) - hw; // a lone path cell still reads
 
-                if (LinkEnd(self)) {
-                    if (Link(self, StateAt(s, -1, 0))) d = min(d, Segment(p, 0.0, float2(-1, 0)) - hw);
-                    if (Link(self, StateAt(s, 1, 0))) d = min(d, Segment(p, 0.0, float2(1, 0)) - hw);
-                    if (Link(self, StateAt(s, 0, -1))) d = min(d, Segment(p, 0.0, float2(0, -1)) - hw);
-                    if (Link(self, StateAt(s, 0, 1))) d = min(d, Segment(p, 0.0, float2(0, 1)) - hw);
-                    if (DiagLink(s, 0, 0, -1, -1)) d = min(d, Segment(p, 0.0, float2(-1, -1)) - hw);
-                    if (DiagLink(s, 0, 0, 1, -1)) d = min(d, Segment(p, 0.0, float2(1, -1)) - hw);
-                    if (DiagLink(s, 0, 0, -1, 1)) d = min(d, Segment(p, 0.0, float2(-1, 1)) - hw);
-                    if (DiagLink(s, 0, 0, 1, 1)) d = min(d, Segment(p, 0.0, float2(1, 1)) - hw);
+                if (Drawn(self)) {
+                    if (Joins(s, m, 0, 0, -1, 0)) d = min(d, Segment(p, 0.0, float2(-1, 0)) - hw);
+                    if (Joins(s, m, 0, 0, 1, 0)) d = min(d, Segment(p, 0.0, float2(1, 0)) - hw);
+                    if (Joins(s, m, 0, 0, 0, -1)) d = min(d, Segment(p, 0.0, float2(0, -1)) - hw);
+                    if (Joins(s, m, 0, 0, 0, 1)) d = min(d, Segment(p, 0.0, float2(0, 1)) - hw);
+                    if (Joins(s, m, 0, 0, -1, -1)) d = min(d, Segment(p, 0.0, float2(-1, -1)) - hw);
+                    if (Joins(s, m, 0, 0, 1, -1)) d = min(d, Segment(p, 0.0, float2(1, -1)) - hw);
+                    if (Joins(s, m, 0, 0, -1, 1)) d = min(d, Segment(p, 0.0, float2(-1, 1)) - hw);
+                    if (Joins(s, m, 0, 0, 1, 1)) d = min(d, Segment(p, 0.0, float2(1, 1)) - hw);
                 }
 
                 // chords between this cell's flanking neighbours cut through this cell's corners
-                if (DiagLink(s, 1, 0, 0, 1)) d = min(d, Segment(p, float2(1, 0), float2(0, 1)) - hw);
-                if (DiagLink(s, 1, 0, 0, -1)) d = min(d, Segment(p, float2(1, 0), float2(0, -1)) - hw);
-                if (DiagLink(s, -1, 0, 0, 1)) d = min(d, Segment(p, float2(-1, 0), float2(0, 1)) - hw);
-                if (DiagLink(s, -1, 0, 0, -1)) d = min(d, Segment(p, float2(-1, 0), float2(0, -1)) - hw);
+                if (Joins(s, m, 1, 0, 0, 1)) d = min(d, Segment(p, float2(1, 0), float2(0, 1)) - hw);
+                if (Joins(s, m, 1, 0, 0, -1)) d = min(d, Segment(p, float2(1, 0), float2(0, -1)) - hw);
+                if (Joins(s, m, -1, 0, 0, 1)) d = min(d, Segment(p, float2(-1, 0), float2(0, 1)) - hw);
+                if (Joins(s, m, -1, 0, 0, -1)) d = min(d, Segment(p, float2(-1, 0), float2(0, -1)) - hw);
                 return d;
             }
 
@@ -348,9 +363,12 @@ Shader "Paths/Grid"
                 float rr = _Radius * k * smoothstep(0.0, 0.03, _Gap);
 
                 float st[9];
+                float lk[9];
                 for (int oy = -1; oy <= 1; oy++)
-                for (int ox = -1; ox <= 1; ox++)
+                for (int ox = -1; ox <= 1; ox++) {
                     st[(oy + 1) * 3 + ox + 1] = NeighbourState(id + float2(ox, oy), grid);
+                    lk[(oy + 1) * 3 + ox + 1] = NeighbourLink(id + float2(ox, oy), grid);
+                }
 
                 // layers, back to front: plain tiles, walls, the path ribbon, start/end markers.
                 // start/end sit above the ribbon so the route visibly docks INTO them.
@@ -364,7 +382,7 @@ Shader "Paths/Grid"
                     else baseD = tile;
                 }
                 float wallD = WallField(st, p, m, rr, pixel);
-                float pathD = PathField(st, p, 0.5 - _PathInset);
+                float pathD = PathField(st, lk, p, 0.5 - _PathInset);
 
                 // ease the fill from the state the cell left toward the one it's in
                 float4 dist = tex2D(_DistTex, cellUv);

@@ -428,6 +428,8 @@ public class UIController : MonoBehaviour {
     private void GeneratePath() {
         UpdateTerrainWarning();
         _playback.Load(_solver.Solve());
+        // unconditional, unlike the heatmap: the ribbon is drawn from this whenever there is a route
+        gridController.LoadPathLinks(_solver.LinkField());
         if (_showDistances)
             gridController.LoadDistanceField(_solver.CostField());
     }
