@@ -25,16 +25,26 @@ namespace Game.UI {
             set { }
         }
 
+        /// <summary>
+        /// How a run of whole dashes covers a width: how many, and how far apart. The remainder is
+        /// spread across the gaps rather than left at the end, so the run finishes flush and both
+        /// ends overhang by the same margin.
+        /// </summary>
+        public static void Fit(float width, float dash, float gap, out int count, out float spacing) {
+            count = Mathf.Max(1, Mathf.FloorToInt((width + gap) / (dash + gap)));
+            spacing = count > 1 ? (width - count * dash) / (count - 1) : gap;
+        }
+
         protected override void OnPopulateMesh(VertexHelper vh) {
             vh.Clear();
             Rect r = rectTransform.rect;
-            float period = dash + gap;
-            int count = Mathf.Max(1, Mathf.FloorToInt((r.width + gap) / period));
-            float length = count * period - gap; // whole dashes only, so neither end is cut mid-dash
+            Fit(r.width, dash, gap, out int count, out float spacing);
+            float period = dash + spacing;
+            float length = count > 1 ? r.width : Mathf.Min(dash, r.width);
             float radius = thickness * 0.5f;
             float centre = r.yMin + radius;
             // room for the AA falloff, but never so far that the quad reaches into the next phantom dash
-            float margin = Mathf.Min(thickness + 1f, gap * 0.9f);
+            float margin = Mathf.Min(thickness + 1f, spacing * 0.9f);
 
             float x0 = r.xMin - margin, x1 = r.xMin + length + margin;
             float y0 = centre - radius - margin, y1 = centre + radius + margin;
