@@ -53,6 +53,11 @@ namespace Game.Tests {
             _grid.width = _grid.height = Size;
 
             _solver = new PathSolver(Size, Size);
+            // the solver drops its markers on random cells from an unseeded Random, and a press on a
+            // marker moves it rather than drawing, which reads as a press that did nothing. park them
+            // under the panel, at the high-x end, which is the half of the board nothing here presses
+            _solver.Start = new Coord(Size - 1, Size - 1);
+            _solver.End = new Coord(Size - 1, Size - 2);
             _editor = new GridEditor(_camera, _grid, _solver);
             _rig = new CameraRig(_camera);
 
@@ -131,6 +136,25 @@ namespace Game.Tests {
             yield return Step();
         }
 
+        /// <summary>
+        /// What the pointer seam saw, for an assertion about a press that went nowhere. The answer is
+        /// never in the wall count, it is in who owned the press and what the raycast hit.
+        /// </summary>
+        private string Seam(Vector2 at) {
+            var hits = new List<RaycastResult>();
+            if (EventSystem.current != null)
+                EventSystem.current.RaycastAll(new PointerEventData(EventSystem.current) { position = at }, hits);
+            var under = new List<string>();
+            foreach (RaycastResult hit in hits)
+                under.Add(hit.gameObject.name);
+            string standing = AppScene.LeftStanding();
+            return $"\n  at {at}, screen {Screen.width}x{Screen.height}" +
+                   $"\n  overUi {PointerInput.OverUi}, uiOwns {PointerInput.UiOwns()}, pinned {PointerInput.Pinned}" +
+                   $"\n  eventSystem {(EventSystem.current == null ? "none" : EventSystem.current.gameObject.name)}" +
+                   $"\n  raycast hit [{string.Join(", ", under)}]" +
+                   $"\n  left standing [{(standing.Length == 0 ? "nothing" : standing)}]";
+        }
+
         private int WallCount() {
             int walls = 0;
             for (int y = 0; y < Size; y++)
@@ -140,6 +164,26 @@ namespace Game.Tests {
             return walls;
         }
 
+        /// <summary>
+        /// Holds the parking above to its purpose. Left where the solver puts them the markers land
+        /// on a cell this fixture presses roughly one run in fifty, and the failure that produces is
+        /// a wall count that did not move, which says nothing about why.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheMarkersSitClearOfEveryCellTheFixturePresses() {
+            yield return null;
+            var pressed = new List<Vector2Int>(DragLane());
+            foreach (Vector2 at in new[] { OverGrid, OverGridNextCell })
+                if (_grid.CellAt(_camera.ScreenToWorldPoint(at), out Vector2Int cell))
+                    pressed.Add(cell);
+            Assert.IsNotEmpty(pressed, "no cell was worked out, so this guard is checking nothing");
+
+            foreach (Vector2Int cell in pressed) {
+                Assert.AreNotEqual(_solver.Start, cell.ToCoord(), $"the start sits on {cell}, which is pressed");
+                Assert.AreNotEqual(_solver.End, cell.ToCoord(), $"the end sits on {cell}, which is pressed");
+            }
+        }
+
         [UnityTest]
         public IEnumerator PressOnTheGridDrawsWalls() {
             int before = WallCount();
@@ -147,7 +191,7 @@ namespace Game.Tests {
             yield return PressAt(OverGrid);
             yield return MoveTo(OverGridNextCell);
 
-            Assert.Greater(WallCount(), before, "a press that started on the grid should draw");
+            Assert.Greater(WallCount(), before, "a press that started on the grid should draw" + Seam(OverGrid));
         }
 
         [UnityTest]
@@ -208,7 +252,7 @@ namespace Game.Tests {
             int before = WallCount();
             yield return PressAt(OverGrid);
 
-            Assert.Greater(WallCount(), before, "a fresh press on the grid should draw again");
+            Assert.Greater(WallCount(), before, "a fresh press on the grid should draw again" + Seam(OverGrid));
         }
 
         [UnityTest]
@@ -321,7 +365,7 @@ namespace Game.Tests {
             // say which half failed: the press never reaching the board reads the same at the end as
             // the drag deciding per cell, and they are very different problems
             Assert.AreEqual(Terrain.Plain, _solver.TerrainAt(lane[0].ToCoord()),
-                "the press never reached the board, so the drag never started");
+                "the press never reached the board, so the drag never started" + Seam(ScreenOf(lane[0])));
             for (int i = 1; i < lane.Count; i++)
                 yield return MoveTo(ScreenOf(lane[i]));
             _pointer.SetButton(0, false);
