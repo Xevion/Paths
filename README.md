@@ -115,6 +115,7 @@ Choose one of those with terrain on the grid and the sidebar says so.
 | **Right / middle drag** | Pan |
 | **- / =** | Shrink / grow the grid |
 | **Tab** | Move focus between controls |
+| **?** | Open the shortcut reference |
 | **Esc** | Close the settings dialog |
 
 The sidebar holds the search, grid and playback settings; the cog opens app-level preferences, a

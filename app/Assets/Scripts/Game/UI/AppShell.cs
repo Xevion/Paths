@@ -155,7 +155,7 @@ namespace Game.UI {
             Speed(bar);
 
             UIKit.IconButton(bar, Icon.Sliders, () => _sidebar.Toggle());
-            UIKit.IconButton(bar, Icon.Cog, OpenSettings);
+            UIKit.IconButton(bar, Icon.Cog, () => OpenSettings());
 
             // the transport and the two trailing buttons never step down; everything between them does
             bar.gameObject.AddComponent<AdaptiveRow>().Collect();
@@ -528,10 +528,11 @@ namespace Game.UI {
             line.anchoredPosition = Vector2.zero;
         }
 
-        internal void OpenSettings() {
+        internal void OpenSettings(int tab = 0) {
             if (_modal != null) return;
             _modal = new GameObject("Settings");
             var dialog = _modal.AddComponent<SettingsDialog>();
+            dialog.initialTab = tab;
             dialog.initialUiScale = _uiScale;
             dialog.onUiScale = SetUiScale;
         }

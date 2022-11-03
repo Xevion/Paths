@@ -116,6 +116,9 @@ public class UIController : MonoBehaviour {
     private const int MaxGrid = 200;
     private const int GridStep = 2;
 
+    // the settings dialog's tab order, for the shortcut that opens straight onto the list
+    private const int ShortcutsTab = 1;
+
     private void Start() {
         _gridTheme = GridTheme.Dark(); // InitGrid arms the brush off it, so it has to exist first
         _cameraRig = new CameraRig(mainCamera); // before InitGrid - Resize() frames through it
@@ -270,6 +273,9 @@ public class UIController : MonoBehaviour {
         if (Shortcut(KeyCode.Alpha2)) SetBrush(BrushKind.Terrain, Terrain.Road);
         if (Shortcut(KeyCode.Alpha3)) SetBrush(BrushKind.Terrain, Terrain.Mud);
         if (Shortcut(KeyCode.Alpha4)) SetBrush(BrushKind.Terrain, Terrain.Water);
+        // the shortcut list, on the key that carries ?; shift is not asked about, as with = below
+        if (Shortcut(KeyCode.Slash))
+            _shell.OpenSettings(ShortcutsTab);
         // - / = resize the grid (= is the unshifted +, don't care about the shift)
         if (Shortcut(KeyCode.Equals))
             RegenGrid(gridController.width + GridStep, gridController.height + GridStep);

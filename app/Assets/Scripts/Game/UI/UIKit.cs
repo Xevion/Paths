@@ -697,7 +697,8 @@ namespace Game.UI {
         /// An underline tab strip (technical, not button-like): the active tab carries an accent underline
         /// and an emphasized label; the others are muted. Calls onSelect; index 0 starts active.
         /// </summary>
-        public static void TabBar(Transform parent, TMP_FontAsset font, IList<string> tabs, Action<int> onSelect) {
+        public static void TabBar(Transform parent, TMP_FontAsset font, IList<string> tabs, Action<int> onSelect,
+            int initial = 0) {
             RectTransform bar = Row(parent, Theme.Space4);
             bar.gameObject.AddComponent<LayoutElement>().minHeight = 36f;
             var labels = new List<TextMeshProUGUI>();
@@ -748,10 +749,11 @@ namespace Game.UI {
                     onSelect(index);
                 });
             }
-            // first tab starts selected
-            labels[0].color = Theme.Text;
-            for (int i = 0; i < underlines.Count; i++)
-                underlines[i].color = i == 0 ? Theme.Accent : Theme.Border;
+            int start = Mathf.Clamp(initial, 0, labels.Count - 1);
+            for (int i = 0; i < underlines.Count; i++) {
+                labels[i].color = i == start ? Theme.Text : Theme.Muted;
+                underlines[i].color = i == start ? Theme.Accent : Theme.Border;
+            }
         }
 
         private static void ControlShell(Transform parent, out RectTransform inner, out RoundedRectGraphic bg,

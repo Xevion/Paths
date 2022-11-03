@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using Game.UI;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
@@ -89,6 +90,38 @@ namespace Game.Tests {
             yield return Press(KeyCode.Alpha2);
             Assert.AreEqual(BrushKind.Terrain, _ui._brush, "a focused control swallowed a key it does not use");
             Assert.AreEqual(Paths.Core.Search.Terrain.Road, _ui._tier);
+        }
+
+        /// <summary>
+        /// The one shortcut the reference could never name, because there was no way to reach it
+        /// from the keyboard. It has to land on the list rather than the General tab, which is the
+        /// whole point of pressing it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheQuestionMarkOpensTheShortcutList() {
+            yield return Press(KeyCode.Slash);
+            yield return null;
+            yield return null;
+
+            var dialog = UnityEngine.Object.FindObjectOfType<SettingsDialog>();
+            Assert.IsNotNull(dialog, "the shortcut key did not open the dialog");
+
+            TextMeshProUGUI shown = dialog.GetComponentsInChildren<TextMeshProUGUI>(false)
+                .FirstOrDefault(t => t.text == "Play or pause the search");
+            Assert.IsNotNull(shown, "the dialog opened on some other tab than the shortcut list");
+        }
+
+        /// <summary>The list documents the key that opens it, which is what it could not before.</summary>
+        [UnityTest]
+        public IEnumerator TheShortcutListNamesTheKeyThatOpensIt() {
+            _shell.OpenSettings(1);
+            yield return null;
+            yield return null;
+
+            var dialog = UnityEngine.Object.FindObjectOfType<SettingsDialog>();
+            Assert.IsNotNull(dialog, "the dialog never opened");
+            bool named = dialog.GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text == "?");
+            Assert.IsTrue(named, "the shortcut list does not mention the key that opens it");
         }
 
         [UnityTest]

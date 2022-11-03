@@ -14,6 +14,7 @@ namespace Game.UI {
 
         public Action<float> onUiScale;
         public float initialUiScale = 1f; // so reopening shows the scale in use, not a fresh 100%
+        public int initialTab; // which tab to land on, so a shortcut can open the list it names
 
         private const float WindowWidth = 760f;
         private const float BodyHeight = 260f;
@@ -37,14 +38,14 @@ namespace Game.UI {
 
             Header(window);
             UIKit.Divider(window);
-            UIKit.TabBar(window, _font, new[] { "General", "Shortcuts", "About" }, Select);
+            UIKit.TabBar(window, _font, new[] { "General", "Shortcuts", "About" }, Select, initialTab);
 
             _content = Body(window);
 
             _tabs.Add(GeneralTab());
             _tabs.Add(ShortcutsTab());
             _tabs.Add(AboutTab());
-            Select(0);
+            Select(initialTab);
 
             UIKit.Divider(window);
             Footer(window);
@@ -234,6 +235,7 @@ namespace Game.UI {
 
             UIKit.SectionHeader(col, _font, "Interface", Icon.Sliders, rule: false);
             Shortcut(col, new[] { "Tab" }, "Move focus between controls");
+            Shortcut(col, new[] { "?" }, "Open this list");
             Shortcut(col, new[] { "Esc" }, "Close this dialog");
             return col.gameObject;
         }
