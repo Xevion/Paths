@@ -36,7 +36,7 @@ namespace Game.UI {
         public Action<float> onDensity;
         public Action<float> onStepDelay;
         public Action<bool> onLoop;
-        public Action<bool> onGridLines, onAnimate, onShowDistances, onBidirectional;
+        public Action<bool> onTileGap, onAnimate, onShowDistances, onBidirectional;
         public Action<int> onTheme;
 
         // initial values UIController seeds so the controls open reflecting the real state
@@ -480,7 +480,8 @@ namespace Game.UI {
                 b => onLoop?.Invoke(b));
 
             UIKit.SectionHeader(col, _font, "Display", Icon.Eye);
-            UIKit.Checkbox(col, _font, "Grid lines", true, b => onGridLines?.Invoke(b));
+            // named for the gap it opens, not for a line: nothing is drawn, the backdrop shows through
+            UIKit.Checkbox(col, _font, "Tile gap", true, b => onTileGap?.Invoke(b));
             UIKit.Checkbox(col, _font, "Animate search", true, b => onAnimate?.Invoke(b));
             UIKit.Checkbox(col, _font, "Show statistics", true,
                 b => { if (_statsRow != null) _statsRow.gameObject.SetActive(b); });

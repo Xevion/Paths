@@ -281,15 +281,15 @@ namespace Game.Tests {
         /// the state texture, so the material is where they have to be read back from.
         /// </summary>
         [UnityTest]
-        public IEnumerator TheGridLineAndAnimationTogglesReachTheShader() {
-            _shell.onGridLines(true);
+        public IEnumerator TheTileGapAndAnimationTogglesReachTheShader() {
+            _shell.onTileGap(true);
             yield return Settle();
             float lines = _grid.Material.GetFloat(Gap);
-            Assert.Greater(lines, 0f, "grid lines on should leave a gap between the tiles");
+            Assert.Greater(lines, 0f, "the gap should be open between the tiles");
 
-            _shell.onGridLines(false);
+            _shell.onTileGap(false);
             yield return Settle();
-            Assert.AreEqual(0f, _grid.Material.GetFloat(Gap), 1e-5f, "grid lines off should close the tiles up");
+            Assert.AreEqual(0f, _grid.Material.GetFloat(Gap), 1e-5f, "the gap off should close the tiles up");
 
             yield return Run(5);
             _shell.onAnimate(true);

@@ -38,7 +38,7 @@ public class GridController : MonoBehaviour {
     private static readonly int Gap = Shader.PropertyToID("_Gap");
     private static readonly int DistTex = Shader.PropertyToID("_DistTex");
     private static readonly int ShowDistances = Shader.PropertyToID("_ShowDistances");
-    private float _baseGap; // the shader's authored gap, so grid lines can toggle back to it
+    private float _baseGap; // the shader's authored gap, so the toggle can restore it
 
     // the g-cost heatmap - a second texture beside the state one, red byte = normalized cost
     private Texture2D _distTex;
@@ -236,8 +236,8 @@ public class GridController : MonoBehaviour {
         _material.SetFloat(Fade, fade);
     }
 
-    /// <summary>Toggle the gap between tiles - off closes the tiles into a solid field.</summary>
-    public void SetGridLines(bool on) {
+    /// <summary>Open the gap between tiles, or close them into a solid field.</summary>
+    public void SetTileGap(bool on) {
         _material.SetFloat(Gap, on ? _baseGap : 0f);
     }
 

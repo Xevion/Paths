@@ -118,8 +118,8 @@ Choose one of those with terrain on the grid and the sidebar says so.
 | **Esc** | Close the settings dialog |
 
 The sidebar holds the search, grid and playback settings; the cog opens app-level preferences, a
-shortcut reference and an about page. Display toggles cover grid lines, cell animation, the
-statistics readout, a g-cost distance heatmap, and three grid themes.
+shortcut reference and an about page. Display toggles cover the gap between tiles, cell
+animation, the statistics readout, a g-cost distance heatmap, and three grid themes.
 
 ## Running
 

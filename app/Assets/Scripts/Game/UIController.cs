@@ -151,7 +151,7 @@ public class UIController : MonoBehaviour {
         _shell.onSpeed = ApplySpeed;
         _shell.onStepDelay = ms => { _stepDelay = ms; _playback.StepDelay = ms; };
         _shell.onLoop = on => _loop = on;
-        _shell.onGridLines = on => gridController.SetGridLines(on);
+        _shell.onTileGap = on => gridController.SetTileGap(on);
         _shell.onAnimate = on => { _animateSearch = on; ApplySpeed(_speedScale); };
         _shell.onShowDistances = OnShowDistances;
         _shell.onBidirectional = on => { _settings.Bidirectional = on; Resolve(); };
