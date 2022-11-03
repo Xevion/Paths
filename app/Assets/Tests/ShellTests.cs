@@ -6,8 +6,10 @@ using NUnit.Framework;
 using Paths.Core;
 using Paths.Core.Generation;
 using Paths.Core.Search;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Terrain = Paths.Core.Search.Terrain;
@@ -300,6 +302,46 @@ namespace Game.Tests {
             yield return Settle();
             Assert.AreEqual(0f, _grid.Material.GetFloat(TransitionTime), 1e-5f,
                 "animation off should snap the cells instead of easing them");
+        }
+
+        /// <summary>
+        /// The two overlays a Display checkbox hides directly, with no callback out of the shell.
+        /// Reached by label, which is the only handle a closure leaves to take hold of.
+        /// </summary>
+        [UnityTest]
+        [TestCase("Show legend", "Legend", ExpectedResult = null)]
+        [TestCase("Show statistics", "Stats", ExpectedResult = null)]
+        public IEnumerator ADisplayToggleHidesItsOverlay(string label, string overlay) {
+            yield return Settle();
+            Transform target = Named(overlay);
+            Assert.IsNotNull(target, $"nothing under the shell is named {overlay}");
+            Assert.IsTrue(target.gameObject.activeSelf, $"{overlay} should start shown");
+
+            Toggle toggle = Checkbox(label);
+            Assert.IsNotNull(toggle, $"no Display checkbox reads {label}");
+
+            toggle.isOn = false;
+            yield return Settle();
+            Assert.IsFalse(target.gameObject.activeSelf, $"unchecking {label} left {overlay} on screen");
+
+            toggle.isOn = true;
+            yield return Settle();
+            Assert.IsTrue(target.gameObject.activeSelf, $"rechecking {label} did not bring {overlay} back");
+        }
+
+        private Transform Named(string name) {
+            foreach (Transform t in _shell.GetComponentsInChildren<Transform>(true))
+                if (t.name == name)
+                    return t;
+            return null;
+        }
+
+        private Toggle Checkbox(string label) {
+            foreach (Toggle toggle in _shell.GetComponentsInChildren<Toggle>(true))
+                foreach (TextMeshProUGUI text in toggle.GetComponentsInChildren<TextMeshProUGUI>(true))
+                    if (text.text == label)
+                        return toggle;
+            return null;
         }
 
         [UnityTest]

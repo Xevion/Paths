@@ -55,6 +55,7 @@ namespace Game.UI {
         private Slider _scrubber;
         private TextMeshProUGUI _statExpanded, _statFrontier, _statPath, _statTime;
         private RectTransform _statsRow; // toggled by the Show statistics checkbox
+        private RectTransform _legendPanel; // toggled by the Show legend checkbox
         private RoundedRectGraphic[] _legend; // recoloured on theme change
         private RoundedRectGraphic[] _terrainKey;
         private SegmentedControl _brush;
@@ -222,6 +223,7 @@ namespace Game.UI {
         // the live readout - a row of stacked stat chips fed by SetStats off the real solver
         private void Stats(Transform bar) {
             _statsRow = UIKit.Row(bar, Theme.Space4);
+            _statsRow.name = "Stats";
             _statExpanded = StatChip(_statsRow, "Expanded", 58f);
             _statFrontier = StatChip(_statsRow, "Frontier", 38f);
             _statPath = StatChip(_statsRow, "Path", 38f);
@@ -287,6 +289,8 @@ namespace Game.UI {
                 LegendSwatch(panel, "Mud    2x"),
                 LegendSwatch(panel, "Water  4x"),
             };
+            _legendPanel = panel;
+            panel.name = "Legend"; // the Show legend checkbox holds it directly, so tests find it here
         }
 
         /// <summary>Recolour the legend swatches to the active grid palette.</summary>
@@ -485,6 +489,8 @@ namespace Game.UI {
             UIKit.Checkbox(col, _font, "Animate search", true, b => onAnimate?.Invoke(b));
             UIKit.Checkbox(col, _font, "Show statistics", true,
                 b => { if (_statsRow != null) _statsRow.gameObject.SetActive(b); });
+            UIKit.Checkbox(col, _font, "Show legend", true,
+                b => { if (_legendPanel != null) _legendPanel.gameObject.SetActive(b); });
             UIKit.Checkbox(col, _font, "Show distances", false, b => onShowDistances?.Invoke(b));
             UIKit.Dropdown(Field(col, "Theme", tooltip: "Color theme for the grid"), _font,
                 new[] { "Dark", "Midnight", "Light" }, 0, i => onTheme?.Invoke(i), 150f);
