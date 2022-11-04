@@ -3,15 +3,17 @@ using Paths.Core;
 using UnityEngine;
 
 /// <summary>
-/// Owns the pathfinding playback timeline - the recorded ChangeController and the playhead
-/// (runtime) we scrub through it with. Pulled out of UIController so the play/pause/scrub stuff
-/// isn't all tangled up with input and rendering. The pin-on-edit logic will live here too.
+/// The pathfinding playback timeline: the recorded ChangeController and the playhead (runtime) we
+/// scrub through it with, including where the playhead sits when a re-solve replaces the run.
 /// </summary>
 public class Playback {
     public float Speed { get; set; }     // steps/sec the playhead advances at
-    public float StepDelay { get; set; } // ms; >0 caps the pace to one expanded step per StepDelay
+    // ms; above zero it caps the pace to one step per delay
+    public float StepDelay { get; set; }
     private readonly float _clampIncrement;
     private float _runtime;
+    // whether the end was chosen rather than arrived at, which is what Load follows
+    private bool _followEnd;
 
     public ChangeController State { get; private set; }
 
@@ -35,26 +37,28 @@ public class Playback {
     }
 
     /// <summary>
-    /// Attach a freshly generated run of changes. We deliberately KEEP the current playhead (the
-    /// "pin") instead of rewinding - editing the grid recomputes the path but you stay parked at
-    /// whatever step you were watching. SyncState clamps the render when the new run is shorter.
-    /// Stick-to-end: if the playhead was parked at the very end, it follows the new end instead of
-    /// freezing at the old absolute index, so watching a finished search keeps showing the finish
-    /// as edits reshape it.
+    /// Attach a freshly generated run, keeping the playhead parked on the step it was watching. Only
+    /// a playhead put at the end on purpose follows a reshaped run to its new end; one the run shrank
+    /// past stays where it is, and DisplayIndex clamps what it renders as.
     /// </summary>
     public void Load(ChangeController state) {
-        bool wasAtEnd = State != null && _runtime >= Count;
         State = state;
-        if (wasAtEnd)
+        if (_followEnd)
             _runtime = Count;
     }
 
-    public void Rewind() => _runtime = 0f;
+    public void Rewind() {
+        _runtime = 0f;
+        _followEnd = false;
+    }
 
     /// <summary>Scrub to a 0..1 position (the progress slider).</summary>
     public void SeekFraction(float t) {
-        if (State != null)
-            _runtime = t * Count;
+        if (State == null)
+            return;
+        _runtime = t * Count;
+        // scrubbing to the top of the range chooses the end
+        _followEnd = t >= 1f;
     }
 
     /// <summary>Step the playhead forward by a frame's worth of time.</summary>
@@ -66,6 +70,8 @@ public class Playback {
         if (_clampIncrement > 0)
             increment = Mathf.Clamp(increment, 0, Count * deltaTime / _clampIncrement);
         _runtime += increment;
+        // playing off the end is the other way of choosing it
+        _followEnd = _runtime >= Count;
     }
 
     /// <summary>Point the ChangeController at the current index, clamped to the steps it has.</summary>

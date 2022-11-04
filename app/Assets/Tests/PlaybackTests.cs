@@ -51,6 +51,57 @@ namespace Game.Tests {
             Assert.AreEqual(GridNodeType.Wall, playback.State.Current[1, 1]);
         }
 
+        /// <summary>
+        /// An edit that shortens the run past the playhead must not capture it. Inferring "was at the
+        /// end" from the pin's position self-sustains: reading the pin against a shorter run says yes,
+        /// and parking it on that end says yes again for every edit after.
+        /// </summary>
+        [Test]
+        public void AnEditThatShortensTheRunDoesNotCaptureThePlayhead() {
+            var playback = new Playback(100f, 0f);
+            playback.Load(Trace(400));
+            playback.Advance(1f); // speed 100, so the pin lands at 100 of 400
+            float pinned = playback.Runtime;
+            Assert.Less(pinned, 400f, "the playhead played to the end, so this proves nothing");
+
+            playback.Load(Trace(6));
+            playback.Load(Trace(400));
+
+            Assert.AreEqual(pinned, playback.Runtime, 1e-3f,
+                "a run that came up short took the playhead with it");
+        }
+
+        /// <summary>
+        /// The other half: a playhead put at the end on purpose still follows a run that grows. The
+        /// overshoot is small on purpose, so a fix that only leaves the pin alone cannot pass this.
+        /// </summary>
+        [Test]
+        public void APlayheadPlayedToTheEndFollowsALongerRun() {
+            var playback = new Playback(13f, 0f);
+            playback.Load(Trace(12));
+            playback.Advance(1f);
+            Assert.IsTrue(playback.AtEnd, "the playhead did not reach the end, so this proves nothing");
+            Assert.Less(playback.Runtime, 400f, "the overshoot already covers the longer run");
+
+            playback.Load(Trace(400));
+
+            Assert.IsTrue(playback.AtEnd, "watching the finish stopped following it");
+        }
+
+        /// <summary>A scrub to the top of the range is the same choice, and follows too.</summary>
+        [Test]
+        public void AScrubToTheEndFollowsALongerRunAndAScrubBackDoesNot() {
+            var playback = new Playback(10f, 0f);
+            playback.Load(Trace(12));
+            playback.SeekFraction(1f);
+            playback.Load(Trace(400));
+            Assert.IsTrue(playback.AtEnd, "scrubbing to the end did not park there");
+
+            playback.SeekFraction(0.5f);
+            playback.Load(Trace(40));
+            Assert.AreEqual(200f, playback.Runtime, 1e-3f, "scrubbing back still followed the end");
+        }
+
         // a shorter run has to pull the slider back with it, not leave it off the end
         [Test]
         public void TheSliderStaysInRangeWhenTheRunShortens() {
