@@ -257,6 +257,45 @@ namespace Game.Tests {
             Assert.AreEqual(0.9f, _ui._playback.Fraction, 0.05f, "scrubbing back did not move the playhead");
         }
 
+        // how much of the board the search has painted, which is nothing until one has run
+        private int SearchedCells() {
+            int count = 0;
+            for (int x = 0; x < _grid.width; x++)
+                for (int y = 0; y < _grid.height; y++)
+                    switch (_grid.StateAt(x, y)) {
+                        case GridNodeType.Seen:
+                        case GridNodeType.Expanded:
+                        case GridNodeType.Path:
+                            count++;
+                            break;
+                    }
+            return count;
+        }
+
+        /// <summary>
+        /// Scrubbing as the very first thing done to a fresh grid. There is no timeline to seek into
+        /// yet, and a control that moves under the cursor while the board ignores it reads as broken.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator TheScrubberWorksBeforeTheFirstSearch() {
+            yield return Settle();
+            Assert.IsNull(_ui._playback.State, "something already searched, so this proves nothing");
+            Assert.AreEqual(0, SearchedCells(), "the board is already painted, so this proves nothing");
+
+            _shell.onScrub(0.5f);
+            yield return Settle();
+
+            Assert.IsNotNull(_ui._playback.State, "scrubbing a fresh grid did not produce a timeline");
+            Assert.AreEqual(0.5f, _ui._playback.Fraction, 0.05f, "scrubbing did not move the playhead");
+            Assert.Greater(SearchedCells(), 0, "the scrub moved the playhead but not the board");
+
+            // parked, not playing: a drag on the transport is not a press of the play button
+            Assert.AreEqual(AnimationState.Paused, _ui.State, "scrubbing left the grid somewhere else");
+            float parked = _ui._playback.Fraction;
+            yield return Settle(10);
+            Assert.AreEqual(parked, _ui._playback.Fraction, 1e-4f, "scrubbing started the search playing");
+        }
+
         [UnityTest]
         public IEnumerator ThePaceControlsReachThePlayback() {
             yield return Run(5);

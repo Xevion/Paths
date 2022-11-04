@@ -140,7 +140,7 @@ public class UIController : MonoBehaviour {
         _shell.initialSeed = _seed;
         _shell.initialDiagonal = _settings.Diagonal;
         _shell.onPlayPause = TogglePlayPause;
-        _shell.onScrub = fraction => _playback.SeekFraction(fraction);
+        _shell.onScrub = Scrub;
         _shell.onAlgorithm = OnAlgorithm;
         _shell.onHeuristic = OnHeuristic;
         _shell.onDiagonal = OnDiagonal;
@@ -358,6 +358,18 @@ public class UIController : MonoBehaviour {
             case AnimationState.Reloading:
                 break; // mid-recompute, ignore
         }
+    }
+
+    /// <summary>
+    /// Scrub the timeline, solving first if nothing has been searched yet. A stopped grid has no run
+    /// to seek into, so the scrub produces one and parks on it rather than moving a dead control.
+    /// </summary>
+    private void Scrub(float fraction) {
+        if (_playback.State == null) {
+            GeneratePath();
+            _animationState = AnimationState.Paused;
+        }
+        _playback.SeekFraction(fraction);
     }
 
     // highlight the cell under the cursor, previewing the wall the brush would draw on an empty
