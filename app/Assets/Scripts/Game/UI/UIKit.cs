@@ -51,45 +51,47 @@ namespace Game.UI {
         }
 
         /// <summary>
-        /// A labelled form row: a fixed-width caption on the left, then the caller's control. By default a
-        /// flexible gap pushes the control flush to the right edge so every row's control aligns; pass
-        /// fill=true (sliders) to let a stretching control eat the gap instead.
+        /// A labelled form row: a fixed-width caption, then the caller's control. By default a flexible
+        /// gap pushes the control flush to the right edge; fill=true lets a stretching control eat it.
         /// </summary>
         public static RectTransform Field(Transform parent, TMP_FontAsset font, string label,
             bool fill = false, string tooltip = null, float labelWidth = 150f) {
             RectTransform row = Row(parent);
             row.gameObject.AddComponent<LayoutElement>().minHeight = 34f;
-            if (tooltip != null) AddTooltip(row.gameObject, tooltip);
+            // the row holds the tooltip but raycasts nothing itself: enter and exit fire up the whole
+            // ancestor chain, so the label's zone and the control's own surface each raise it
+            if (tooltip != null) row.gameObject.AddComponent<Tooltip>().text = tooltip;
             TextMeshProUGUI caption = Label(row, font, label);
             caption.color = Theme.Muted;
             Width(caption.gameObject, labelWidth);
-            if (tooltip != null) DashUnderline(caption); // quiet "hover for info" affordance
+            if (tooltip != null) HoverLabel(caption, labelWidth);
             if (!fill) Flexible(row);
             return row;
         }
 
-        // a dashed rule just under a label's text (sized to the text, not the whole slot), marking it as
-        // tooltip-bearing. GetPreferredValues gives the text box up front so the dashes match its width.
-        private static void DashUnderline(TextMeshProUGUI caption) {
+        // a dashed rule under the label's text and a hover zone the same width, so what is marked as
+        // hoverable and what answers a hover are one strip rather than the whole label slot
+        private static void HoverLabel(TextMeshProUGUI caption, float slotWidth) {
             Vector2 pref = caption.GetPreferredValues(caption.text);
-            var rt = New("Underline", caption.transform);
-            var u = rt.gameObject.AddComponent<DashedUnderline>();
+            float width = Mathf.Min(pref.x, slotWidth);
+
+            var rule = New("Underline", caption.transform);
+            var u = rule.gameObject.AddComponent<DashedUnderline>();
             u.color = new Color(Theme.Muted.r, Theme.Muted.g, Theme.Muted.b, 0.32f);
             u.raycastTarget = false;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f); // top-left of the label rect
-            rt.sizeDelta = new Vector2(pref.x, 1f);
-            rt.anchoredPosition = new Vector2(0f, -pref.y - 1f); // tuck just under the text baseline
-        }
+            rule.anchorMin = rule.anchorMax = rule.pivot = new Vector2(0f, 1f); // top-left of the label rect
+            rule.sizeDelta = new Vector2(width, 1f);
+            rule.anchoredPosition = new Vector2(0f, -pref.y - 1f); // tuck just under the text baseline
 
-        /// <summary>Make a control hoverable for a tooltip. Adds a transparent raycast surface if needed.</summary>
-        private static void AddTooltip(GameObject go, string text) {
-            // Unity fires pointer enter/exit on the whole ancestor chain, so a transparent surface on the
-            // row lets a hover anywhere on it (including over the control) raise the tooltip.
-            if (go.GetComponent<Graphic>() == null) {
-                var hit = go.AddComponent<Image>();
-                hit.color = new Color(0f, 0f, 0f, 0f);
-            }
-            go.AddComponent<Tooltip>().text = text;
+            // the text's width but the row's height, so the zone is a comfortable target rather than
+            // a line the cursor has to be level with
+            var zone = New("Hover", caption.transform);
+            zone.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+            zone.anchorMin = new Vector2(0f, 0f);
+            zone.anchorMax = new Vector2(0f, 1f);
+            zone.pivot = new Vector2(0f, 0.5f);
+            zone.sizeDelta = new Vector2(width, 0f);
+            zone.anchoredPosition = Vector2.zero;
         }
 
         /// <summary>A flexible spacer that eats leftover space in a row/column.</summary>
@@ -329,6 +331,12 @@ namespace Game.UI {
             var element = rt.gameObject.AddComponent<LayoutElement>();
             element.minHeight = 24f;
             element.flexibleWidth = 1f;
+
+            // the groove is 6px in a 24px control, which is a thin thing to hit; this makes the whole
+            // slider grabbable, and the press still finds the Slider up the parent chain
+            var hitRt = New("Hit", rt);
+            Stretch(hitRt);
+            hitRt.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
 
             var trackRt = New("Track", rt);
             var track = trackRt.gameObject.AddComponent<RoundedRectGraphic>();
@@ -616,7 +624,7 @@ namespace Game.UI {
                 label.alignment = TextAlignmentOptions.Center;
                 labels.Add(label);
 
-                AddTooltip(seg.gameObject, full[i]);
+                seg.gameObject.AddComponent<Tooltip>().text = full[i]; // the fill is its own hit surface
                 var click = seg.gameObject.AddComponent<SegmentClick>();
                 click.control = control;
                 click.index = i;
