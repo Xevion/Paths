@@ -259,23 +259,6 @@ namespace Game.Tests {
         }
 
         /// <summary>
-        /// Nothing else here notices a broken shader: every assertion reads a texture, not the
-        /// screen, and a batch compile imports the shader without compiling its CGPROGRAM.
-        /// Asked through the editor because Shader.isSupported comes back true for one that failed.
-        /// </summary>
-        [UnityTest]
-        public IEnumerator TheBoardShaderCompiles() {
-            yield return Frame();
-            Shader shader = _grid.Material.shader;
-            Assert.IsNotNull(shader, "the grid material has no shader");
-#if UNITY_EDITOR
-            Assert.IsFalse(UnityEditor.ShaderUtil.ShaderHasError(shader), $"{shader.name} has a compile error");
-#else
-            Assert.Fail("nothing here can see a shader compile error outside the editor");
-#endif
-        }
-
-        /// <summary>
         /// The join mask is the last thing this side of the GPU that says what shape the route is,
         /// so it has to say what the solver walked. Not the shader's copy of the bit order.
         /// </summary>
