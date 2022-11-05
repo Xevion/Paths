@@ -32,6 +32,11 @@ SOURCES := $(shell find $(PROJECT)/Assets -type f \( -name '*.cs' -o -name '*.sh
 
 COVERAGE := Build/coverage/core.cobertura.xml
 
+# only one editor can hold a project at a time, so queue behind whoever has it instead of aborting.
+# UNITYWAIT=0 to fail straight away, or a bigger number for a long build.
+UNITYWAIT ?= 900
+LOCKWAIT := tools/unity-lock.sh $(PROJECT) $(UNITYWAIT)
+
 .PHONY: demo build run play web compile test test-play coverage bench open clean
 
 # build if stale, then run the demo
@@ -52,12 +57,14 @@ play: $(STAMP)
 
 $(STAMP): $(SOURCES)
 	@mkdir -p Build
+	@$(LOCKWAIT)
 	@$(UNITY) -batchmode -nographics -projectPath $(PROJECT) -executeMethod Editor.Build.Linux $(LOGARG) \
 		&& touch $(STAMP) && echo "build OK -> $(PLAYER)" \
 		|| (echo "build FAILED (see $(LOG)):"; grep -snE 'error CS|: error |BuildFailedException' $(LOG) | head -40; false)
 
 $(WEBSTAMP): $(SOURCES)
 	@mkdir -p Build
+	@$(LOCKWAIT)
 	@$(UNITY) -batchmode -nographics -projectPath $(PROJECT) -executeMethod Editor.Build.WebGL $(LOGARG) \
 		&& touch $(WEBSTAMP) && echo "web build OK -> $(WEB)" \
 		|| (echo "web build FAILED (see $(LOG)):"; grep -snE 'error CS|: error |BuildFailedException' $(LOG) | head -40; false)
@@ -68,6 +75,7 @@ run:
 # quick green/red compile check, no build
 compile:
 	@mkdir -p Build
+	@$(LOCKWAIT)
 	@$(UNITY) -batchmode -nographics -quit -projectPath $(PROJECT) $(LOGARG) \
 		&& echo "compile OK" \
 		|| (echo "compile FAILED (see $(LOG)):"; grep -snE 'error CS|: error |Compilation failed' $(LOG) | head -40; false)
@@ -81,6 +89,7 @@ test:
 # no -nographics here: the ui raycasts want a display.
 test-play:
 	@mkdir -p Build
+	@$(LOCKWAIT)
 	@$(UNITY) -batchmode -projectPath $(PROJECT) -runTests -testPlatform PlayMode \
 		-testResults $(PLAYRESULTS) $(LOGARG) \
 		&& echo "playmode tests OK" \
@@ -101,6 +110,7 @@ bench:
 	$(DOTNET) run -c Release --project bench/Paths.Benchmarks -- --filter '$(or $(BENCH),*)'
 
 open:
+	@$(LOCKWAIT)
 	$(UNITY) -projectPath $(PROJECT)
 
 clean:
